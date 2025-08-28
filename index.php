@@ -324,6 +324,10 @@ $file = json_decode($file, true);
 						<input type="checkbox" name="no_tiene_existencia" id="no_tiene_existencia_conf" />&nbsp;
 						No permitir Art&iacute;culos sin existencias
 					</label><br>
+					<label>
+						<input type="checkbox" name="ocultar_campos" id="ocultar_campos_conf" />&nbsp;
+						Ocultar campos
+					</label><br>
 				</div>
 				<div class="btn btn-success" onclick="registrar_conf_conexion();">Procesar</div>
 				<div class="btn btn-danger" onclick="ocultar_conf_conexion()">Cancelar</div>
@@ -359,7 +363,7 @@ $file = json_decode($file, true);
 					<input type="text" class="form-control" id="subtotal" readonly />
 					<label for="">Recargo</label>
 					<input type="text" class="form-control" id="recargo_total" readonly />
-					Total <span class="simbolo_moneda_nacional"></span>
+					<label for="" id="texto_total">Total <span class="simbolo_moneda_nacional"></span></label>
 					<input type="text" class="form-control precio_total" id="precio_total" readonly value="0,00" />
 					<div id="div_total_moneda_extranjera" style="display: none;">
 						<input type="hidden" id="dividemultiplica" />
@@ -451,9 +455,9 @@ $file = json_decode($file, true);
 				<div><img src="imagenes_internas/logo-pskloud.png" /></div>
 				<div><img src="logo_empresa.png" /></div>
 			</div>
-			<div class="col-md-12">
+			<div class="col-md-12 detalles_cuenta">
 				<div class="input-group">
-					<input type="text" class="form-control precio_total" id="precio_total" readonly value="0,00" />
+					<input type="text" class="form-control precio_total precio_total_principal" id="precio_total" readonly value="0,00" />
 					<input style="float:right;background-color:#000;color:#FFF;text-align:right;font-size:18px;"
 						type="text" class="form-control precio_total_ref" id="precio_total_ref" readonly value="0,00" />
 					<div class="input-group-addon" onclick="mostrar_detalle_cuenta()"><i class="fa fa-ellipsis-h"></i>
