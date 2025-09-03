@@ -678,7 +678,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 									emisionant,
 									fchyhrant,
 									ordentrab,
-									totcosto
+									totcosto,
+									usertipofac
 								)
 								VALUES
 								(
@@ -723,7 +724,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 									'" . $fecha_hoy . "',
 									'" . $fechayhora . "',
 									'" . $mesa . "',
-									'" . number_format($totcosto, 2, '.', '') . "'
+									'" . number_format($totcosto, 2, '.', '') . "',
+									'2'
 								)
 							";
 						// GDM - Al código de la estación se esta enviando directamente PSK, anteriormente se enviaba: ".substr(trim($_POST['vendedor']),-3)."
@@ -750,7 +752,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 								comanda_movil = '" . $_POST['imprimir'] . "',
 								comanda_kmonitor = '" . $_POST['imprimir'] . "',
 								fechayhora = '" . $fechayhora . "',
-								totcosto = '" . number_format($totcosto, 2, '.', '') . "'
+								totcosto = '" . number_format($totcosto, 2, '.', '') . "',
+								usertipofac = '2'
 								WHERE 
 								documento = '" . $mesa . "' AND 
 								tipodoc = '" . $datos_conexion['tipo_doc'] . "'

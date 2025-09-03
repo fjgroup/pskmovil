@@ -900,7 +900,7 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 						validar_existencia = false;
 					}
 				}
-				if (validar_existencia) {
+				// if (validar_existencia) {
 					if (fraccionado != 1) {
 						if (compuesto == 2) {
 							var cantidad = $('#cantidad input:text').val();
@@ -915,7 +915,7 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 							ObtenerIntegrados(productos, pid, fraccionado, pidpadre, compuesto);
 						}
 					} else {
-						console.log("Es Fraccionado v");
+						console.log("Es Fraccionado");
 						if (compuesto == 2) {
 							var cantidad = $('#cantidad input:text').val();
 							if (cantidad == "") { cantidad = 1; }
@@ -926,10 +926,10 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 							ObtenerIntegrados(productos, pid, fraccionado, pidpadre, compuesto);
 						}
 					}
-				} else {
-					ocultar_cantidad();
-					mostrar_msj("<i class='fa fa-times'></i><br>El producto no posee suficiente existencia, la cantidad no puede ser mayor a: " + existencia + " Verifique y vuelva a intentarlo");
-				}
+				// } else {
+				// 	ocultar_cantidad();
+				// 	mostrar_msj("<i class='fa fa-times'></i><br>El producto no posee suficiente existencia, la cantidad no puede ser mayor a: " + existencia + " Verifique y vuelva a intentarlo");
+				// }
 			});
 		},
 		error: function (error) {
