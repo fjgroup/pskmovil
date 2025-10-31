@@ -324,11 +324,15 @@ $file = json_decode($file, true);
 						<input type="checkbox" name="no_tiene_existencia" id="no_tiene_existencia_conf" />&nbsp;
 						No permitir Art&iacute;culos sin existencias
 					</label><br>
-					<label>
-						<input type="checkbox" name="ocultar_campos" id="ocultar_campos_conf" />&nbsp;
-						Ocultar campos
-					</label><br>
-				</div>
+				<label>
+					<input type="checkbox" name="ocultar_campos" id="ocultar_campos_conf" />&nbsp;
+					Ocultar campos
+				</label><br>
+				<label>
+					<input type="checkbox" name="ocultar_mesas_automaticas" id="ocultar_mesas_automaticas_conf" />&nbsp;
+					Ocultar mesas automaticas
+				</label><br>
+			</div>
 				<div class="btn btn-success" onclick="registrar_conf_conexion();">Procesar</div>
 				<div class="btn btn-danger" onclick="ocultar_conf_conexion()">Cancelar</div>
 				<br>
@@ -503,7 +507,7 @@ $file = json_decode($file, true);
 					<input type="text" class="form-control" id="nrorif" placeholder="Nro Identificación"
 						value="0000000" />
 
-					<div class="input-group">
+					<div class="input-group" id="contenedor_mesa_automatica">
 						<input type="text" class="form-control" id="input_mesa" placeholder="Mesa"
 							onchange="consultar_mesa()" />
 						<div class="input-group-addon">

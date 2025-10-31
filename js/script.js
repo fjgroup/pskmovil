@@ -134,4 +134,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     }
+
+    // Checkbox ocultar_mesas_automaticas
+    const ocultarMesasAutomaticasCheckbox = document.getElementById('ocultar_mesas_automaticas_conf');
+    const contenedorMesaAutomatica = document.getElementById('contenedor_mesa_automatica');
+    const inputGroupAddon = contenedorMesaAutomatica ? contenedorMesaAutomatica.querySelector('.input-group-addon') : null;
+    const inputMesa = document.getElementById('input_mesa');
+
+    function actualizarVisibilidadMesaAutomatica() {
+        if (localStorage.getItem('ocultar_mesas_automaticas') === 'true') {
+            if (inputGroupAddon) inputGroupAddon.style.display = 'none';
+            if (inputMesa) inputMesa.style.width = '100%';
+            if (contenedorMesaAutomatica) contenedorMesaAutomatica.style.width = '100%';
+        } else {
+            if (inputGroupAddon) inputGroupAddon.style.display = '';
+            if (inputMesa) inputMesa.style.width = '';
+            if (contenedorMesaAutomatica) contenedorMesaAutomatica.style.width = '';
+        }
+    }
+
+    if (ocultarMesasAutomaticasCheckbox) {
+        // Inicializa el checkbox según el valor guardado
+        ocultarMesasAutomaticasCheckbox.checked = localStorage.getItem('ocultar_mesas_automaticas') === 'true';
+
+        // Actualiza la visibilidad al cargar
+        actualizarVisibilidadMesaAutomatica();
+
+        ocultarMesasAutomaticasCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+                localStorage.setItem('ocultar_mesas_automaticas', 'true');
+            } else {
+                localStorage.setItem('ocultar_mesas_automaticas', 'false');
+            }
+            actualizarVisibilidadMesaAutomatica();
+        });
+    }
 });
