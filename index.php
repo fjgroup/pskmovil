@@ -108,13 +108,18 @@ $file = json_decode($file, true);
 	<div id="cantidad" class="ventanas">
 		<div class="titulos">Cantidad</div>
 		<div class="ventanas_contenido">
+			<select id="select_precio" class="form-control">
+				<option value="">Seleccione un precio</option>
+			</select>
 			<div class="input-group">
 				<div class="input-group-addon" onclick="cantidad(-1)"><i class="fa fa-minus"></i></div>
 				<input type="text" class="form-control" value="1" onkeypress="return justNumbers(event);" />
 				<div class="input-group-addon" onclick="cantidad(1)"><i class="fa fa-plus"></i></div>
 			</div>
-			<div class="btn btn-success">Procesar</div>
-			<div class="btn btn-danger" onclick="ocultar_cantidad()">Cancelar</div>
+			<div style="display: flex; gap: 10px; margin-top: 10px; width: 100%; box-sizing: border-box;">
+				<div class="btn btn-success" style="flex: 1; box-sizing: border-box;">Procesar</div>
+				<div class="btn btn-danger" onclick="ocultar_cantidad()" style="flex: 1; box-sizing: border-box;">Cancelar</div>
+			</div>
 		</div>
 	</div>
 
@@ -505,7 +510,7 @@ $file = json_decode($file, true);
 					<input type="text" class="form-control" id="input_cliente" placeholder="Cliente"
 						value="Cliente contado" onchange="cliente_contado()" onclick="$(this).val('');" />
 					<input type="text" class="form-control" id="nrorif" placeholder="Nro Identificación"
-						value="0000000" />
+						value="" />
 
 					<div class="input-group" id="contenedor_mesa_automatica">
 						<input type="text" class="form-control" id="input_mesa" placeholder="Mesa"
@@ -564,7 +569,7 @@ $file = json_decode($file, true);
 	</div>
 	<footer>
 		PremiumSoft
-		<?php echo date('Y'); ?> | Rev.: 0225.1.3 | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
+		<?php echo date('Y'); ?> | Rev.: 0225.1.4 | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
 			Completa</a>
 	</footer>
 </body>

@@ -335,8 +335,102 @@ function select_resultado_busqueda(parametro, r) {
 		$('#cod_cliente').val(r.codigo);
 		$('#cod_cliente_ped').val(r.codigo);
 		$('#input_cliente').val(r.nombre);
-		$('#nrorif').val(r.nrorif);
+		// Actualizar nrorif directamente si viene en el objeto de búsqueda
+		var nrorif_busqueda = null;
+		
+		// Depuración temporal - ver qué viene en el objeto
+		console.log('=== DEPURACIÓN NRORIF ===');
+		console.log('Objeto r completo:', JSON.stringify(r));
+		console.log('r.nrorif:', r.nrorif);
+		console.log('typeof r.nrorif:', typeof r.nrorif);
+		
+		// Establecer nrorif SIEMPRE que exista en el objeto - sin validaciones estrictas
+		if ('nrorif' in r) {
+			var nrorif_valor = (r.nrorif !== null && r.nrorif !== undefined) ? String(r.nrorif).trim() : '';
+			console.log('nrorif_valor procesado:', nrorif_valor);
+			
+			// Establecer el valor directamente - si está vacío o es 0000000, ConsultarCliente lo corregirá
+			if (nrorif_valor && nrorif_valor !== '0000000') {
+				// Como hay dos campos con el mismo ID, usar el placeholder para identificar el campo correcto
+				// Campo principal tiene placeholder="Nro Identificación"
+				// Campo del formulario tiene placeholder="Nro. Fiscal #1"
+				var campo_nrorif;
+				if ($('#reg_cli').is(':visible')) {
+					// Si el formulario de registro está visible, usar el campo dentro de él
+					campo_nrorif = $('#reg_cli input[name="nrorif"]');
+				} else {
+					// Usar el campo principal por su placeholder único
+					campo_nrorif = $('input[placeholder="Nro Identificación"]');
+					console.log('Campo encontrado por placeholder:', campo_nrorif.length);
+				}
+				
+				if (campo_nrorif.length > 0) {
+					console.log('📍 Campo encontrado - ID:', campo_nrorif.attr('id'), 'Placeholder:', campo_nrorif.attr('placeholder'));
+					console.log('📍 Campo visible?:', campo_nrorif.is(':visible'));
+					console.log('📍 Valor antes de establecer:', campo_nrorif.val());
+					
+					campo_nrorif.val(nrorif_valor);
+					// Forzar el establecimiento también con attr y trigger para asegurar que se actualice
+					campo_nrorif.attr('value', nrorif_valor);
+					campo_nrorif.trigger('input').trigger('change');
+					
+					console.log('📍 Valor después de establecer (inmediato):', campo_nrorif.val());
+					
+					nrorif_busqueda = nrorif_valor;
+					console.log('✓ nrorif establecido en campo desde búsqueda:', nrorif_valor);
+					
+					// Verificar inmediatamente después de establecerlo
+					var verificacion = function() {
+						var valor_en_campo = campo_nrorif.val();
+						console.log('🔍 Valor en campo verificado:', valor_en_campo);
+						if (valor_en_campo !== nrorif_valor) {
+							console.log('⚠️ ADVERTENCIA: El valor fue sobrescrito! Esperado:', nrorif_valor, 'Actual:', valor_en_campo);
+							// Reestablecer el valor con fuerza
+							campo_nrorif.val(nrorif_valor).attr('value', nrorif_valor).trigger('input');
+							console.log('🔧 Valor reestablecido forzadamente');
+						} else {
+							console.log('✓ Valor confirmado en campo');
+						}
+					};
+					setTimeout(verificacion, 100);
+					setTimeout(verificacion, 500);
+				} else {
+					console.log('⚠️ ERROR: Campo nrorif no encontrado en el DOM');
+				}
+			} else {
+				console.log('⚠ nrorif vacío o 0000000, se esperará a ConsultarCliente');
+			}
+		} else {
+			console.log('✗ nrorif NO existe en el objeto');
+		}
+		console.log('========================');
 		$('#cliente_exento').val(r.formafis);
+		
+		// Guardar el nrorif antes de llamar a ConsultarCliente
+		var nrorif_guardado = nrorif_busqueda;
+		
+		// Consultar cliente completo para asegurar todos los datos (incluido nrorif)
+		// Pasamos el nrorif de la búsqueda para que no se pierda si la consulta no lo trae
+		ConsultarCliente(r.codigo, nrorif_busqueda);
+		
+		// Verificación final después de que ConsultarCliente termine
+		setTimeout(function() {
+			if (nrorif_guardado && nrorif_guardado != '' && nrorif_guardado != '0000000') {
+				// Usar selector por placeholder para el campo principal
+				var campo_final = $('input[placeholder="Nro Identificación"]');
+				if (campo_final.length === 0) {
+					campo_final = $('#nrorif').last(); // Fallback
+				}
+				var valor_final = campo_final.val();
+				if (!valor_final || valor_final == '' || valor_final == '0000000') {
+					console.log('🔧 FORZANDO establecimiento de nrorif:', nrorif_guardado);
+					campo_final.val(nrorif_guardado).attr('value', nrorif_guardado);
+				} else {
+					console.log('✓ nrorif ya tiene valor válido:', valor_final);
+				}
+			}
+		}, 500);
+		
 		if ($('#conf_conexion').is('not:visible')) {
 			mostrar_grupos();
 		}
@@ -887,9 +981,45 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 			ocultar_cargando();
 			ver_operacion_actual();
 			$('#input_mesa').css('border', '1px solid #CCC');
-			mostrar_cantidad();
+			// Extraer el código del artículo del string productos (índice 0)
+			// El string productos puede venir con comillas JSON, necesitamos limpiarlo
+			var productos_limpio = productos;
+			if (typeof productos === 'string' && productos.startsWith('"') && productos.endsWith('"')) {
+				productos_limpio = productos.replace(/^"|"$/g, '');
+			}
+			var datos_producto = productos_limpio.split('|');
+			var codigo_articulo = datos_producto[0];
+			// Limpiar el código de posibles comillas o espacios
+			codigo_articulo = codigo_articulo.replace(/^["']|["']$/g, '').trim();
+			console.log('String productos completo:', productos);
+			console.log('String productos limpio:', productos_limpio);
+			console.log('Datos producto split:', datos_producto);
+			console.log('Código artículo extraído:', codigo_articulo);
+			mostrar_cantidad(codigo_articulo);
 			$('#cantidad input').focus();
 			$('#cantidad .btn-success').unbind();
+			
+			// Variable para almacenar el string productos actualizado con el precio seleccionado
+			var productos_actualizado = productos;
+			
+			// Evento para actualizar el precio cuando se selecciona una opción del select
+			$('#select_precio').off('change').on('change', function() {
+				var precio_seleccionado = $(this).val();
+				if (precio_seleccionado != "") {
+					var datos_precio = precio_seleccionado.split('|');
+					var tipo_precio = datos_precio[0]; // precio1 o precio2
+					var valor_precio = datos_precio[1]; // valor del precio
+					var valor_preciofin = datos_precio.length > 2 ? datos_precio[2] : valor_precio; // preciofin (si existe)
+					
+					// Actualizar el string productos con el nuevo precio
+					datos_producto = productos.split('|');
+					datos_producto[4] = valor_precio; // precio1 está en el índice 4
+					datos_producto[5] = valor_preciofin; // preciofin1 está en el índice 5
+					productos_actualizado = datos_producto.join('|');
+				} else {
+					productos_actualizado = productos; // Si no hay selección, usar el precio original
+				}
+			});
 
 			$('#cantidad .btn-success').click(function () {
 				var cantidad = $('#cantidad input:text').val();
@@ -906,24 +1036,24 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 							var cantidad = $('#cantidad input:text').val();
 							if (cantidad == "") { cantidad = 1; }
 
-							var productos_add = productos + "|" + Number(cantidad) + "|" + pid + "|";
+							var productos_add = productos_actualizado + "|" + Number(cantidad) + "|" + pid + "|";
 							productos_array.push(productos_add);
 							VerProductosAgregados();
 							ResumirLineas();
 							ocultar_cantidad();
 						} else {
-							ObtenerIntegrados(productos, pid, fraccionado, pidpadre, compuesto);
+							ObtenerIntegrados(productos_actualizado, pid, fraccionado, pidpadre, compuesto);
 						}
 					} else {
 						console.log("Es Fraccionado");
 						if (compuesto == 2) {
 							var cantidad = $('#cantidad input:text').val();
 							if (cantidad == "") { cantidad = 1; }
-							var productos_add = productos + "|" + Number(cantidad) + "|" + pid + "|";
+							var productos_add = productos_actualizado + "|" + Number(cantidad) + "|" + pid + "|";
 							productos_array.push(productos_add);
 							VerProductosAgregados();
 						} else {
-							ObtenerIntegrados(productos, pid, fraccionado, pidpadre, compuesto);
+							ObtenerIntegrados(productos_actualizado, pid, fraccionado, pidpadre, compuesto);
 						}
 					}
 				// } else {
@@ -1920,7 +2050,7 @@ function procesar_pedido(imprimir) {
 // 	}
 // }
 
-function ConsultarCliente(codcliente) {
+function ConsultarCliente(codcliente, nrorif_backup) {
 	if (codcliente != '') {
 		var datos = { "codcliente": codcliente };
 		$.ajax({
@@ -1969,7 +2099,70 @@ function ConsultarCliente(codcliente) {
 					if (r != null) {
 						$('#cod_cliente_ped').val(r.codigo);
 						$('#input_cliente').val(r.nombre);
-						$('#nrorif').val(r.nrorif);
+						
+						console.log('=== ConsultarCliente - Actualizando nrorif ===');
+						console.log('r.nrorif de consulta:', r.nrorif);
+						console.log('nrorif_backup:', nrorif_backup);
+						// Obtener el campo correcto por placeholder
+						var campo_actual_nrorif = $('input[placeholder="Nro Identificación"]');
+						if (campo_actual_nrorif.length === 0) {
+							campo_actual_nrorif = $('#nrorif').last();
+						}
+						var valor_actual_campo = campo_actual_nrorif.val();
+						console.log('Valor actual en campo:', valor_actual_campo);
+						
+						// Determinar qué valor usar - priorizar el que sea más válido
+						var nrorif_final = null;
+						
+						// 1. Si la consulta completa tiene un valor válido, usarlo
+						if (r.nrorif && r.nrorif != '' && r.nrorif != '0000000' && String(r.nrorif).trim() != '') {
+							nrorif_final = String(r.nrorif).trim();
+							console.log('✓ Usando nrorif de consulta completa:', nrorif_final);
+						}
+						// 2. Si no, pero hay backup válido, usar el backup
+						else if (nrorif_backup && nrorif_backup != '' && nrorif_backup != '0000000') {
+							nrorif_final = nrorif_backup;
+							console.log('✓ Usando nrorif de backup (búsqueda):', nrorif_final);
+						}
+						// 3. Si no, mantener el valor actual del campo (ya establecido)
+						else if (valor_actual_campo && valor_actual_campo != '' && valor_actual_campo != '0000000') {
+							nrorif_final = null; // No cambiar, mantener el actual
+							console.log('✓ Manteniendo valor actual en campo (no sobrescribir):', valor_actual_campo);
+						} else {
+							console.log('⚠ No hay valor válido disponible, campo permanece vacío');
+						}
+						
+						// Solo actualizar si hay un valor válido nuevo para establecer
+						if (nrorif_final) {
+							// Usar el mismo selector que en select_resultado_busqueda - por placeholder
+							var campo_nrorif_final;
+							if ($('#reg_cli').is(':visible')) {
+								campo_nrorif_final = $('#reg_cli input[name="nrorif"]');
+							} else {
+								// Campo principal por placeholder (único para este campo)
+								campo_nrorif_final = $('input[placeholder="Nro Identificación"]');
+							}
+							
+							if (campo_nrorif_final.length > 0) {
+								campo_nrorif_final.val(nrorif_final).attr('value', nrorif_final);
+								console.log('✓ nrorif actualizado en campo:', nrorif_final);
+								
+								// Verificar que se estableció correctamente
+								setTimeout(function() {
+									var valor_verificado = campo_nrorif_final.val();
+									console.log('🔍 Valor verificado en campo después de actualizar:', valor_verificado);
+									if (valor_verificado !== nrorif_final) {
+										console.log('⚠️ ERROR: El valor no se estableció correctamente. Reintentando...');
+										campo_nrorif_final.val(nrorif_final).attr('value', nrorif_final).trigger('input');
+									}
+								}, 50);
+							} else {
+								console.log('⚠️ ERROR: No se encontró el campo nrorif principal');
+							}
+						}
+						console.log('==============================================');
+						
+						$('#cliente_exento').val(r.formafis);
 					} else {
 						// Si no hay datos, dejar como está o manejar según lógica propia
 						$('#cod_cliente_ped').val(codcliente);
@@ -1985,15 +2178,47 @@ function ConsultarCliente(codcliente) {
 }
 
 
-function mostrar_cantidad() {
+function mostrar_cantidad(codigo_articulo) {
 	$('#bloqueo').show();
 	$('#cantidad').show();
+	
+	// Limpiar el select
+	$('#select_precio').html('<option value="">Seleccione un precio</option>');
+	
+	// Si se proporciona el código del artículo, cargar los precios
+	if (codigo_articulo && codigo_articulo != '') {
+		console.log('Cargando precios para artículo:', codigo_articulo);
+		$.ajax({
+			url: "controladores/controlador_inventario.php?accion=obtener_precios&codigo=" + encodeURIComponent(codigo_articulo),
+			type: "GET",
+			success: function(r) {
+				console.log('Respuesta del servidor:', r);
+				var precios = r;
+				console.log('Precios parseados:', precios);
+				if (precios && precios.length > 0) {
+					precios.forEach(function(precio) {
+						var valor_preciofin = precio.preciofin || precio.valor;
+						$('#select_precio').append('<option value="' + precio.precio + '|' + precio.valor + '|' + valor_preciofin + '">' + precio.nombre + ' - ' + parseFloat(precio.valor).toFixed(2) + '</option>');
+					});
+				} else {
+					console.log('No se encontraron precios para el artículo');
+				}
+			},
+			error: function(error) {
+				console.error('Error al obtener precios:', error);
+				console.error('Response text:', error.responseText);
+			}
+		});
+	} else {
+		console.log('No se proporcionó código de artículo o está vacío');
+	}
 }
 
 function ocultar_cantidad() {
 	$('#bloqueo').hide();
 	$('#cantidad').hide();
 	$('#cantidad input:text').val('1');
+	$('#select_precio').html('<option value="">Seleccione un precio</option>');
 }
 
 function mostrar_grupos_mesas(pagina, filtro) {

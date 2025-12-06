@@ -346,17 +346,17 @@ if ($_GET['accion'] == "mostrar_grupos_mesas") {
 	}
 
 	if ($_POST['filtro'] == "mias") {
-		$where = " operti.vendedor='" . $_POST['vendedor'] . "' ";
+		$where = " operti.vendedor='" . $_POST['vendedor'] . "' AND idconsumos.mostrarenmapa = 1 ";
 		$filtro_join = "INNER";
 	}
 
 	if ($_POST['filtro'] == "disponibles") {
-		$where = " isnull(operti.documento)";
+		$where = " isnull(operti.documento) AND idconsumos.mostrarenmapa = 1 ";
 		$filtro_join = "LEFT";
 	}
 
 	if ($_POST['filtro'] == "todas") {
-		$where = "";
+		$where = " idconsumos.mostrarenmapa = 1 ";
 		$filtro_join = "LEFT";
 	}
 
@@ -417,7 +417,7 @@ if ($_GET['accion'] == "mostrar_mesas") {
 	$pagina_contar = $pagina + $datos_conexion['cantidad_por_pagina'];
 
 	if ($_POST['filtro'] == "mias") {
-		$where = " operti.vendedor='" . $_POST['vendedor'] . "' ";
+		$where = " operti.vendedor='" . $_POST['vendedor'] . "' AND idconsumos.mostrarenmapa = 1 ";
 		if ($datos_conexion['agrupar_mesas_por_ubicacion'] == 'si') {
 			$where .= "AND idconsumos.ubicacion='" . $_POST['ubicacion'] . "' ";
 		}
@@ -425,7 +425,7 @@ if ($_GET['accion'] == "mostrar_mesas") {
 	}
 
 	if ($_POST['filtro'] == "disponibles") {
-		$where = " isnull(operti.documento)	";
+		$where = " isnull(operti.documento) AND idconsumos.mostrarenmapa = 1 ";
 		if ($datos_conexion['agrupar_mesas_por_ubicacion'] == 'si') {
 			$where .= "AND idconsumos.ubicacion='" . $_POST['ubicacion'] . "' ";
 		}
@@ -433,9 +433,9 @@ if ($_GET['accion'] == "mostrar_mesas") {
 	}
 
 	if ($_POST['filtro'] == "todas") {
-		$where = "";
+		$where = " idconsumos.mostrarenmapa = 1 ";
 		if ($datos_conexion['agrupar_mesas_por_ubicacion'] == 'si') {
-			$where = " idconsumos.ubicacion='" . $_POST['ubicacion'] . "' ";
+			$where .= "AND idconsumos.ubicacion='" . $_POST['ubicacion'] . "' ";
 		}
 		$filtro_join = "LEFT";
 	}
@@ -649,6 +649,33 @@ if ($_GET['accion'] == "obtener_integrados") {
 	} else {
 		echo "Seleccione un articulo";
 	}
+}
+
+if ($_GET['accion'] == "obtener_precios") {
+	header('Content-Type: application/json');
+	if (!empty($_GET['codigo'])) {
+		$codigo = $_GET['codigo'];
+		$select = "articulo.precio1, articulo.precio2, articulo.preciofin1, articulo.preciofin2";
+		$from = "articulo";
+		$where = "articulo.codigo = '" . $codigo . "'";
+		$consulta = $objeto_inventario->select($bd_conexion, $select, $from, $where, '', '');
+		
+		$precios = array();
+		if ($consulta && $articulo = mysqli_fetch_array($consulta)) {
+			if (isset($articulo['precio1']) && floatval($articulo['precio1']) > 0) {
+				$preciofin1 = !empty($articulo['preciofin1']) && floatval($articulo['preciofin1']) > 0 ? floatval($articulo['preciofin1']) : floatval($articulo['precio1']);
+				$precios[] = array('precio' => 'precio1', 'valor' => floatval($articulo['precio1']), 'preciofin' => $preciofin1, 'nombre' => 'Precio 1');
+			}
+			if (isset($articulo['precio2']) && floatval($articulo['precio2']) > 0) {
+				$preciofin2 = !empty($articulo['preciofin2']) && floatval($articulo['preciofin2']) > 0 ? floatval($articulo['preciofin2']) : floatval($articulo['precio2']);
+				$precios[] = array('precio' => 'precio2', 'valor' => floatval($articulo['precio2']), 'preciofin' => $preciofin2, 'nombre' => 'Precio 2');
+			}
+		}
+		echo json_encode($precios);
+	} else {
+		echo json_encode(array('error' => 'Código de artículo no proporcionado'));
+	}
+	exit;
 }
 
 if ($_GET['accion'] == "ver_cuenta_mesa") {
