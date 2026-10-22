@@ -1,62 +1,125 @@
 -- ==============================================================================
--- SCRIPT DE ACTUALIZACIÓN Y NORMALIZACIÓN DE CÓDIGOS DE MESAS (idconsumos)
+-- SCRIPT INTELIGENTE: ACTUALIZACIÓN Y NORMALIZACIÓN DE CÓDIGOS DE MESAS
 -- Base de Datos: adminbahiap
 -- ==============================================================================
--- NOTA PREVIA: Asegurarse de que no existan mesas abiertas al momento de ejecutar
--- (sin cuentas activas en operti con tipodoc = 'ESP').
+-- Este script valida si existen 'mesa01'/'MESA01' y 'MESA 1'/'mesa 1':
+-- 1. Si existen AMBAS (MESA 1 y MESA01): Elimina la mesa01 incompleta y actualiza
+--    la mesa 1 convirtiéndola en MESA01 con todos sus atributos completos.
+-- 2. Si solo existe MESA 1 (o 'mesa 1'): La actualiza completamente a MESA01.
+-- 3. Si solo existe MESA01 (o 'mesa01'): Le actualiza todos los campos para
+--    dejarla 100% operativa (imagen MESAS4.JPG, área, touch, mapa, salón, etc.).
+-- 4. Si no existiera ninguna de las dos: La inserta desde cero con su configuración completa.
+-- 5. Finalmente estandariza MESA 2 a MESA 9 (MESA02..MESA09) y JARD 1 a JARD 5 (JARD01..JARD05).
 -- ==============================================================================
 
 USE adminbahiap;
 
--- PASO 1: Eliminar cualquier mesa residual creada por error con código 'mesa01' o 'MESA01'
--- para evitar errores de clave primaria duplicada.
-DELETE FROM idconsumos WHERE id_consumo IN ('mesa01', 'MESA01');
+DELIMITER $$
 
--- PASO 2: Normalizar 'MESA 1' para convertirla en 'MESA01' con todos sus campos estándar
--- (imagen MESAS4.JPG, área 002, ubicación SALON, etc.)
-UPDATE idconsumos 
-SET id_consumo      = 'MESA01',
-    nombre_corto    = 'MESA01',
-    descripcion     = 'MESA 01',
-    rutafoto        = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG',
-    tipo_idconsumo  = '001',
-    aplica_touch    = 1,
-    ubicacion       = 'SALON',
-    codarea         = '002',
-    mostrarenmapa   = 1,
-    estatus         = 1,
-    estatus2        = 1
-WHERE id_consumo = 'MESA 1';
+DROP PROCEDURE IF EXISTS NormalizarMesasBahiap$$
 
--- Si por alguna razón 'MESA 1' no existía, insertamos 'MESA01' de forma completa:
-INSERT IGNORE INTO idconsumos (
-    id_empresa, agencia, id_consumo, descripcion, nombre_corto, capacidad,
-    estatus, estatus2, notas, rutafoto, codigoarticulo, tipo_idconsumo,
-    aplica_touch, ubicacion, caracticas, codarea, mostrarenmapa
-) VALUES (
-    'BAHIAP', '001', 'MESA01', 'MESA 01', 'MESA01', '',
-    1, 1, '', 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', '', '001',
-    1, 'SALON', '', '002', 1
-);
+CREATE PROCEDURE NormalizarMesasBahiap()
+BEGIN
+    DECLARE count_mesa_espacio INT DEFAULT 0;
+    DECLARE count_mesa_cero INT DEFAULT 0;
 
--- PASO 3: Actualizar el resto de las mesas del área SALON (MESA 2 a MESA 9)
-UPDATE idconsumos SET id_consumo = 'MESA02', nombre_corto = 'MESA02' WHERE id_consumo = 'MESA 2';
-UPDATE idconsumos SET id_consumo = 'MESA03', nombre_corto = 'MESA03' WHERE id_consumo = 'MESA 3';
-UPDATE idconsumos SET id_consumo = 'MESA04', nombre_corto = 'MESA04' WHERE id_consumo = 'MESA 4';
-UPDATE idconsumos SET id_consumo = 'MESA05', nombre_corto = 'MESA05' WHERE id_consumo = 'MESA 5';
-UPDATE idconsumos SET id_consumo = 'MESA06', nombre_corto = 'MESA06' WHERE id_consumo = 'MESA 6';
-UPDATE idconsumos SET id_consumo = 'MESA07', nombre_corto = 'MESA07' WHERE id_consumo = 'MESA 7';
-UPDATE idconsumos SET id_consumo = 'MESA08', nombre_corto = 'MESA08' WHERE id_consumo = 'MESA 8';
-UPDATE idconsumos SET id_consumo = 'MESA09', nombre_corto = 'MESA09' WHERE id_consumo = 'MESA 9';
+    -- Validar si existen 'MESA 1' (con espacio) y 'MESA01' (o 'mesa01')
+    SELECT COUNT(*) INTO count_mesa_espacio FROM idconsumos WHERE LOWER(TRIM(id_consumo)) = 'mesa 1';
+    SELECT COUNT(*) INTO count_mesa_cero FROM idconsumos WHERE LOWER(TRIM(id_consumo)) = 'mesa01';
 
--- PASO 4: Actualizar las mesas del área JARDIN (JARD 1 a JARD 5)
-UPDATE idconsumos SET id_consumo = 'JARD01', nombre_corto = 'JARD01' WHERE id_consumo = 'JARD 1';
-UPDATE idconsumos SET id_consumo = 'JARD02', nombre_corto = 'JARD02' WHERE id_consumo = 'JARD 2';
-UPDATE idconsumos SET id_consumo = 'JARD03', nombre_corto = 'JARD03' WHERE id_consumo = 'JARD 3';
-UPDATE idconsumos SET id_consumo = 'JARD04', nombre_corto = 'JARD04' WHERE id_consumo = 'JARD 4';
-UPDATE idconsumos SET id_consumo = 'JARD05', nombre_corto = 'JARD05' WHERE id_consumo = 'JARD 5';
+    -- CASO 1: Si existen AMBAS -> se borra la mesa01 incompleta y se actualiza mesa 1 completa a MESA01
+    IF count_mesa_espacio > 0 AND count_mesa_cero > 0 THEN
+        DELETE FROM idconsumos WHERE LOWER(TRIM(id_consumo)) = 'mesa01';
+        UPDATE idconsumos 
+        SET id_consumo      = 'MESA01',
+            nombre_corto    = 'MESA01',
+            descripcion     = 'MESA 01',
+            capacidad       = '',
+            estatus         = 1,
+            estatus2        = 1,
+            rutafoto        = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG',
+            tipo_idconsumo  = '001',
+            aplica_touch    = 1,
+            ubicacion       = 'SALON',
+            codarea         = '002',
+            mostrarenmapa   = 1
+        WHERE LOWER(TRIM(id_consumo)) = 'mesa 1';
 
--- PASO 5: Verificación final de mesas ordenadas por Salón y Código
+    -- CASO 2: Si solo existe 'mesa 1' -> se actualizan todos los campos a MESA01
+    ELSEIF count_mesa_espacio > 0 AND count_mesa_cero = 0 THEN
+        UPDATE idconsumos 
+        SET id_consumo      = 'MESA01',
+            nombre_corto    = 'MESA01',
+            descripcion     = 'MESA 01',
+            capacidad       = '',
+            estatus         = 1,
+            estatus2        = 1,
+            rutafoto        = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG',
+            tipo_idconsumo  = '001',
+            aplica_touch    = 1,
+            ubicacion       = 'SALON',
+            codarea         = '002',
+            mostrarenmapa   = 1
+        WHERE LOWER(TRIM(id_consumo)) = 'mesa 1';
+
+    -- CASO 3: Si solo existe 'mesa01' -> se le colocan todos los campos e imagen correcta
+    ELSEIF count_mesa_espacio = 0 AND count_mesa_cero > 0 THEN
+        UPDATE idconsumos 
+        SET id_consumo      = 'MESA01',
+            nombre_corto    = 'MESA01',
+            descripcion     = 'MESA 01',
+            capacidad       = '',
+            estatus         = 1,
+            estatus2        = 1,
+            rutafoto        = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG',
+            tipo_idconsumo  = '001',
+            aplica_touch    = 1,
+            ubicacion       = 'SALON',
+            codarea         = '002',
+            mostrarenmapa   = 1
+        WHERE LOWER(TRIM(id_consumo)) = 'mesa01';
+
+    -- CASO 4: Si no existe ninguna -> se crea MESA01 completa desde cero
+    ELSE
+        INSERT INTO idconsumos (
+            id_empresa, agencia, id_consumo, descripcion, nombre_corto, capacidad,
+            estatus, estatus2, notas, rutafoto, codigoarticulo, tipo_idconsumo,
+            aplica_touch, ubicacion, caracticas, codarea, mostrarenmapa
+        ) VALUES (
+            'BAHIAP', '001', 'MESA01', 'MESA 01', 'MESA01', '',
+            1, 1, '', 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', '', '001',
+            1, 'SALON', '', '002', 1
+        );
+    END IF;
+
+    -- Actualizar el resto de las mesas de SALON (MESA 2 a MESA 9) actualizando todos los datos esenciales
+    UPDATE idconsumos SET id_consumo = 'MESA02', nombre_corto = 'MESA02', descripcion = 'MESA 02', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 2';
+    UPDATE idconsumos SET id_consumo = 'MESA03', nombre_corto = 'MESA03', descripcion = 'MESA 03', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 3';
+    UPDATE idconsumos SET id_consumo = 'MESA04', nombre_corto = 'MESA04', descripcion = 'MESA 04', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 4';
+    UPDATE idconsumos SET id_consumo = 'MESA05', nombre_corto = 'MESA05', descripcion = 'MESA 05', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 5';
+    UPDATE idconsumos SET id_consumo = 'MESA06', nombre_corto = 'MESA06', descripcion = 'MESA 06', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 6';
+    UPDATE idconsumos SET id_consumo = 'MESA07', nombre_corto = 'MESA07', descripcion = 'MESA 07', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 7';
+    UPDATE idconsumos SET id_consumo = 'MESA08', nombre_corto = 'MESA08', descripcion = 'MESA 08', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 8';
+    UPDATE idconsumos SET id_consumo = 'MESA09', nombre_corto = 'MESA09', descripcion = 'MESA 09', rutafoto = 'C:\\PREMIUM\\IMAGENES\\MESAS4.JPG', ubicacion = 'SALON', codarea = '002', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'mesa 9';
+
+    -- Actualizar mesas de JARDIN (JARD 1 a JARD 5)
+    UPDATE idconsumos SET id_consumo = 'JARD01', nombre_corto = 'JARD01', descripcion = 'JARDIN 01', rutafoto = 'C:\\PREMIUM\\IMAGENES\\JARDIN.JPG', ubicacion = 'JARDIN', codarea = '001', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'jard 1';
+    UPDATE idconsumos SET id_consumo = 'JARD02', nombre_corto = 'JARD02', descripcion = 'JARDIN 02', rutafoto = 'C:\\PREMIUM\\IMAGENES\\JARDIN.JPG', ubicacion = 'JARDIN', codarea = '001', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'jard 2';
+    UPDATE idconsumos SET id_consumo = 'JARD03', nombre_corto = 'JARD03', descripcion = 'JARDIN 03', rutafoto = 'C:\\PREMIUM\\IMAGENES\\JARDIN.JPG', ubicacion = 'JARDIN', codarea = '001', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'jard 3';
+    UPDATE idconsumos SET id_consumo = 'JARD04', nombre_corto = 'JARD04', descripcion = 'JARDIN 04', rutafoto = 'C:\\PREMIUM\\IMAGENES\\JARDIN.JPG', ubicacion = 'JARDIN', codarea = '001', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'jard 4';
+    UPDATE idconsumos SET id_consumo = 'JARD05', nombre_corto = 'JARD05', descripcion = 'JARDIN 05', rutafoto = 'C:\\PREMIUM\\IMAGENES\\JARDIN.JPG', ubicacion = 'JARDIN', codarea = '001', mostrarenmapa = 1 WHERE LOWER(TRIM(id_consumo)) = 'jard 5';
+
+END$$
+
+DELIMITER ;
+
+-- Ejecutar el procedimiento
+CALL NormalizarMesasBahiap();
+
+-- Eliminar el procedimiento temporal una vez ejecutado
+DROP PROCEDURE IF EXISTS NormalizarMesasBahiap;
+
+-- Consulta de verificación para comprobar que todas las mesas quedaron impecables
 SELECT id_consumo, descripcion, nombre_corto, ubicacion, codarea, mostrarenmapa, rutafoto 
 FROM idconsumos 
 ORDER BY ubicacion, id_consumo;
