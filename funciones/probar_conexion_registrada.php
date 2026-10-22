@@ -184,8 +184,8 @@ if (file_exists($path)) {
 							$('#cod_zona').val('" . $cod_zona . "');
 							$('#cod_deposito').val('" . $cod_deposito . "');
 							$('#recargo').val('" . $recargo . "');
-							$('#vence').html(" . json_encode($datos['vencimiento']) . ");
-							$('#pw_supervisor').val('" . $datos['pw_supervisor'] . "');
+							$('#vence').html(null);
+							$('#pw_supervisor').val('" . $pw_supervisor . "');
 							$('#tipo_doc').val('" . $tipo_doc . "');
 							$('#no_tiene_existencia').val('" . $no_tiene_existencia . "');
 						</script>

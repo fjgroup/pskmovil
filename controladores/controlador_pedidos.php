@@ -280,6 +280,9 @@ if ($_GET['accion'] == "procesar_pedido") {
 			}
 
 			$recargo_unit = $preciounit * $prc_recargo;
+			// Si el artículo es exento (exislr == 1), los impuestos deben ser 0
+			// Nota: exislr se obtiene más adelante, pero necesitamos verificar aquí también
+			// Por ahora calculamos normalmente, luego se ajustará si es exento
 			$impuesto_total = $precioneto * $impuesto;
 			$preciofin = ($precioneto * $impuesto) + $precioneto;
 
@@ -296,25 +299,11 @@ if ($_GET['accion'] == "procesar_pedido") {
 				$estacion = "PSK";
 			}
 
-			$baseimpo = 'baseimpo1';
-			$baseimponible = 0;
-
-			if (
-				(trim($datos_config2['codpaisemp']) == '58') or
-				(trim($datos_config2['codpaisemp']) == '507') or
-				(trim($datos_config2['codpaisemp']) == '504' and $datos_config2['activaimpuestomultiple'] == 0)
-			) {
-				foreach ($datos_conexion['impuestos'] as $impu) {
-					if ($impuesto_prc == $impu['prc']) {
-						$baseimpo = "baseimpo" . (int) $impu['codigo'];
-						$baseimponible = $precioneto;
-					}
-				}
-			}
-
 			$se_imprimio = 0;
 
 			$totbruto += $precio_bruto * $cantidad;
+			// Los impuestos se calcularán después de obtener exislr
+			// Por ahora los calculamos normalmente, luego se ajustarán si es exento
 			$monto_impuesto = $precioneto * $impuesto;
 			$total_impuesto += $monto_impuesto;
 			$monto_neto += $precioneto;
@@ -325,6 +314,10 @@ if ($_GET['accion'] == "procesar_pedido") {
 			$costounit = 0;
 			$unidad = '';
 			$usaexist = 1;
+			$origen_articulo = 1; // Valor por defecto
+			$impuesto1_articulo = 0; // Impuesto1 del artículo
+			$usatasapercibido = 0; // Por defecto no usa tasa percibido
+			$exislr = 0; // Por defecto no es exento
 
 			foreach ($datos_articulos as $art) {
 				if (empty($codhijo)) {
@@ -332,6 +325,10 @@ if ($_GET['accion'] == "procesar_pedido") {
 						$costounit = $art['costo'];
 						$unidad = $art['unidad'];
 						$usaexist = empty($codhijo) ? $art['usaexist'] : 1; //$art['usaexist'];
+						$origen_articulo = isset($art['origen']) ? $art['origen'] : 1;
+						$impuesto1_articulo = isset($art['impuesto1']) ? floatval($art['impuesto1']) : 0;
+						$usatasapercibido = isset($art['usatasapercibido']) ? intval($art['usatasapercibido']) : 0;
+						$exislr = isset($art['exislr']) ? intval($art['exislr']) : 0;
 
 						break;
 					}
@@ -340,9 +337,56 @@ if ($_GET['accion'] == "procesar_pedido") {
 						$costounit = $art['costo'];
 						$unidad = $art['unidad'];
 						$usaexist = empty($codhijo) ? $art['usaexist'] : 1; //$art['usaexist'];
+						$origen_articulo = isset($art['origen']) ? $art['origen'] : 1;
+						$impuesto1_articulo = isset($art['impuesto1']) ? floatval($art['impuesto1']) : 0;
+						$usatasapercibido = isset($art['usatasapercibido']) ? intval($art['usatasapercibido']) : 0;
+						$exislr = isset($art['exislr']) ? intval($art['exislr']) : 0;
 
 						break;
 					}
+				}
+			}
+
+			// Inicializar baseimpo según exislr y usatasapercibido del artículo
+			$baseimpo = '';
+			$baseimponible = 0;
+			$baseimpo1_monto = 0; // Monto para baseimpo1 cuando impuesto1 > 0
+			
+			// Si el artículo es exento (exislr == 1), todos los baseimpo e impuestos deben ser 0
+			if ($exislr == 1) {
+				// Artículo exento: no se asignan baseimpo, todos quedan en 0
+				$baseimpo = '';
+				$baseimponible = 0;
+				$baseimpo1_monto = 0;
+				// Los impuestos también deben ser 0 para artículos exentos
+				// Ajustar los valores de impuestos
+				$impuesto_total = 0;
+				$monto_impuesto_temp = $precioneto * $impuesto; // Impuesto que ya se sumó
+				$monto_impuesto = 0;
+				$preciofin = $precioneto; // Sin impuestos
+				// Ajustar totales que ya se calcularon antes de obtener exislr
+				$total_impuesto -= $monto_impuesto_temp; // Restar el impuesto que ya se sumó
+				// Ajustar totalfinal: restar el impuesto y el recargo sobre el impuesto que ya se sumaron
+				$impuesto_con_recargo = $monto_impuesto_temp + ($monto_impuesto_temp * $prc_recargo);
+				$totalfinal -= $impuesto_con_recargo;
+				// Sumar el precio sin impuestos pero con recargo sobre el precio neto
+				$totalfinal += $precioneto + ($precioneto * $prc_recargo);
+			} else {
+				// Si el artículo tiene impuesto1 > 0, calcular baseimpo1
+				if ($impuesto1_articulo > 0) {
+					$baseimpo1_monto = $precioneto * ($impuesto1_articulo / 100);
+				}
+				
+				// Determinar si es percibido
+				// usatasapercibido = 1 → percibido (usa baseimpo5)
+				if ($usatasapercibido == 1) {
+					// Artículo percibido: baseimpo = baseimpo5, los demás baseimpo deben estar en 0
+					$baseimpo = 'baseimpo5';
+					$baseimponible = $precioneto;
+				} else {
+					// No es exento ni percibido: usar baseimpo1
+					$baseimpo = 'baseimpo1';
+					$baseimponible = $precioneto;
 				}
 			}
 
@@ -353,6 +397,31 @@ if ($_GET['accion'] == "procesar_pedido") {
 
 			$totcosto += $costounit * $cantidad;
 
+			// Si es percibido, asegurar que baseimpo1, baseimpo2, etc. estén en 0
+			// Si es exento, todos los baseimpo deben estar en 0
+			$columnas_baseimpo = "";
+			if ($exislr == 1) {
+				// Exento: todos los baseimpo deben estar en 0
+				$columnas_baseimpo = ",
+						baseimpo1,
+						baseimpo2,
+						baseimpo3,
+						baseimpo4,
+						baseimpo5";
+			} else if ($usatasapercibido == 1) {
+				// Percibido: solo baseimpo5, los demás deben estar en 0
+				$columnas_baseimpo = ",
+						baseimpo5,
+						baseimpo1,
+						baseimpo2,
+						baseimpo3,
+						baseimpo4";
+			} else {
+				// No percibido ni exento: usar baseimpo1
+				$columnas_baseimpo = ",
+						baseimpo1";
+			}
+			
 			$columnas = "
 						id_empresa,
 						agencia,
@@ -389,9 +458,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 						notas,
 						compuesto,
 						usaexist,
-						aux1,
-						estacion,
-						" . $baseimpo . ",
+						aux1, 
+						estacion" . $columnas_baseimpo . ",
 						se_imprimio,
 						se_guardo,
 						enviado_kmonitor,
@@ -400,7 +468,38 @@ if ($_GET['accion'] == "procesar_pedido") {
 						costounit
 					";
 			$pid_art = !empty($codhijo) ? $pidpadre : $pid;
-			$impuesto_prc1 = $preciounit*($impuesto_prc/100);
+			// Si el artículo es exento, los impuestos deben ser 0
+			$impuesto_prc1 = ($exislr == 1) ? 0 : $preciounit*($impuesto_prc/100);
+			
+			// Asegurarse de que el origen esté definido
+			if (!isset($origen_articulo)) {
+				$origen_articulo = 1;
+			}
+			
+			// Valores para baseimpo según si es exento, percibido o normal
+			$values_baseimpo = "";
+			if ($exislr == 1) {
+				// Exento: todos los baseimpo en 0
+				$values_baseimpo = ",
+						'0.00',
+						'0.00',
+						'0.00',
+						'0.00',
+						'0.00'";
+			} else if ($usatasapercibido == 1) {
+				// Percibido: baseimpo5 con el valor, los demás en 0
+				$values_baseimpo = ",
+						'" . number_format($baseimponible, 2, '.', '') . "',
+						'0.00',
+						'0.00',
+						'0.00',
+						'0.00'";
+			} else {
+				// No percibido ni exento: baseimpo1 con el valor de la base imponible
+				$values_baseimpo = ",
+						'" . number_format($baseimponible, 2, '.', '') . "'";
+			}
+			
 			$values = "
 						'" . $datos_conexion['cod_empresa'] . "',
 						'" . $datos_conexion['cod_agencia'] . "',
@@ -408,7 +507,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 						'$mesa',
 						'$codgrupo',
 						'$codsubgrupo',
-						'1',
+						'" . $origen_articulo . "',
 						'$codigo',
 						'$codhijo',
 						'$pid_art',
@@ -438,8 +537,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 						'$compuesto',
 						" . $usaexist . ",
 						'" . number_format($aux1, 5, '.', '') . "',
-						'PSK',
-						'" . number_format($baseimponible, 2, '.', '') . "',
+						'PSK'" . $values_baseimpo . ",
 						" . $se_imprimio . ",
 						'$se_guardo',
 						'2',
@@ -449,7 +547,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 					";
 			//print_r($columnas);
 			// GDM - Al código de la estación se esta enviando directamente PSK, anteriormente se enviaba: ".substr(trim($_POST['vendedor']),-3)."
-			if (strpos($datos[6], '-') > -1) {
+			// Solo procesar impuestos si el artículo NO es exento
+			if (strpos($datos[6], '-') > -1 && $exislr != 1) {
 
 				if (empty($array_impuestos[$codigo_impuesto]['base_imponible'])) {
 					$array_impuestos[$codigo_impuesto]['base_imponible'] = 0;
@@ -470,6 +569,29 @@ if ($_GET['accion'] == "procesar_pedido") {
 			$pid_codhijo = $pid . $pidhijo;
 
 			if (in_array($pid, $productos_ya_registrados)) {
+				$query_update_baseimpo = "";
+				if ($exislr == 1) {
+					// Exento: todos los baseimpo en 0
+					$query_update_baseimpo = ",
+						baseimpo1 = '0.00',
+						baseimpo2 = '0.00',
+						baseimpo3 = '0.00',
+						baseimpo4 = '0.00',
+						baseimpo5 = '0.00'";
+				} else if ($usatasapercibido == 1) {
+					// Percibido: actualizar baseimpo5 con el valor, los demás en 0
+					$query_update_baseimpo = ",
+						baseimpo5 = '" . number_format($baseimponible, 2, '.', '') . "',
+						baseimpo1 = '0.00',
+						baseimpo2 = '0.00',
+						baseimpo3 = '0.00',
+						baseimpo4 = '0.00'";
+				} else {
+					// No percibido ni exento: actualizar baseimpo1 con el valor de la base imponible
+					$query_update_baseimpo = ",
+						baseimpo1 = '" . number_format($baseimponible, 2, '.', '') . "'";
+				}
+				
 				$query = " 
 							UPDATE opermv SET
 							preciounit = '" . number_format($preciounit, 2, '.', '') . "',
@@ -483,8 +605,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 							montoneto = '" . number_format($precioneto, 2, '.', '') . "',
 							montototal = '" . number_format($precioneto, 2, '.', '') . "',
 							aux1 = '" . number_format($aux1, 5, '.', '') . "',
-							notas = '$notas',							
-						" . $baseimpo . " = '" . number_format($precioneto, 2, '.', '') . "'
+							notas = '$notas'" . $query_update_baseimpo . "
 							WHERE pidpadre= '$pidpadre' AND documento = '$mesa'
 						";
 
@@ -633,6 +754,32 @@ if ($_GET['accion'] == "procesar_pedido") {
 					}
 					//$recargo = $datos_conexion['recargo'];
 					//$totalfinal = $monto_neto + $total_impuesto;
+					
+					// Consultar dirección del cliente desde cliempre
+					$direccion_cliente = 'DIRECCION'; // Valor por defecto
+					$query_direccion = "SELECT direccion FROM cliempre WHERE codigo = '" . $_POST['cod_cliente'] . "' LIMIT 1";
+					$resultado_direccion = $objeto_pedido->general_query($bd_conexion, $query_direccion);
+					$datos_direccion = mysqli_fetch_array($resultado_direccion);
+					if (!empty($datos_direccion['direccion'])) {
+						$direccion_cliente = addslashes($datos_direccion['direccion']);
+					}
+					
+					// Consultar RIF del cliente desde cliempre si no viene en POST
+					$rif_cliente = '';
+					if (!empty($_POST['nrorif'])) {
+						$rif_cliente = addslashes(trim($_POST['nrorif']));
+					} else {
+						// Consultar nrorif y cedula desde cliempre
+						$query_rif = "SELECT nrorif, cedula FROM cliempre WHERE codigo = '" . $_POST['cod_cliente'] . "' LIMIT 1";
+						$resultado_rif = $objeto_pedido->general_query($bd_conexion, $query_rif);
+						$datos_rif = mysqli_fetch_array($resultado_rif);
+						if (!empty($datos_rif['nrorif']) && trim($datos_rif['nrorif']) != '') {
+							$rif_cliente = addslashes(trim($datos_rif['nrorif']));
+						} elseif (!empty($datos_rif['cedula']) && trim($datos_rif['cedula']) != '') {
+							$rif_cliente = addslashes(trim($datos_rif['cedula']));
+						}
+					}
+					
 					if (!$operti_ya_existe) {
 						$query = "
 								INSERT INTO operti
@@ -690,9 +837,9 @@ if ($_GET['accion'] == "procesar_pedido") {
 									'" . $_POST['cod_cliente'] . "',
 									'" . strtoupper($_POST['nombre_cliente']) . "',
 									'" . strtoupper($_POST['nombre_cliente']) . "',
-									'" . strtoupper($_POST['nrorif']) . "',
+									'" . strtoupper($rif_cliente) . "',
 									'00',
-									'DIRECCION',
+									'" . $direccion_cliente . "',
 									'000000',
 									'1',
 									'" . $fecha_hoy . "',
@@ -736,7 +883,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 								SET 						
 								codcliente = '" . $_POST['cod_cliente'] . "',
 								nombrecli = '" . strtoupper($_POST['nombre_cliente']) . "',
-								rif = '" . strtoupper($_POST['nrorif']) . "',
+								rif = '" . strtoupper($rif_cliente) . "',
 								contacto = '" . strtoupper($_POST['nombre_cliente']) . "',
 								emision = '" . $fecha_hoy . "',
 								recepcion = '" . $fecha_hoy . "',

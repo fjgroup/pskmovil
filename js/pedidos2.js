@@ -215,6 +215,26 @@ function codigo_empresa(val) {
 	$('#cod_empresa').val(cod_empresa.toUpperCase());
 }
 
+function ejecutar_busqueda(parametro) {
+	var palabra = $.trim($('#palabra').val());
+	if (palabra === "") {
+		$('#palabra').val('*');
+		palabra = '*';
+	}
+	var buscar_por = $('#buscar_por').val();
+	var datos = { "buscar_por": buscar_por, "palabra": palabra, "parametro": parametro };
+	$('#busquedas_resultados').html('Cargando...');
+	$.ajax({
+		type: "POST",
+		url: "controladores/controlador_datos_conexion.php?accion=buscar",
+		data: datos,
+		cache: false,
+		success: function (r) {
+			$('#busquedas_resultados').html(r);
+		}
+	});
+}
+
 function mostrar_busqueda(parametro) {
 	if (
 		$('.msj_conexion').eq(0).html().indexOf('Conexion exitosa') > -1 ||
@@ -224,30 +244,16 @@ function mostrar_busqueda(parametro) {
 		$('#busquedas').show();
 		$('#busquedas input:text').focus();
 		$('#bloqueo').css({ 'z-index': '9' });
-		$('#busquedas .input-group-addon').unbind();
-		$('#busquedas .input-group-addon').click(function () {
-
-			if ($.trim($('#palabra').val()) == "") {
-				$('#palabra').val('*');
-			}
-
-			var buscar_por = $('#buscar_por').val();
-			var palabra = $.trim($('#palabra').val());
-
-			var datos = { "buscar_por": buscar_por, "palabra": palabra, "parametro": parametro };
-			$.ajax({
-				type: "POST",
-				url: "controladores/controlador_datos_conexion.php?accion=buscar",
-				data: datos,
-				beforeSend: function () {
-					$('#busquedas_resultados').html('Cargando...');
-				},
-				success: function (r) {
-					$('#busquedas_resultados').html(r);
-				}
-			});
+		$('#busquedas .input-group-addon').off('click').on('click', function () {
+			ejecutar_busqueda(parametro);
 		});
-		$('#busquedas .input-group-addon').click();
+		$('#busquedas #palabra').off('keydown.busqueda').on('keydown.busqueda', function (e) {
+			if (e.which === 13) {
+				e.preventDefault();
+				ejecutar_busqueda(parametro);
+			}
+		});
+		ejecutar_busqueda(parametro);
 	} else {
 		$('.msj_conexion').eq(1).html("<i class='fa fa-times'></i> Compruebe la conexion");
 	}
@@ -273,8 +279,13 @@ function select_resultado_busqueda(parametro, r) {
 		$('#cod_cliente').val(r.codigo);
 		$('#cod_cliente_ped').val(r.codigo);
 		$('#input_cliente').val(r.nombre);
-		$('#nrorif').val(r.nrorif);
+		// Actualizar nrorif con validación - si viene en el objeto, usarlo
+		if (r.nrorif != undefined && r.nrorif != null && r.nrorif != '' && r.nrorif != '0000000') {
+			$('#nrorif').val(r.nrorif);
+		}
 		$('#cliente_exento').val(r.formafis);
+		// Consultar cliente completo para asegurar todos los datos, especialmente nrorif
+		ConsultarCliente(r.codigo);
 		if ($('#conf_conexion').is('not:visible')) {
 			mostrar_grupos();
 		}
@@ -1325,6 +1336,13 @@ function ConsultarCliente(codcliente) {
 						$('#cod_cliente').val(r.codigo);
 						$('#cod_cliente_ped').val(r.codigo);
 						$('#input_cliente').val(r.nombre);
+						// Actualizar nrorif con validación
+						if (r.nrorif != undefined && r.nrorif != null && r.nrorif != '') {
+							$('#nrorif').val(r.nrorif);
+						} else {
+							$('#nrorif').val('99999999999999');
+						}
+						$('#cliente_exento').val(r.formafis);
 					} else {
 						$('#cod_cliente_ped').val(codcliente_grabado);
 						ConsultarCliente(codcliente_grabado);
@@ -1386,7 +1404,6 @@ function mostrar_mesas(pagina, filtro, ubicacion) {
 }
 
 function seleccionar_mesa(id_consumo, codcliente, nombrecli, codigo_vendedor) {
-	if (codcliente == '') { codcliente = codcliente_grabado; }
 	var cuentas_compartidas = $.trim($('input[name="cuentas_compartidas"]').val());
 	var codigo_vendedor = $.trim(codigo_vendedor);
 	var cod_vend = $.trim($('#cod_vend').val());
@@ -1399,8 +1416,24 @@ function seleccionar_mesa(id_consumo, codcliente, nombrecli, codigo_vendedor) {
 		$('#input_cliente').css({ 'border': '1px solid #CCC' });
 		$('#input_mesa').css('border', '1px solid #CCC');
 		$('#input_mesa').val(id_consumo);
-		$('#cod_cliente_ped').val(codcliente);
-		$('#input_cliente').val(nombrecli);
+		
+		// Si la mesa tiene un cliente asociado, usarlo
+		if (codcliente != '' && codcliente != null) {
+			$('#cod_cliente_ped').val(codcliente);
+			$('#input_cliente').val(nombrecli);
+		} else {
+			// Si la mesa no tiene cliente asociado, mantener el cliente actual si existe
+			var cliente_actual = $('#cod_cliente_ped').val();
+			if (cliente_actual && cliente_actual != '' && cliente_actual != codcliente_grabado) {
+				// Ya hay un cliente seleccionado, mantenerlo
+				// No cambiar los valores del cliente
+			} else {
+				// No hay cliente seleccionado, usar el cliente por defecto
+				$('#cod_cliente_ped').val(codcliente_grabado);
+				ConsultarCliente(codcliente_grabado);
+			}
+		}
+		
 		ver_cuenta_mesa();
 		mostrar_grupos();
 	} else {
@@ -1475,9 +1508,19 @@ function consultar_mesa() {
 			var datos = print[0].split(";");
 
 			if ($.trim(print[1]) != '') {
+				// Si la mesa tiene un cliente asociado, usarlo
 				$('#input_cliente').val($.trim(print[1]));
 			} else {
-				ConsultarCliente(codcliente_grabado);
+				// Si la mesa no tiene cliente asociado, mantener el cliente actual si existe
+				// Solo usar el cliente por defecto si no hay ninguno seleccionado
+				var cliente_actual = $('#cod_cliente_ped').val();
+				if (cliente_actual && cliente_actual != '' && cliente_actual != codcliente_grabado) {
+					// Ya hay un cliente seleccionado, mantenerlo
+					// No hacer nada, solo mantener el cliente actual
+				} else {
+					// No hay cliente seleccionado, usar el cliente por defecto
+					ConsultarCliente(codcliente_grabado);
+				}
 			}
 
 			var codigo_vendedor = $.trim(print[2]);

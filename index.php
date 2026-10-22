@@ -569,7 +569,7 @@ $file = json_decode($file, true);
 	</div>
 	<footer>
 		PremiumSoft
-		<?php echo date('Y'); ?> | Rev.: 0225.1.4 | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
+		<?php echo date('Y'); ?> | Rev.: 0225.1.8 | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
 			Completa</a>
 	</footer>
 </body>

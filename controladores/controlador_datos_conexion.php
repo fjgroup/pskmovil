@@ -31,14 +31,19 @@ if ($_GET['accion'] == "buscar") {
         $select = "codigo,nombre";
         $from = "almacene";
     }
-    if ($_POST['palabra'] == "*") {
+    // Si la palabra empieza con *, el resto es el criterio; si es solo * listar todos
+    $palabra = isset($_POST['palabra']) ? trim($_POST['palabra']) : '';
+    if (strpos($palabra, '*') === 0) {
+        $palabra = trim(substr($palabra, 1));
+    }
+    if ($palabra === '') {
         $where = "";
     } else {
         if ($_POST['buscar_por'] == "Codigo") {
-            $where = $codigo . "='" . $_POST['palabra'] . "'";
+            $where = $codigo . "='" . $palabra . "'";
         }
         if ($_POST['buscar_por'] == "Nombre") {
-            $where = $nombre . " LIKE '%" . $_POST['palabra'] . "%'";
+            $where = $nombre . " LIKE '%" . $palabra . "%'";
         }
     }
     $consulta = $objeto_datos->select($bd_conexion_cliente, $select, $from, $where, '', '');
@@ -58,17 +63,45 @@ if ($_GET['accion'] == "buscar") {
         if ($_POST['parametro'] == "zona") {
             $datos['nombre'] = $datos['zona'];
         }
-        if (isset($datos['nrorif'])){
-        echo "
-				<tr onclick='select_resultado_busqueda(".json_encode($_POST['parametro']).",".json_encode($datos).")'>	
+        
+        // Limpiar el array para que solo tenga índices asociativos (sin índices numéricos)
+        $datos_clean = array(
+            'codigo' => $datos['codigo'],
+            'nombre' => $datos['nombre']
+        );
+        
+        // Agregar campos específicos según el parámetro
+        if ($_POST['parametro'] == "cliente") {
+            // Obtener nrorif directamente del array - SIEMPRE incluirlo en el objeto
+            // Usar el mismo valor que se muestra en la tabla
+            $nrorif_valor = '';
+            if (isset($datos['nrorif']) && $datos['nrorif'] != null) {
+                $nrorif_valor = trim($datos['nrorif']);
+            }
+            // Asegurar que siempre esté presente en el objeto, incluso si está vacío
+            $datos_clean['nrorif'] = $nrorif_valor;
+            $datos_clean['formafis'] = isset($datos['formafis']) ? $datos['formafis'] : '';
+        }
+        
+        // Mostrar la fila con todos los campos disponibles
+        if ($_POST['parametro'] == "cliente") {
+            // Obtener nrorif directamente del array original para mostrar
+            $nrorif_mostrar = isset($datos['nrorif']) && $datos['nrorif'] != null && trim($datos['nrorif']) != '' ? trim($datos['nrorif']) : '-';
+            
+            // Preparar el JSON - asegurar que se escapen correctamente los caracteres especiales
+            $json_parametro = json_encode($_POST['parametro']);
+            $json_datos = json_encode($datos_clean);
+            
+            echo "
+				<tr onclick='select_resultado_busqueda(".$json_parametro.",".$json_datos.")'>	
 					<td>" . $datos['codigo'] . "</td>
 					<td>" . $datos['nombre'] . "</td>
-					<td>" . $datos['nrorif'] . "</td>
+					<td>" . $nrorif_mostrar . "</td>
 				</tr>
 			";
-        }else{
+        } else {
             echo "
-				<tr onclick='select_resultado_busqueda(".json_encode($_POST['parametro']).",".json_encode($datos).")'>	
+				<tr onclick='select_resultado_busqueda(".json_encode($_POST['parametro']).",".json_encode($datos_clean).")'>	
 					<td>" . $datos['codigo'] . "</td>
 					<td>" . $datos['nombre'] . "</td>
 				</tr>
@@ -96,7 +129,8 @@ if ( $_GET['accion'] == "consultar_cliente") {
             direccion,
             telefonos,
             email,
-            formafis
+            formafis,
+            precio
             FROM cliempre
             WHERE codigo = '".$_POST['codcliente']."'
             LIMIT 1
@@ -104,6 +138,53 @@ if ( $_GET['accion'] == "consultar_cliente") {
 
         $resultado = $objeto_datos->general_query($bd_conexion_cliente,$query);
         $datos = mysqli_fetch_array($resultado);
+        
+        // Limpiar valores NULL - pero mantener los valores reales
+        if ($datos != null) {
+            // Limpiar y trimear valores, pero mantener los valores reales (no convertir a vacío si tienen valor)
+            if (isset($datos['nrorif']) && $datos['nrorif'] != null) {
+                $datos['nrorif'] = trim($datos['nrorif']);
+            } else {
+                $datos['nrorif'] = '';
+            }
+            if (isset($datos['nronit']) && $datos['nronit'] != null) {
+                $datos['nronit'] = trim($datos['nronit']);
+            } else {
+                $datos['nronit'] = '';
+            }
+            if (isset($datos['cedula']) && $datos['cedula'] != null) {
+                $datos['cedula'] = trim($datos['cedula']);
+            } else {
+                $datos['cedula'] = '';
+            }
+            if (isset($datos['nombre']) && $datos['nombre'] != null) {
+                $datos['nombre'] = trim($datos['nombre']);
+            } else {
+                $datos['nombre'] = '';
+            }
+            if (isset($datos['perscont']) && $datos['perscont'] != null) {
+                $datos['perscont'] = trim($datos['perscont']);
+            } else {
+                $datos['perscont'] = '';
+            }
+            if (isset($datos['direccion']) && $datos['direccion'] != null) {
+                $datos['direccion'] = trim($datos['direccion']);
+            } else {
+                $datos['direccion'] = '';
+            }
+            if (isset($datos['telefonos']) && $datos['telefonos'] != null) {
+                $datos['telefonos'] = trim($datos['telefonos']);
+            } else {
+                $datos['telefonos'] = '';
+            }
+            if (isset($datos['email']) && $datos['email'] != null) {
+                $datos['email'] = trim($datos['email']);
+            } else {
+                $datos['email'] = '';
+            }
+            $datos['formafis'] = isset($datos['formafis']) ? $datos['formafis'] : '';
+        }
+        
         echo json_encode($datos);
 
     }else{

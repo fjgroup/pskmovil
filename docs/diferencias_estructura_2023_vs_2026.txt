@@ -1,0 +1,262 @@
+===============================================================================
+REPORTE COMPARATIVO DE ESTRUCTURA DE BASE DE DATOS
+ORIGEN: adminbahiap (2023) vs DESTINO: adminbahiap (2026)
+Fecha de generación: 2026-10-22 13:05:37
+===============================================================================
+
+1. TABLAS NUEVAS AGREGADAS EN LA VERSION 2026 (Existen en 2026 pero no en 2023):
+-------------------------------------------------------------------------------
+  [+] TABLA NUEVA: actividades_economicas (2 columnas)
+  [+] TABLA NUEVA: articulo_bk (204 columnas)
+  [+] TABLA NUEVA: artilotes_bk (39 columnas)
+  [+] TABLA NUEVA: cliempre_bk (107 columnas)
+  [+] TABLA NUEVA: cliempre_bk190517 (113 columnas)
+  [+] TABLA NUEVA: comandasti (11 columnas)
+  [+] TABLA NUEVA: existenc_bk (12 columnas)
+  [+] TABLA NUEVA: grupos_bk (23 columnas)
+  [+] TABLA NUEVA: kardex_bk (30 columnas)
+  [+] TABLA NUEVA: sitef_cashea (17 columnas)
+  [+] TABLA NUEVA: subgrupos_bk (12 columnas)
+  [+] TABLA NUEVA: suplidor_bk (45 columnas)
+  [+] TABLA NUEVA: unidades_medidas (6 columnas)
+
+2. TABLAS ELIMINADAS / OBSOLETAS EN 2026 (Existen en 2023 pero eliminadas en 2026):
+-------------------------------------------------------------------------------
+Ninguna tabla eliminada (todas las 263 tablas del 2023 se conservan intactas en 2026).
+
+3. DIFERENCIAS EN COLUMNAS DE TABLAS EXISTENTES:
+-------------------------------------------------------------------------------
+TABLA: `agencias`
+    [+] COLUMNA AGREGADA: `sinefecto` varchar(8)
+    [+] COLUMNA AGREGADA: `fallafiscal` varchar(8)
+
+TABLA: `articulo`
+    [+] COLUMNA AGREGADA: `fijarprecio` tinyint(4)
+    [+] COLUMNA AGREGADA: `esvariable` tinyint(4)
+
+TABLA: `cargoenc`
+    [+] COLUMNA AGREGADA: `referencia` varchar(15)
+
+TABLA: `cliempre`
+    [+] COLUMNA AGREGADA: `actividad_codigo` varchar(10)
+
+TABLA: `comandasmv`
+    [+] COLUMNA AGREGADA: `preciofin` double(20,7)
+    [+] COLUMNA AGREGADA: `codhijo` varchar(25)
+    [+] COLUMNA AGREGADA: `pidpadre` varchar(12)
+    [+] COLUMNA AGREGADA: `docfiscal` varchar(12)
+    [+] COLUMNA AGREGADA: `numeroprinter` varchar(14)
+    [+] COLUMNA AGREGADA: `vendedor` varchar(8)
+    [+] COLUMNA AGREGADA: `estconsumo` varchar(8)
+    [+] COLUMNA AGREGADA: `eliminada` int(11)
+
+TABLA: `config2`
+    [+] COLUMNA AGREGADA: `usa_biopago_sitef` tinyint(1)
+    [+] COLUMNA AGREGADA: `usa_cashea_sitef` tinyint(1)
+    [+] COLUMNA AGREGADA: `activar_log` tinyint(1)
+    [+] COLUMNA AGREGADA: `aplicardiferencial` tinyint(1)
+    [+] COLUMNA AGREGADA: `id_denomina1` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina2` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina3` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina4` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina5` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina6` varchar(15)
+    [+] COLUMNA AGREGADA: `id_denomina7` varchar(15)
+    [+] COLUMNA AGREGADA: `actividad_codigo` varchar(10)
+    [+] COLUMNA AGREGADA: `formuladiferencialcxc` int(7)
+    [+] COLUMNA AGREGADA: `diferencialcxcaplicaa` int(7)
+    [+] COLUMNA AGREGADA: `pvenrestrun` int(11)
+    [*] TIPO MODIFICADO: `rutacert` DE [varchar(255)] A [varchar(254)]
+
+TABLA: `corteszeta`
+    [+] COLUMNA AGREGADA: `bifacalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `ivafacalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `bincalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `ivancalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `bidesalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `ivadesalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `bigtffac` double(24,7)
+    [+] COLUMNA AGREGADA: `bigtfnc` double(24,7)
+    [+] COLUMNA AGREGADA: `ultind` varchar(15)
+    [+] COLUMNA AGREGADA: `fechultnd` date
+    [+] COLUMNA AGREGADA: `horaultnd` varchar(5)
+    [+] COLUMNA AGREGADA: `ultidnf` varchar(15)
+    [+] COLUMNA AGREGADA: `fechultdnf` date
+    [+] COLUMNA AGREGADA: `horaultdnf` varchar(5)
+    [+] COLUMNA AGREGADA: `ndexenta` double(24,7)
+    [+] COLUMNA AGREGADA: `cantidadnd` double(24,7)
+    [+] COLUMNA AGREGADA: `bindalicgen` double(24,7)
+    [+] COLUMNA AGREGADA: `ivandalicgen` double(24,7)
+    [+] COLUMNA AGREGADA: `bindalicred` double(24,7)
+    [+] COLUMNA AGREGADA: `ivandalicred` double(24,7)
+    [+] COLUMNA AGREGADA: `bindalicaum` double(24,7)
+    [+] COLUMNA AGREGADA: `ivandalicaum` double(24,7)
+    [+] COLUMNA AGREGADA: `bigtfnd` double(24,7)
+    [+] COLUMNA AGREGADA: `igtfnd` double(24,7)
+    [+] COLUMNA AGREGADA: `cantidaddnf` double(24,0)
+    [+] COLUMNA AGREGADA: `bindalicper` double(24,7)
+    [+] COLUMNA AGREGADA: `ivandalicper` double(24,7)
+
+TABLA: `denomonetaria`
+    [+] COLUMNA AGREGADA: `centrodecobros` int(11)
+    [+] COLUMNA AGREGADA: `imagen` varchar(254)
+    [+] COLUMNA AGREGADA: `descriptivo` varchar(254)
+
+TABLA: `devolmvc`
+    [*] TIPO MODIFICADO: `documento` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `devolti`
+    [+] COLUMNA AGREGADA: `pid` varchar(12)
+
+TABLA: `devoltic`
+    [*] TIPO MODIFICADO: `documento` DE [varchar(8)] A [varchar(20)]
+    [*] TIPO MODIFICADO: `aplicadoa` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `ecamposc`
+    [*] TIPO MODIFICADO: `documento` DE [varchar(8)] A [varchar(15)]
+
+TABLA: `gastaretmv`
+    [*] TIPO MODIFICADO: `aplicadoa` DE [varchar(15)] A [varchar(30)]
+
+TABLA: `gastarmv`
+    [+] COLUMNA AGREGADA: `fechayhora` datetime
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(30)]
+
+TABLA: `gastarti`
+    [+] COLUMNA AGREGADA: `prc_igtf_6687` double(7,2)
+    [+] COLUMNA AGREGADA: `base_igtf_6687` double(24,7)
+    [+] COLUMNA AGREGADA: `monto_igtf_6687` double(24,7)
+    [+] COLUMNA AGREGADA: `base2_igtf_6687` double(24,7)
+    [+] COLUMNA AGREGADA: `monto2_igtf_6687` double(24,7)
+    [+] COLUMNA AGREGADA: `todo_igtf_6687` tinyint(4)
+    [+] COLUMNA AGREGADA: `todo2_igtf_6687` tinyint(4)
+    [+] COLUMNA AGREGADA: `documentofiscal` varchar(200)
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(30)]
+    [*] TIPO MODIFICADO: `aplicadoa` DE [varchar(15)] A [varchar(30)]
+
+TABLA: `grupos`
+    [+] COLUMNA AGREGADA: `tiposeguridad` double(14,5)
+
+TABLA: `idconsumos`
+    [+] COLUMNA AGREGADA: `tipofac` int(1)
+
+TABLA: `kardex`
+    [+] COLUMNA AGREGADA: `pcosto_prom` double(20,7)
+    [+] COLUMNA AGREGADA: `pcosto_ant` double(20,7)
+    [+] COLUMNA AGREGADA: `pcosto_act` double(20,7)
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(30)]
+
+TABLA: `mantenim`
+    [+] COLUMNA AGREGADA: `codigo_medida` varchar(10)
+    [+] COLUMNA AGREGADA: `cantidad_medida` int(11)
+
+TABLA: `ofertasmv`
+    [+] COLUMNA AGREGADA: `descuento` double(20,7)
+
+TABLA: `ofertasti`
+    [+] COLUMNA AGREGADA: `requiereclave` tinyint(1)
+
+TABLA: `operclim`
+    [*] TIPO MODIFICADO: `recibo` DE [varchar(8)] A [varchar(20)]
+    [*] TIPO MODIFICADO: `documento` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `operclit`
+    [*] TIPO MODIFICADO: `documento` DE [varchar(8)] A [varchar(20)]
+    [*] TIPO MODIFICADO: `recibo` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `operclit_ext`
+    [*] TIPO MODIFICADO: `recibo` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `opergasm`
+    [*] TIPO MODIFICADO: `recibo` DE [varchar(8)] A [varchar(20)]
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(30)]
+    [*] TIPO MODIFICADO: `aplicaretencion` DE [varchar(8)] A [varchar(30)]
+
+TABLA: `opergast`
+    [+] COLUMNA AGREGADA: `idvalidacion` varchar(12)
+    [+] COLUMNA AGREGADA: `codmon` varchar(3)
+    [+] COLUMNA AGREGADA: `factor` double(20,7)
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(30)]
+    [*] TIPO MODIFICADO: `recibo` DE [varchar(8)] A [varchar(20)]
+
+TABLA: `opergast_ext`
+    [+] COLUMNA AGREGADA: `cedula` varchar(9)
+    [+] COLUMNA AGREGADA: `telefono` varchar(12)
+    [+] COLUMNA AGREGADA: `pagomovil` double(3,0)
+    [+] COLUMNA AGREGADA: `codautorizacion` varchar(16)
+    [+] COLUMNA AGREGADA: `comprobante` text
+
+TABLA: `opermv`
+    [-] COLUMNA ELIMINADA: `pidpadre` varchar(12)
+
+TABLA: `operti`
+    [+] COLUMNA AGREGADA: `audit_field` varchar(255)
+    [+] COLUMNA AGREGADA: `pid` varchar(12)
+    [+] COLUMNA AGREGADA: `usertipofac` tinyint(4)
+    [-] COLUMNA ELIMINADA: `ImprimirCuenta` tinyint(4)
+
+TABLA: `operti_diferencial`
+    [*] TIPO MODIFICADO: `factorcambiario` DE [double(24,12)] A [double(24,7)]
+
+TABLA: `ordenesti`
+    [+] COLUMNA AGREGADA: `fecha_inicio` date
+    [+] COLUMNA AGREGADA: `hora_inicio` varchar(10)
+    [+] COLUMNA AGREGADA: `fecha_final` date
+    [+] COLUMNA AGREGADA: `hora_final` varchar(10)
+    [+] COLUMNA AGREGADA: `codigo_medida` varchar(10)
+    [+] COLUMNA AGREGADA: `cantidad_medida` double(20,0)
+
+TABLA: `resolti`
+    [+] COLUMNA AGREGADA: `notimbrar` tinyint(4)
+
+TABLA: `serialmv`
+    [*] TIPO MODIFICADO: `documento` DE [varchar(15)] A [varchar(20)]
+
+TABLA: `suplidor`
+    [+] COLUMNA AGREGADA: `contribespecial` double(4,0)
+    [*] TIPO MODIFICADO: `direccion` DE [varchar(200)] A [varchar(254)]
+
+TABLA: `tipoordenes`
+    [+] COLUMNA AGREGADA: `codigo_medida` varchar(10)
+    [+] COLUMNA AGREGADA: `cantidad_medida` double
+
+TABLA: `traccion`
+    [-] COLUMNA ELIMINADA: `tiptraccion` varchar(4)
+
+TABLA: `transmision`
+    [-] COLUMNA ELIMINADA: `codtransmision` varchar(4)
+
+TABLA: `tranuser`
+    [+] COLUMNA AGREGADA: `tipofalla` varchar(3)
+
+TABLA: `usuarios`
+    [+] COLUMNA AGREGADA: `utemax` tinyint(1)
+    [+] COLUMNA AGREGADA: `teclado_flotante_activo` tinyint(1)
+
+TABLA: `usuarios2`
+    [+] COLUMNA AGREGADA: `h_estatushab` tinyint(1)
+    [+] COLUMNA AGREGADA: `h_estatushabclave` tinyint(1)
+    [+] COLUMNA AGREGADA: `supfondocaja` tinyint(1)
+    [+] COLUMNA AGREGADA: `tipofacturacion` double(5,0)
+    [+] COLUMNA AGREGADA: `accedebotoncontrol` tinyint(1)
+    [+] COLUMNA AGREGADA: `sinefectocomandas` tinyint(1)
+    [+] COLUMNA AGREGADA: `cashea` tinyint(1)
+    [+] COLUMNA AGREGADA: `ordenargridcompras` double(5,0)
+    [+] COLUMNA AGREGADA: `ordenargridventas` double(5,0)
+    [+] COLUMNA AGREGADA: `monedaventa` varchar(6)
+    [+] COLUMNA AGREGADA: `umostrarpreciopvenrestboton` int(11)
+    [*] TIPO MODIFICADO: `vueltopagomovilusuario` DE [varchar(15)] A [varchar(100)]
+    [*] TIPO MODIFICADO: `vueltopagomovilsede` DE [varchar(3)] A [varchar(5)]
+
+TABLA: `vuelto_pago_movil`
+    [+] COLUMNA AGREGADA: `codbancoorigen` varchar(3)
+
+
+===============================================================================
+RESUMEN DE DIFERENCIAS:
+ - Tablas en adminbahiap (2023): 263
+ - Tablas en adminbahiap (2026): 276
+ - Tablas nuevas agregadas en 2026: 13
+ - Tablas eliminadas en 2026: 0
+ - Tablas existentes con diferencias en columnas: 41
+===============================================================================

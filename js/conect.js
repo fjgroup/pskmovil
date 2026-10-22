@@ -20,11 +20,12 @@ function probar_conexion_activa() {
         },
         success: function (r) {
             ocultar_cargando();
-            if (r == "Error") {
+            var resp = (r || '').trim();
+            if (resp == "Error") {
                 window.location.href = 'conexout_page.php';
-                console.log(r);
+                console.log(resp);
             }else{
-                console.log(r);
+                console.log(resp);
             }
         },
         error: function (error) {

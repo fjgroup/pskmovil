@@ -7,6 +7,12 @@ $(function () {
 	$('.precio_total').val('0,00');
 	$('.precio_total_ref').val('0,00');
 	$('.precio_total_moneda_extranjera').val('0,00');
+	
+	// Inicializar variable global para el precio del cliente
+	window.precio_cliente = null;
+	// Bandera para indicar cuando se está actualizando programáticamente
+	window.actualizando_cliente_programaticamente = false;
+	
 	$('#form_autorizar_admin').submit(function (event) {
 		event.preventDefault();
 	});
@@ -34,6 +40,11 @@ $(function () {
 	});
 
 	$('#cod_cliente, #cod_cliente_ped, #input_cliente, #nrorif').on('input', function () {
+		// Si se está actualizando programáticamente, no ejecutar la lógica
+		if (window.actualizando_cliente_programaticamente) {
+			return;
+		}
+		
 		$('#input_mesa').val('');
 		if ($('#mesa_automatica').prop('checked') == true) {
 			$('#mesa_automatica').prop('checked', false);
@@ -277,6 +288,26 @@ function codigo_empresa(val) {
 	$('#cod_empresa').val(cod_empresa.toUpperCase());
 }
 
+function ejecutar_busqueda(parametro) {
+	var palabra = $.trim($('#palabra').val());
+	if (palabra === "") {
+		$('#palabra').val('*');
+		palabra = '*';
+	}
+	var buscar_por = $('#buscar_por').val();
+	var datos = { "buscar_por": buscar_por, "palabra": palabra, "parametro": parametro };
+	$('#busquedas_resultados').html('Cargando...');
+	$.ajax({
+		type: "POST",
+		url: "controladores/controlador_datos_conexion.php?accion=buscar",
+		data: datos,
+		cache: false,
+		success: function (r) {
+			$('#busquedas_resultados').html(r);
+		}
+	});
+}
+
 function mostrar_busqueda(parametro) {
 	if (
 		$('.msj_conexion').eq(0).html().indexOf('Conexion exitosa') > -1 ||
@@ -286,30 +317,16 @@ function mostrar_busqueda(parametro) {
 		$('#busquedas').show();
 		$('#busquedas input:text').focus();
 		$('#bloqueo').css({ 'z-index': '9' });
-		$('#busquedas .input-group-addon').unbind();
-		$('#busquedas .input-group-addon').click(function () {
-
-			if ($.trim($('#palabra').val()) == "") {
-				$('#palabra').val('*');
-			}
-
-			var buscar_por = $('#buscar_por').val();
-			var palabra = $.trim($('#palabra').val());
-
-			var datos = { "buscar_por": buscar_por, "palabra": palabra, "parametro": parametro };
-			$.ajax({
-				type: "POST",
-				url: "controladores/controlador_datos_conexion.php?accion=buscar",
-				data: datos,
-				beforeSend: function () {
-					$('#busquedas_resultados').html('Cargando...');
-				},
-				success: function (r) {
-					$('#busquedas_resultados').html(r);
-				}
-			});
+		$('#busquedas .input-group-addon').off('click').on('click', function () {
+			ejecutar_busqueda(parametro);
 		});
-		$('#busquedas .input-group-addon').click();
+		$('#busquedas #palabra').off('keydown.busqueda').on('keydown.busqueda', function (e) {
+			if (e.which === 13) {
+				e.preventDefault();
+				ejecutar_busqueda(parametro);
+			}
+		});
+		ejecutar_busqueda(parametro);
 	} else {
 		$('.msj_conexion').eq(1).html("<i class='fa fa-times'></i> Compruebe la conexion");
 	}
@@ -332,6 +349,9 @@ function select_resultado_busqueda(parametro, r) {
 	}
 
 	if (parametro == "cliente") {
+		// Activar bandera para indicar actualización programática
+		window.actualizando_cliente_programaticamente = true;
+		
 		$('#cod_cliente').val(r.codigo);
 		$('#cod_cliente_ped').val(r.codigo);
 		$('#input_cliente').val(r.nombre);
@@ -434,6 +454,11 @@ function select_resultado_busqueda(parametro, r) {
 		if ($('#conf_conexion').is('not:visible')) {
 			mostrar_grupos();
 		}
+		
+		// Desactivar bandera después de establecer los valores
+		setTimeout(function() {
+			window.actualizando_cliente_programaticamente = false;
+		}, 100);
 	}
 
 	if (parametro == "zona") {
@@ -2097,8 +2122,15 @@ function ConsultarCliente(codcliente, nrorif_backup) {
 				} else {
 					// 🔍 En vista resumen (no formulario de registro)
 					if (r != null) {
+						// Activar bandera para indicar actualización programática
+						window.actualizando_cliente_programaticamente = true;
+						
 						$('#cod_cliente_ped').val(r.codigo);
 						$('#input_cliente').val(r.nombre);
+						
+						// Guardar el precio del cliente en una variable global
+						window.precio_cliente = r.precio || null;
+						console.log('Precio del cliente guardado:', window.precio_cliente);
 						
 						console.log('=== ConsultarCliente - Actualizando nrorif ===');
 						console.log('r.nrorif de consulta:', r.nrorif);
@@ -2167,11 +2199,19 @@ function ConsultarCliente(codcliente, nrorif_backup) {
 						// Si no hay datos, dejar como está o manejar según lógica propia
 						$('#cod_cliente_ped').val(codcliente);
 					}
+					
+					// Desactivar bandera después de establecer los valores
+					setTimeout(function() {
+						window.actualizando_cliente_programaticamente = false;
+					}, 100);
 				}
 			},
 			error: function (err) {
 				ocultar_cargando();
 				console.log(err.responseText);
+				
+				// Desactivar bandera incluso si hay error
+				window.actualizando_cliente_programaticamente = false;
 			}
 		});
 	}
@@ -2200,6 +2240,27 @@ function mostrar_cantidad(codigo_articulo) {
 						var valor_preciofin = precio.preciofin || precio.valor;
 						$('#select_precio').append('<option value="' + precio.precio + '|' + precio.valor + '|' + valor_preciofin + '">' + precio.nombre + ' - ' + parseFloat(precio.valor).toFixed(2) + '</option>');
 					});
+					
+					// Seleccionar automáticamente el precio según el cliente
+					if (window.precio_cliente && window.precio_cliente != null && window.precio_cliente != '') {
+						var precio_cliente_num = parseInt(window.precio_cliente);
+						if (precio_cliente_num >= 1 && precio_cliente_num <= 7) {
+							var precio_a_seleccionar = 'precio' + precio_cliente_num;
+							console.log('Seleccionando precio automáticamente según cliente:', precio_a_seleccionar);
+							
+							// Buscar la opción que corresponde al precio del cliente
+							$('#select_precio option').each(function() {
+								var valor_opcion = $(this).val();
+								if (valor_opcion && valor_opcion.startsWith(precio_a_seleccionar + '|')) {
+									$('#select_precio').val(valor_opcion);
+									// Disparar el evento change para actualizar el precio en productos_actualizado
+									$('#select_precio').trigger('change');
+									console.log('Precio seleccionado automáticamente:', valor_opcion);
+									return false; // Salir del each
+								}
+							});
+						}
+					}
 				} else {
 					console.log('No se encontraron precios para el artículo');
 				}
@@ -2272,7 +2333,6 @@ function actualizarEstadoBotonCancelar() {
 
 
 function seleccionar_mesa(id_consumo, codcliente, nombrecli, codigo_vendedor, nrorif) {
-	if (codcliente == '') { codcliente = codcliente_grabado; }
 	var cuentas_compartidas = $.trim($('input[name="cuentas_compartidas"]').val());
 	var codigo_vendedor = $.trim(codigo_vendedor);
 	var cod_vend = $.trim($('#cod_vend').val());
@@ -2288,9 +2348,33 @@ function seleccionar_mesa(id_consumo, codcliente, nombrecli, codigo_vendedor, nr
 		$('#input_cliente').css({ 'border': '1px solid #CCC' });
 		$('#input_mesa').css('border', '1px solid #CCC');
 		$('#input_mesa').val(id_consumo);
-		$('#cod_cliente_ped').val(codcliente);
-		$('#input_cliente').val(nombrecli);
-		$('#nrorif').val(nrorif);
+		
+		// Si la mesa tiene un cliente asociado, usarlo
+		if (codcliente != '' && codcliente != null) {
+			// Activar bandera para indicar actualización programática
+			window.actualizando_cliente_programaticamente = true;
+			$('#cod_cliente_ped').val(codcliente);
+			$('#input_cliente').val(nombrecli);
+			if (nrorif != '' && nrorif != null) {
+				$('#nrorif').val(nrorif);
+			}
+			// Consultar el cliente para obtener el precio
+			ConsultarCliente(codcliente);
+		} else {
+			// Si la mesa no tiene cliente asociado, mantener el cliente actual si existe
+			var cliente_actual = $('#cod_cliente_ped').val();
+			if (cliente_actual && cliente_actual != '' && cliente_actual != codcliente_grabado) {
+				// Ya hay un cliente seleccionado, mantenerlo
+				// No cambiar los valores del cliente
+			} else {
+				// No hay cliente seleccionado, usar el cliente por defecto
+				// Activar bandera para indicar actualización programática
+				window.actualizando_cliente_programaticamente = true;
+				$('#cod_cliente_ped').val(codcliente_grabado);
+				ConsultarCliente(codcliente_grabado);
+			}
+		}
+		
 		ver_cuenta_mesa();
 		mostrar_grupos();
 	} else {
@@ -2370,11 +2454,25 @@ function consultar_mesa() {
 			var datos = echo[0].split(";");
 
 			if ($.trim(echo[1]) != '') {
+				// Si la mesa tiene un cliente asociado, usarlo
+				// Activar bandera para indicar actualización programática
+				window.actualizando_cliente_programaticamente = true;
 				$('#input_cliente').val($.trim(echo[1]));
 				// debugger
 				ConsultarCliente($.trim(echo[3]));
 			} else {
-				ConsultarCliente(codcliente_grabado);
+				// Si la mesa no tiene cliente asociado, mantener el cliente actual si existe
+				// Solo usar el cliente por defecto si no hay ninguno seleccionado
+				var cliente_actual = $('#cod_cliente_ped').val();
+				if (cliente_actual && cliente_actual != '' && cliente_actual != codcliente_grabado) {
+					// Ya hay un cliente seleccionado, mantenerlo
+					// No hacer nada, solo mantener el cliente actual
+				} else {
+					// No hay cliente seleccionado, usar el cliente por defecto
+					// Activar bandera para indicar actualización programática
+					window.actualizando_cliente_programaticamente = true;
+					ConsultarCliente(codcliente_grabado);
+				}
 			}
 
 			var codigo_vendedor = $.trim(echo[2]);
