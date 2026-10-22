@@ -487,24 +487,25 @@ footer a {
 }
 
 #logo {
-	border-radius: 10px;
-	border: 2px solid #000;
-	padding: 10px 20px;
-}
-
-#logo {
+	border: none;
+	border-radius: 16px;
+	padding: 0;
+	overflow: hidden;
 	display: flex;
-	align-items: stretch;
-	justify-content: space-between;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	margin-bottom: 12px;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-#logo div {
-	width: 200px;
-	height: 60px;
-}
-
-#logo img {
+#logo.logo-hero img {
 	width: 100%;
+	height: 130px;
+	object-fit: cover;
+	object-position: center;
+	display: block;
+	border-radius: 16px;
 }
 
 #div_izquierda,
@@ -608,29 +609,23 @@ footer a {
 }
 
 #inventario {
-	display: -ms-flexbox;
-	display: -moz-box;
-	display: -webkit-box;
-	display: -webkit-flex;
-	display: flex;
-	flex-direction: row;
-	align-items: stretch;
-	-webkit-align-items: stretch;
-	justify-content: center;
-	-webkit-justify-content: center;
-	flex-wrap: wrap;
-	-webkit-flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+	padding: 5px;
+	margin: 0;
 }
 
 #inventario li {
 	font-size: 13px;
 	position: relative;
 	cursor: pointer;
-	margin: 5px;
+	margin: 0;
 	list-style: none;
 	display: block;
 	height: 120px;
-	width: 150px;
+	width: auto;
+	min-width: 0;
 	text-align: center;
 	border: 1px solid #C8C8C8;
 	overflow: hidden;
@@ -656,6 +651,27 @@ footer a {
 	color: #FFF;
 }
 
+.btn-lupa-ampliar {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	background: rgba(0, 0, 0, 0.45);
+	color: #fff;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	border-radius: 50%;
+	font-size: 13px;
+	text-align: center;
+	z-index: 5;
+	transition: background 0.2s;
+}
+
+.btn-lupa-ampliar:hover {
+	background: rgba(0, 0, 0, 0.85);
+	color: #FFD700;
+}
+
 @media screen and (min-width:0px) {
 
 	#pestanas li {
@@ -674,7 +690,14 @@ footer a {
 	}
 
 	#div_derecha {
-		display: none;
+		display: block;
+		border-top: 3px solid #0880C5;
+		padding-top: 8px;
+	}
+
+	/* En movil el menu Mesas/Grupos va debajo: el boton Operacion sube al pedido */
+	#inventario {
+		grid-template-columns: repeat(2, 1fr);
 	}
 
 	#div_izquierda,
@@ -707,6 +730,12 @@ footer a {
 
 	#div_derecha {
 		display: block;
+		border-top: none;
+		padding-top: 0;
+	}
+
+	#inventario {
+		grid-template-columns: repeat(4, 1fr);
 	}
 
 	#div_izquierda,
@@ -742,4 +771,94 @@ footer a {
 		height: 580px;
 	}
 
+}
+
+/* Estilos para Modal de Producto con Cantidad y Botones Móvil Full-Width */
+#imagen_amplia .modal-body {
+	padding: 15px 20px;
+}
+
+#imagen_amplia #img {
+	text-align: center;
+	margin-bottom: 12px;
+}
+
+#imagen_amplia #modal_producto_precio {
+	font-size: 20px;
+	color: #0880C5;
+	font-weight: bold;
+	margin-bottom: 10px;
+}
+
+#imagen_amplia #modal_cantidad {
+	text-align: center;
+	font-weight: bold;
+	font-size: 20px;
+	height: 42px;
+	box-shadow: none;
+	border: 1px solid #ccc;
+}
+
+#imagen_amplia #modal_btn_cant_menos,
+#imagen_amplia #modal_btn_cant_mas {
+	height: 42px;
+	width: 44px;
+	font-size: 18px;
+	background-color: #f7f7f7;
+	border: 1px solid #ccc;
+	color: #333;
+}
+
+#imagen_amplia #modal_btn_cant_menos:active,
+#imagen_amplia #modal_btn_cant_mas:active {
+	background-color: #e6e6e6;
+}
+
+/* En versión móvil: botones a ancho máximo (100% width) */
+@media screen and (max-width: 768px) {
+	#imagen_amplia .modal-footer,
+	#modal_compuestos .modal-footer {
+		display: flex;
+		flex-direction: column;
+		padding: 12px 15px;
+		gap: 8px;
+	}
+
+	#imagen_amplia .modal-footer .btn,
+	#modal_compuestos .modal-footer .btn {
+		width: 100% !important;
+		display: block !important;
+		margin: 0 !important;
+		font-size: 16px !important;
+		padding: 12px 15px !important;
+		box-sizing: border-box !important;
+		border-radius: 6px !important;
+		text-align: center;
+	}
+
+	#imagen_amplia #btn_agregar_desde_imagen {
+		order: 1;
+	}
+
+	#imagen_amplia .modal-footer .btn-default {
+		order: 2;
+	}
+}
+
+@media screen and (min-width: 769px) {
+	#imagen_amplia .modal-footer,
+	#modal_compuestos .modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 10px;
+		padding: 15px 20px;
+	}
+
+	#imagen_amplia .modal-footer .btn,
+	#modal_compuestos .modal-footer .btn {
+		min-width: 140px;
+		font-size: 15px;
+		padding: 9px 18px;
+		margin: 0 !important;
+	}
 }

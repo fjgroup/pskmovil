@@ -142,12 +142,27 @@ function ocultar_pw_administrador() {
 	$('#pw_administrador input:password').val('');
 }
 
+function es_movil() {
+	return window.innerWidth < 800;
+}
+
 function ver_div_derecha() {
+	if (es_movil()) {
+		// En movil el menu Mesas/Grupos va debajo: no ocultar, solo desplazar
+		$('#div_izquierda, #div_derecha').css('display', '');
+		$('html, body').animate({ scrollTop: $('#div_derecha').offset().top }, 300);
+		return;
+	}
 	$('#div_derecha').show();
 	$('#div_izquierda').hide();
 }
 
 function ver_div_izquierda() {
+	if (es_movil()) {
+		$('#div_izquierda, #div_derecha').css('display', '');
+		$('html, body').animate({ scrollTop: 0 }, 300);
+		return;
+	}
 	$('#div_derecha').hide();
 	$('#div_izquierda').show();
 }
@@ -846,11 +861,181 @@ function mostrar_subgrupos(grupo, pagina) {
 	});
 }
 
+function ejecutar_agregar_con_cantidad(productos, compuesto, fraccionado, existencia, maneja_exist, cantidad) {
+	ocultar_div_agrupado();
+	$.ajax({
+		url: "controladores/controlador_inventario.php?accion=calcular_pid",
+		beforeSend: function () {
+			mostrar_cargando();
+		},
+		success: function (r) {
+			var pid;
+			var pidpadre;
+
+			if (productos_array.length == 0) {
+				pid = Number(r);
+			} else {
+				var dat = (productos_array[productos_array.length - 1]).split('|');
+				pid = Number(dat[13]) + 1;
+				pidpadre = Number(dat[7]);
+			}
+
+			ocultar_cargando();
+			ver_operacion_actual();
+			$('#input_mesa').css('border', '1px solid #CCC');
+
+			if (fraccionado != 1 && compuesto != 2) {
+				$('#cantidad input:text').val(cantidad);
+				ObtenerIntegrados(productos, pid, fraccionado, pidpadre, compuesto);
+			} else {
+				var productos_add = productos + "|" + Number(cantidad) + "|" + pid + "|";
+				productos_array.push(productos_add);
+				VerProductosAgregados();
+				ResumirLineas();
+			}
+		},
+		error: function (error) {
+			ocultar_cargando();
+			console.log(error.responseText);
+		}
+	});
+}
+
 function AmpliarImagen(posicion, nombre) {
-	$('#imagen_amplia').modal('show');
-	var rutafoto = $('#inventario li').eq(posicion).find('img').attr('src');
+	var li = $('#inventario li').eq(posicion);
+	var rutafoto = li.find('img').attr('src');
 	$('#imagen_amplia img').attr('src', rutafoto);
 	$('#imagen_amplia .modal-title').html(nombre);
+
+	// Extraer y mostrar precios formateados
+	var precioTexto = li.find('div b').map(function () { return $(this).text(); }).get().join(' | ');
+	$('#modal_producto_precio').html(precioTexto);
+
+	// Reiniciar cantidad a 1
+	$('#modal_cantidad').val(1);
+
+	// Botones de incremento y decremento de cantidad
+	$('#modal_btn_cant_menos').off('click').on('click', function () {
+		var c = parseInt($('#modal_cantidad').val(), 10);
+		if (isNaN(c) || c <= 1) c = 1;
+		else c--;
+		$('#modal_cantidad').val(c);
+	});
+	$('#modal_btn_cant_mas').off('click').on('click', function () {
+		var c = parseInt($('#modal_cantidad').val(), 10);
+		if (isNaN(c) || c < 1) c = 1;
+		c++;
+		$('#modal_cantidad').val(c);
+	});
+
+	// Obtener datos del producto desde atributos data o fallback
+	var datos = li.attr('data-datos');
+	var empaque = li.attr('data-empaque') || '0';
+	var datos_agrupados = li.attr('data-agrupados') || '';
+	var compuesto = li.attr('data-compuesto') || '0';
+	var fraccionado = li.attr('data-decimales') || '0';
+	var existencia = li.attr('data-existencia') || '0';
+	var maneja_exist = li.attr('data-usaexist') || '0';
+	var codigo_articulo = li.attr('data-codigo');
+
+	if (!datos && li.attr('onclick')) {
+		var m = li.attr('onclick').match(/seleccionar_producto\(([^)]+)\)/);
+		if (m && m[1]) {
+			try {
+				var params = JSON.parse('[' + m[1] + ']');
+				datos = params[0];
+				empaque = params[1] || '0';
+				datos_agrupados = params[2] || '';
+				compuesto = params[3] || '0';
+				fraccionado = params[4] || '0';
+				existencia = params[5] || '0';
+				maneja_exist = params[6] || '0';
+			} catch (e) {
+				console.log('Error parsing onclick params:', e);
+			}
+		}
+	}
+
+	if (!codigo_articulo && datos) {
+		var dp = datos.split('|');
+		codigo_articulo = dp[0];
+	}
+
+	// Cargar precios en el select si existen precios múltiples
+	$('#modal_select_precio').html('<option value="">Precio por defecto</option>');
+	$('#modal_precio_wrapper').hide();
+	if (codigo_articulo && codigo_articulo != '') {
+		$.ajax({
+			url: "controladores/controlador_inventario.php?accion=obtener_precios&codigo=" + encodeURIComponent(codigo_articulo),
+			type: "GET",
+			dataType: "json",
+			success: function (precios) {
+				if (precios && precios.length > 1) {
+					$('#modal_select_precio').empty();
+					precios.forEach(function (precio) {
+						var valor_preciofin = precio.preciofin || precio.valor;
+						$('#modal_select_precio').append('<option value="' + precio.precio + '|' + precio.valor + '|' + valor_preciofin + '">' + precio.nombre + ' - ' + parseFloat(precio.valor).toFixed(2) + '</option>');
+					});
+					$('#modal_precio_wrapper').show();
+				}
+			}
+		});
+	}
+
+	// Botón "Agregar al pedido"
+	var btn = $('#btn_agregar_desde_imagen');
+	btn.show().off('click').on('click', function () {
+		if ($('#input_mesa').val() == "") {
+			$('#imagen_amplia').modal('hide');
+			$('#input_mesa').css('border', '2px solid red');
+			mostrar_msj("<i class='fa fa-exclamation-triangle'></i><br>Primero seleccione una mesa");
+			mostrar_filtros_mesas();
+			if ($.trim($('#agrupar_mesas').val()) == 'si') {
+				mostrar_grupos_mesas('0', 'disponibles');
+			} else {
+				mostrar_mesas('0', 'disponibles');
+			}
+			if (es_movil()) { ver_div_derecha(); }
+			return;
+		}
+
+		var cantidad = parseInt($('#modal_cantidad').val(), 10);
+		if (isNaN(cantidad) || cantidad <= 0) {
+			cantidad = 1;
+		}
+
+		var productos_actualizado = datos;
+		var precio_seleccionado = $('#modal_select_precio').val();
+		if (precio_seleccionado && precio_seleccionado != "") {
+			var datos_precio = precio_seleccionado.split('|');
+			var parts = productos_actualizado.split('|');
+			parts[4] = datos_precio[1];
+			parts[5] = datos_precio.length > 2 ? datos_precio[2] : datos_precio[1];
+			productos_actualizado = parts.join('|');
+		}
+
+		$('#imagen_amplia').modal('hide');
+
+		if (empaque == '1') {
+			var producto_agrupado = datos_agrupados.split("|");
+			$('#unidad span').html(producto_agrupado[0]);
+			$('#agrupado span').html(producto_agrupado[1]);
+			mostrar_div_agrupado();
+			$('#div_agrupado #unidad').off('click').on('click', function () {
+				if (producto_agrupado[2] > 0) {
+					existencia = producto_agrupado[2] * existencia;
+				}
+				ejecutar_agregar_con_cantidad(productos_actualizado + "|" + producto_agrupado[0] + "||", compuesto, fraccionado, existencia, maneja_exist, cantidad);
+			});
+			$('#div_agrupado #agrupado').off('click').on('click', function () {
+				ejecutar_agregar_con_cantidad(productos_actualizado + "|" + producto_agrupado[1] + "|" + producto_agrupado[3] + "|" + producto_agrupado[2], compuesto, fraccionado, existencia, maneja_exist, cantidad);
+			});
+		} else {
+			ejecutar_agregar_con_cantidad(productos_actualizado + "|||", compuesto, fraccionado, existencia, maneja_exist, cantidad);
+		}
+	});
+
+	$('#imagen_amplia').modal('show');
 }
 
 function mostrar_div_agrupado() {
@@ -892,9 +1077,16 @@ function seleccionar_producto(productos, empaque, datos_agrupados, compuesto, fr
 			agregar_producto(productos + "|" + '' + "|" + '' + "|" + '', compuesto, fraccionado, existencia, maneja_exist);
 		}
 	} else {
+		// Sin mesa: recordar al mesonero que primero seleccione la mesa
 		$('#input_mesa').css('border', '2px solid red');
+		mostrar_msj("<i class='fa fa-exclamation-triangle'></i><br>Primero seleccione una mesa");
 		mostrar_filtros_mesas();
-		mostrar_mesas('0', 'disponibles');
+		if ($.trim($('#agrupar_mesas').val()) == 'si') {
+			mostrar_grupos_mesas('0', 'disponibles'); // Salon, Jardin, Tasca...
+		} else {
+			mostrar_mesas('0', 'disponibles');
+		}
+		if (es_movil()) { ver_div_derecha(); }
 	}
 }
 
@@ -1338,130 +1530,125 @@ function eliminar_producto() {
 	var mesa = $('#input_mesa').val();
 	var resumir = 0;
 
-	$('#productos_agregados table tbody tr').mouseenter(function () {
-		var posicion = $(this).index();
-		var currentRow = $(this);
+	$('#productos_agregados table tbody tr .fa-times, #productos_agregados table tbody tr .clase-eliminar-producto').off('click').on('click', function (e) {
+		e.stopPropagation();
+		var currentRow = $(this).closest('tr');
+		var posicion = currentRow.index();
 
-		currentRow.find('.fa-times').unbind('click').click(function () {
-		
-			// debugger; 
+		var cantidad = currentRow.find('td:eq(3)').html();
+		var pidhijo = $(this).attr('pidhijo');
+		var pid = $(this).attr('pid');
+		// Nuevas variables para los atributos se_comando y se_guardado
+		var se_comando_attr = $(this).attr('se_comando');
+		var se_guardado_attr = $(this).attr('se_guardo');
 
-			var cantidad = $('#productos_agregados table tbody tr').eq(posicion).find('td:eq(3)').html();
-			var pidhijo = $(this).attr('pidhijo');
-			var pid = $(this).attr('pid');
-			// Nuevas variables para los atributos se_comando y se_guardado
-			var se_comando_attr = $(this).attr('se_comando');
-			var se_guardado_attr = $(this).attr('se_guardo');
-			
+		let indiceEnProductosArray = -1;
 
-			let indiceEnProductosArray = -1;
+		if (cantidad == 1) {
+			for (let i = 0; i < productos_array.length; i++) {
+				let datos_producto_array = productos_array[i].split('|');
+				if (datos_producto_array[13] == pid && datos_producto_array[0] == pidhijo) {
+					indiceEnProductosArray = i;
+					break;
+				}
+			}
+		} else {
+			for (let i = productos_array.length - 1; i >= 0; i--) {
+				let datos_producto_array = productos_array[i].split('|');
+				let se_comando = datos_producto_array[8];
+				if (datos_producto_array[0] == pidhijo && se_comando == 0) {
+					indiceEnProductosArray = i;
+					break;
+				}
+			}
 
-			if (cantidad == 1) {
-				for (let i = 0; i < productos_array.length; i++) {
+			if (indiceEnProductosArray === -1) {
+				for (let i = productos_array.length - 1; i >= 0; i--) {
 					let datos_producto_array = productos_array[i].split('|');
 					if (datos_producto_array[13] == pid && datos_producto_array[0] == pidhijo) {
 						indiceEnProductosArray = i;
 						break;
 					}
 				}
-			} else {
-				for (let i = productos_array.length - 1; i >= 0; i--) {
-					let datos_producto_array = productos_array[i].split('|');
-					let se_comando = datos_producto_array[8];
-					if (datos_producto_array[0] == pidhijo && se_comando == 0) {
-						indiceEnProductosArray = i;
-						break;
-					}
-				}
-
-				if (indiceEnProductosArray === -1) {
-					for (let i = productos_array.length - 1; i >= 0; i--) {
-						let datos_producto_array = productos_array[i].split('|');
-						if (datos_producto_array[13] == pid && datos_producto_array[0] == pidhijo) {
-							indiceEnProductosArray = i;
-							break;
-						}
-					}
-				}
 			}
+		}
 
-			if (indiceEnProductosArray === -1) {
-				console.error("Producto no encontrado en productos_array para eliminar.");
-				MostrarMensaje('error|No se pudo encontrar el producto a eliminar.');
-				return;
-			}
+		if (indiceEnProductosArray === -1) {
+			console.error("Producto no encontrado en productos_array para eliminar.");
+			MostrarMensaje('error|No se pudo encontrar el producto a eliminar.');
+			return;
+		}
 
-			var datos_producto_a_eliminar = productos_array[indiceEnProductosArray].split('|');
-			var codigo_producto_a_eliminar = datos_producto_a_eliminar[0];
-			var estacion = datos_producto_a_eliminar[17];
-			if (estacion == undefined) {
-				estacion = 'PSK';
-			}
+		var datos_producto_a_eliminar = productos_array[indiceEnProductosArray].split('|');
+		var codigo_producto_a_eliminar = datos_producto_a_eliminar[0];
+		var estacion = datos_producto_a_eliminar[17];
+		if (estacion == undefined) {
+			estacion = 'PSK';
+		}
 
-			var datos_ajax = { "codigo": codigo_producto_a_eliminar, "pid": pid, "pidhijo": pidhijo, "mesa": mesa, "id_empresa": id_empresa };
+		var datos_ajax = { "codigo": codigo_producto_a_eliminar, "pid": pid, "pidhijo": pidhijo, "mesa": mesa, "id_empresa": id_empresa };
 
-			if (se_comando_attr === "1" || se_guardado_attr === "1") {
-				mostrar_pw_administrador("Eliminar producto");
-				$('#pw_administrador .btn-success').unbind('click').click(function () {
-					var password_sup = $('#password_sup').val();
-					datos_ajax.password_sup = password_sup;
+		if (se_comando_attr === "1" || se_guardado_attr === "1") {
+			mostrar_pw_administrador("Eliminar producto");
+			$('#pw_administrador .btn-success').unbind('click').click(function () {
+				var password_sup = $('#password_sup').val();
+				datos_ajax.password_sup = password_sup;
 
-					$.ajax({
-						type: "POST",
-						url: "funciones/permisos_adm.php",
-						data: datos_ajax,
-						beforeSend: function () {
-							mostrar_cargando();
-						},
-						success: function (r) {
-							ocultar_cargando();
-							if (r.trim() == "true") {
-								$.ajax({
-									type: "POST",
-									url: "controladores/controlador_inventario.php?accion=eliminar_producto",
-									data: datos_ajax,
-									beforeSend: function () {
-										mostrar_cargando();
-									},
-									success: function (r_eliminar) {
-										ocultar_cargando();
-										ocultar_pw_administrador();
-										$('#msj_php .ventanas_contenido').html(r_eliminar);
-										currentRow.remove();
-										productos_array.splice(indiceEnProductosArray, 1);
-									}
-								});
-							} else {
-								$('#pw_administrador i').html("Contrase&ntildea incorrecta");
-								$('#bloqueo').show();
-							}
-						},
-						error: function () {
-							ocultar_cargando();
-							$('#pw_administrador i').html("Error de comunicación con el servidor.");
-							$('#bloqueo').show();
-						}
-					});
-				});
-			} else {
-				// Si no se necesita contraseña, ejecuta directamente la eliminación
 				$.ajax({
 					type: "POST",
-					url: "controladores/controlador_inventario.php?accion=eliminar_producto",
+					url: "funciones/permisos_adm.php",
 					data: datos_ajax,
 					beforeSend: function () {
 						mostrar_cargando();
 					},
-					success: function (r_eliminar) {
+					success: function (r) {
 						ocultar_cargando();
-						// No necesitas ocultar la contraseña si no la mostraste
-						$('#msj_php .ventanas_contenido').html(r_eliminar);
-						currentRow.remove();
-						productos_array.splice(indiceEnProductosArray, 1);
+						if (r.trim() == "true") {
+							$.ajax({
+								type: "POST",
+								url: "controladores/controlador_inventario.php?accion=eliminar_producto",
+								data: datos_ajax,
+								beforeSend: function () {
+									mostrar_cargando();
+								},
+								success: function (r_eliminar) {
+									ocultar_cargando();
+									ocultar_pw_administrador();
+									$('#msj_php .ventanas_contenido').html(r_eliminar);
+									currentRow.remove();
+									productos_array.splice(indiceEnProductosArray, 1);
+								}
+							});
+						} else {
+							$('#pw_administrador i').html("Contrase&ntildea incorrecta");
+							$('#bloqueo').show();
+						}
+					},
+					error: function () {
+						ocultar_cargando();
+						$('#pw_administrador i').html("Error de comunicación con el servidor.");
+						$('#bloqueo').show();
 					}
 				});
-			}
-		});
+			});
+		} else {
+			// Si no se necesita contraseña, ejecuta directamente la eliminación
+			$.ajax({
+				type: "POST",
+				url: "controladores/controlador_inventario.php?accion=eliminar_producto",
+				data: datos_ajax,
+				beforeSend: function () {
+					mostrar_cargando();
+				},
+				success: function (r_eliminar) {
+					ocultar_cargando();
+					// No necesitas ocultar la contraseña si no la mostraste
+					$('#msj_php .ventanas_contenido').html(r_eliminar);
+					currentRow.remove();
+					productos_array.splice(indiceEnProductosArray, 1);
+				}
+			});
+		}
 	});
 
 	if (resumir == 1) {

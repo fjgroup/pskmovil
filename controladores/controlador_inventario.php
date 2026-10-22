@@ -225,11 +225,15 @@ if ($_GET['accion'] == "mostrar_articulos") {
 
 	$where .= "articulo.discont='0' ";
 
+	$no_tiene_existencia = !isset($datos_conexion['no_tiene_existencia']) ? 'no' : $datos_conexion['no_tiene_existencia'];
+	if ($no_tiene_existencia == 'si') {
+		$where .= " AND (articulo.usaexist = 0 OR articulo.existencia > 0) ";
+	}
+
 	$order = "LIMIT $pagina," . $datos_conexion['cantidad_por_pagina'] . " ";
 	$consulta = $objeto_inventario->select($bd_conexion, $select, $from, $where, '', $order);
 
 	$x = 0;
-	$no_tiene_existencia = !isset($datos_conexion['no_tiene_existencia']) ? 'no' : $datos_conexion['no_tiene_existencia'];
 
 	while ($articulo = mysqli_fetch_array($consulta)) {
 		$articulo = LimpiarArreglo($articulo);
@@ -268,19 +272,22 @@ if ($_GET['accion'] == "mostrar_articulos") {
 
 			
 			
+		$data_attrs = "data-datos='" . htmlspecialchars($datos, ENT_QUOTES) . "' " .
+			"data-empaque='" . htmlspecialchars($articulo['empaque'], ENT_QUOTES) . "' " .
+			"data-agrupados='" . htmlspecialchars($datos_agrupados, ENT_QUOTES) . "' " .
+			"data-compuesto='" . htmlspecialchars($articulo['compuesto'], ENT_QUOTES) . "' " .
+			"data-decimales='" . htmlspecialchars($articulo['decimales'], ENT_QUOTES) . "' " .
+			"data-existencia='" . htmlspecialchars($articulo['existencia'], ENT_QUOTES) . "' " .
+			"data-usaexist='" . htmlspecialchars($articulo['usaexist'], ENT_QUOTES) . "' " .
+			"data-nombre='" . htmlspecialchars($articulo['nombre'], ENT_QUOTES) . "' " .
+			"data-codigo='" . htmlspecialchars($articulo['codigo'], ENT_QUOTES) . "' ";
+
 		if ($articulo['rutafoto'] != "") {
-			if ($no_tiene_existencia == 'si' && $articulo['usaexist'] == 1  && (int) $articulo['existencia'] <= 0) {
-
-				echo "
-						<li> <img src='" . $ruta_img . "'/>
-						<div onclick='AmpliarImagen(" . $x . "," . json_encode($articulo['nombre']) . ")' >";
-			} else {
-
-				echo "
-						<li >
-							<img onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")' src='" . $ruta_img . "'/>
-						<div onclick='AmpliarImagen(" . $x . "," . json_encode($articulo['nombre']) . ")'>";
-			}
+			echo "
+					<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>
+						<span class='btn-lupa-ampliar' onclick='event.stopPropagation(); AmpliarImagen(" . $x . "," . json_encode($articulo['nombre']) . ")' title='Ver imagen'><i class='fa fa-search-plus'></i></span>
+						<img src='" . $ruta_img . "'/>
+					<div>";
 			if (!empty($articulo['nombrecorto'])) {
 				echo $articulo['nombrecorto'] . "<br>";
 			}
@@ -302,18 +309,9 @@ if ($_GET['accion'] == "mostrar_articulos") {
 				} else {
 					$precio_ext = $articulo['precio1'] * $datos_conexion['monedafactor'];
 				}
-				if ($no_tiene_existencia == 'si' && $articulo['usaexist'] == 1  && (int) $articulo['existencia'] <= 0) {
-					echo "<li>" . $articulo['nombrecorto'] . "<div style='background-color:red'><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b><br><b>REF: " . number_format($precio_ext, 2, ',', '.') . "</b></div></li>";
-				} else {
-					echo "<li onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b><br><b>REF: " . number_format($precio_ext, 2, ',', '.') . "</b></div></li>";
-				}
+				echo "<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b><br><b>REF: " . number_format($precio_ext, 2, ',', '.') . "</b></div></li>";
 			} else {
-				if ($no_tiene_existencia == 'si' && $articulo['usaexist'] == 1  && (int) $articulo['existencia'] <= 0) {
-
-					echo "<li>" . $articulo['nombrecorto'] . "<div  style='background-color:red'><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b></div></li>";
-				} else {
-					echo "<li onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b></div></li>";
-				}
+				echo "<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b></div></li>";
 			}
 		}
 		$x++;
@@ -379,8 +377,21 @@ if ($_GET['accion'] == "mostrar_grupos_mesas") {
 			$ubicacion = 'UBICACION GENERICA';
 		}
 
+		$img_ubicacion = "MESAS.jpg";
+		$ubicacion_lower = strtolower(trim($ubicacion));
+		if (strpos($ubicacion_lower, 'jardin') !== false || strpos($ubicacion_lower, 'jardín') !== false) {
+			$img_ubicacion = "jardin.jpg";
+		} elseif (strpos($ubicacion_lower, 'salon') !== false || strpos($ubicacion_lower, 'salón') !== false) {
+			$img_ubicacion = "salon.jpg";
+		} elseif (strpos($ubicacion_lower, 'tasca') !== false) {
+			$img_ubicacion = "MESAS.jpg";
+		}
+
 		echo "
-			<li onclick='mostrar_mesas(" . json_encode($_POST['pagina']) . "," . json_encode($_POST['filtro']) . "," . json_encode($mesa['ubicacion']) . ")'>" . $ubicacion . "</li>		
+			<li onclick='mostrar_mesas(" . json_encode($_POST['pagina']) . "," . json_encode($_POST['filtro']) . "," . json_encode($mesa['ubicacion']) . ")'>
+				<img src='imagenes/" . $img_ubicacion . "'/>
+				<div>" . $ubicacion . "</div>
+			</li>		
 		";
 		$x++;
 	}

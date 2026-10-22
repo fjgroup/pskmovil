@@ -42,10 +42,34 @@ $file = json_decode($file, true);
 				<div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
 							aria-hidden="true">&times;</span></button>
-					<h4 class="modal-title">Imagen ampliada</h4>
+					<h4 class="modal-title">Detalle del Art&iacute;culo</h4>
 				</div>
-				<div class="modal-body">
-					<div id="img"><img src="" /></div>
+				<div class="modal-body text-center">
+					<div id="img"><img src="" style="max-height: 250px; max-width: 100%; object-fit: contain; margin: 0 auto 10px; display: block;" /></div>
+					
+					<div id="modal_producto_precio" style="font-size: 19px; color: #0880C5; font-weight: bold; margin-bottom: 8px;"></div>
+					
+					<div id="modal_precio_wrapper" style="max-width: 280px; margin: 0 auto 10px; display: none;">
+						<label style="font-size: 13px; color: #555; margin-bottom: 4px; font-weight: normal;">Precio:</label>
+						<select id="modal_select_precio" class="form-control" style="font-size: 15px; height: 38px;"></select>
+					</div>
+
+					<div style="max-width: 220px; margin: 0 auto 10px;">
+						<label style="font-size: 14px; font-weight: 600; color: #333; margin-bottom: 6px;">Cantidad a agregar:</label>
+						<div class="input-group" style="margin: 0 auto;">
+							<span class="input-group-btn">
+								<button type="button" class="btn btn-default" id="modal_btn_cant_menos" style="height: 42px; width: 44px; font-size: 18px;"><i class="fa fa-minus"></i></button>
+							</span>
+							<input type="text" id="modal_cantidad" class="form-control text-center" value="1" onkeypress="return justNumbers(event);" style="height: 42px; font-size: 20px; font-weight: bold;" />
+							<span class="input-group-btn">
+								<button type="button" class="btn btn-default" id="modal_btn_cant_mas" style="height: 42px; width: 44px; font-size: 18px;"><i class="fa fa-plus"></i></button>
+							</span>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-success" id="btn_agregar_desde_imagen"><i class="fa fa-plus"></i>&nbsp;Agregar al pedido</button>
+					<button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
 				</div>
 			</div>
 		</div>
@@ -80,10 +104,8 @@ $file = json_decode($file, true);
 					<div id="lista_compuestos"></div>
 				</div>
 				<div class="modal-footer">
-					<button type="button" class="btn btn-success btn-block" id="btn_adicionar_componentes"
-						style="width:49%;display: inline-block;">Adicionar</button>
-					<button type="button" class="btn btn-outline-secondary btn-block"
-						style="width:49%;display: inline-block;" data-dismiss="modal">Cancelar</button>
+					<button type="button" class="btn btn-success" id="btn_adicionar_componentes">Adicionar</button>
+					<button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
 				</div>
 			</div>
 		</div>
@@ -460,9 +482,8 @@ $file = json_decode($file, true);
 
 	<div id="contenedor">
 		<div id="div_izquierda">
-			<div id="logo">
-				<div><img src="imagenes_internas/logo-pskloud.png" /></div>
-				<div><img src="logo_empresa.png" /></div>
+			<div id="logo" class="logo-hero">
+				<img src="imagenes/mi jardin.webp" alt="Mi Jardín" />
 			</div>
 			<div class="col-md-12 detalles_cuenta">
 				<div class="input-group">
@@ -474,7 +495,7 @@ $file = json_decode($file, true);
 				</div>
 				<div class="text-end" style="position: relative; margin-bottom:19.5px">
 					<small class="form-text text-muted" style="font-size: 1.3em; position:absolute; right:0; ">
-						TASA DEL DIA: <strong><?php echo $file['monedafactor']; ?></strong>
+						TASA DEL DIA: <strong id="tasa_del_dia"><?php echo $file['monedafactor']; ?></strong>
 					</small>
 				</div>
 			</div>
@@ -568,8 +589,8 @@ $file = json_decode($file, true);
 		</div>
 	</div>
 	<footer>
-		PremiumSoft
-		<?php echo date('Y'); ?> | Rev.: 0225.1.8 | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
+		pskmovil
+		<?php echo date('Y'); ?> | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
 			Completa</a>
 	</footer>
 </body>

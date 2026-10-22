@@ -263,21 +263,6 @@ if (isset($_POST['productos_array'])) {
             $('.precio_total_ref').val('REF.:" . number_format($monto_total_ext, 2, ',', '.') . "');
             ";
 
-		$script .= "
-        function actualizarEstadoBotonEliminarProducto() {
-            const botonesEliminarProducto = $('.clase-eliminar-producto');
-            const consumoGuardado = localStorage.getItem('consumo');
-
-            if (consumoGuardado) {
-                botonesEliminarProducto.hide();
-            } else {
-                botonesEliminarProducto.show();
-            }
-        }
-        
-        actualizarEstadoBotonEliminarProducto();
-
-    ";
     $script .= "</script>";
 
     echo $script;

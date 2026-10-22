@@ -83,6 +83,16 @@ if (file_exists($path)) {
 					$query_impuestos_adm = $objeto_conexion->general_query($bd_conexion_cliente, $query);
 					$datos_config = mysqli_fetch_array($query_impuestos_adm);
 
+					// Obtener el último valor registrado en la tabla cambio (historial de tasas)
+					$query_ultimo_cambio = "SELECT cambio FROM cambio WHERE cambio > 0 ORDER BY fecha DESC LIMIT 1";
+					$resultado_ultimo_cambio = $objeto_conexion->general_query($bd_conexion_cliente, $query_ultimo_cambio);
+					if ($resultado_ultimo_cambio && mysqli_num_rows($resultado_ultimo_cambio) > 0) {
+						$fila_cambio = mysqli_fetch_array($resultado_ultimo_cambio);
+						if (!empty($fila_cambio['cambio']) && $fila_cambio['cambio'] > 0) {
+							$datos_config['monedafactor'] = number_format($fila_cambio['cambio'], 4, '.', '');
+						}
+					}
+
 					$datos_conexion['dividemultiplica'] = $datos_config['dividemultiplica'];
 					$datos_conexion['monedafactor'] = $datos_config['monedafactor'];
 					$codigo_a_guardar = null;
@@ -172,6 +182,7 @@ if (file_exists($path)) {
 						$script .= "
 							$('#dividemultiplica').val(" . $datos_config['dividemultiplica'] . ");
 							$('#monedafactor').val(" . $datos_config['monedafactor'] . ");
+							$('#tasa_del_dia').html('" . $datos_config['monedafactor'] . "');
 							$('.simbolo_moneda_nacional').html('" . $datos_config['monnacsimb'] . "');
 							$('.simbolo_moneda_extranjera').html('" . $datos_config['monexsimb'] . "');
 							$('#ocultar_integrados').val('" . $ocultar_integrados . "');

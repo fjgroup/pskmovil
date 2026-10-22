@@ -242,7 +242,7 @@ if ($_GET['accion'] == "registrar_conexion") {
     }
 
     if( empty($_POST['cantidad_por_pagina']) ){
-        $_POST['cantidad_por_pagina'] = 9;
+        $_POST['cantidad_por_pagina'] = 12;
     }
 
     if( empty($_POST['cm_ancho_precuenta']) ){
