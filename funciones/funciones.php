@@ -27,7 +27,7 @@ function calcular_tiempo_trasnc($hora1, $hora2) {
 
 function LimpiarArreglo($array){
     foreach($array as $index => $value){
-        $array[$index] = trim($value);
+        $array[$index] = ($value !== null) ? trim($value) : '';
     }
     return $array;
 }
