@@ -1,3 +1,4 @@
 imagenes/
 imagenes_backup/
 bd/
+*.local.bak

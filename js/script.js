@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (contenedorMesaAutomatica) contenedorMesaAutomatica.style.width = '100%';
         } else {
             if (inputGroupAddon) inputGroupAddon.style.display = '';
-            if (inputMesa) inputMesa.style.width = '';
+            if (inputMesa && contenedorMesaAutomatica) inputMesa.style.width = '';
             if (contenedorMesaAutomatica) contenedorMesaAutomatica.style.width = '';
         }
     }
@@ -170,3 +170,128 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+
+// ==========================================
+// MÓDULO DE ACTUALIZACIÓN DEL SISTEMA (GIT)
+// ==========================================
+function verificar_actualizaciones_git() {
+    var $btn = $('#btn_verificar_actualizacion');
+    var $box = $('#contenedor_actualizacion');
+    var $res = $('#resultado_actualizacion');
+
+    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Consultando GitHub...');
+    $box.slideDown(200);
+    $res.html('<div style="text-align:center; color:#666; padding:10px;"><i class="fa fa-spinner fa-spin"></i> Verificando actualizaciones en el repositorio remoto...</div>');
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_actualizacion.php?accion=verificar",
+        dataType: "json",
+        timeout: 25000,
+        success: function (r) {
+            $btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> Verificar Actualizaciones');
+            if (r.status === 'al_dia') {
+                $res.html(
+                    '<div class="alert alert-success" style="margin-bottom:0;">' +
+                    '<i class="fa fa-check-circle" style="font-size:16px;"></i> <b>El sistema está al día</b><br>' +
+                    '<span style="font-size:12px; color:#2b542c;">Versión instalada: <code>' + r.commit_actual + '</code> (' + r.detalle_actual + ')</span>' +
+                    '</div>'
+                );
+            } else if (r.status === 'actualizacion_disponible') {
+                var htmlCommits = '';
+                if (r.commits && r.commits.length > 0) {
+                    htmlCommits += '<ul style="margin:5px 0 10px 18px; padding:0; font-size:12px; max-height:120px; overflow-y:auto;">';
+                    r.commits.forEach(function(c) {
+                        htmlCommits += '<li><code>' + c.hash + '</code> ' + c.mensaje + ' <small class="text-muted">(' + c.tiempo + ')</small></li>';
+                    });
+                    htmlCommits += '</ul>';
+                }
+
+                $res.html(
+                    '<div class="alert alert-warning" style="margin-bottom:0;">' +
+                    '<div style="font-size:14px; font-weight:bold; margin-bottom:5px;">' +
+                    '<i class="fa fa-cloud-download"></i> ¡Nueva actualización disponible! (' + r.num_commits + ' cambio(s))' +
+                    '</div>' +
+                    '<div><strong>Cambios en esta versión:</strong></div>' +
+                    htmlCommits +
+                    '<div style="font-size:11px; color:#66512c; margin-bottom:10px; background:rgba(255,255,255,0.7); padding:6px; border-radius:3px;">' +
+                    '<i class="fa fa-shield"></i> <b>Nota segura:</b> Tu configuración local (conexión de BD y script de inicio) se mantendrá intacta.' +
+                    '</div>' +
+                    '<button type="button" class="btn btn-success" id="btn_descargar_actualizacion" onclick="ejecutar_actualizacion_git()">' +
+                    '<i class="fa fa-download"></i> Descargar e Instalar Ahora' +
+                    '</button>' +
+                    '</div>'
+                );
+            } else {
+                $res.html(
+                    '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                    '<i class="fa fa-exclamation-triangle"></i> ' + (r.mensaje || 'Error al verificar actualizaciones.') +
+                    '</div>'
+                );
+            }
+        },
+        error: function (xhr, status, error) {
+            $btn.prop('disabled', false).html('<i class="fa fa-refresh"></i> Verificar Actualizaciones');
+            $res.html(
+                '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                '<i class="fa fa-exclamation-triangle"></i> No se pudo comunicar con el servidor o GitHub. Verifique su conexión a Internet.<br><small class="text-muted">Error: ' + error + '</small>' +
+                '</div>'
+            );
+        }
+    });
+}
+
+function ejecutar_actualizacion_git() {
+    if (!confirm("¿Está seguro de que desea descargar e instalar las actualizaciones ahora?")) {
+        return;
+    }
+
+    var $btn = $('#btn_descargar_actualizacion');
+    var $res = $('#resultado_actualizacion');
+
+    if ($btn.length) {
+        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Descargando e instalando...');
+    }
+
+    $res.html(
+        '<div style="text-align:center; padding:15px; color:#333;">' +
+        '<i class="fa fa-spinner fa-spin" style="font-size:24px; color:#337ab7;"></i><br>' +
+        '<b style="display:inline-block; margin-top:8px;">Descargando archivos y aplicando actualización...</b><br>' +
+        '<span style="font-size:12px; color:#777;">Por favor espere, no cierre esta ventana.</span>' +
+        '</div>'
+    );
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_actualizacion.php?accion=actualizar",
+        dataType: "json",
+        timeout: 60000,
+        success: function (r) {
+            if (r.status === 'exito') {
+                $res.html(
+                    '<div class="alert alert-success" style="margin-bottom:0;">' +
+                    '<h4 style="margin-top:0;"><i class="fa fa-check-circle"></i> ¡Actualización Exitosa!</h4>' +
+                    '<p style="font-size:13px;">' + r.mensaje + '</p>' +
+                    '<p style="font-size:12px; color:#2b542c;">Nueva versión activa: <code>' + r.commit_instalado + '</code> (' + r.detalle_instalado + ')</p>' +
+                    '<button type="button" class="btn btn-primary" onclick="window.location.reload()">' +
+                    '<i class="fa fa-refresh"></i> Recargar Sistema Ahora' +
+                    '</button>' +
+                    '</div>'
+                );
+            } else {
+                $res.html(
+                    '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                    '<i class="fa fa-exclamation-triangle"></i> Error al actualizar: ' + (r.mensaje || 'Ocurrió un error inesperado.') +
+                    '</div>'
+                );
+            }
+        },
+        error: function (xhr, status, error) {
+            $res.html(
+                '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                '<i class="fa fa-exclamation-triangle"></i> Falló la solicitud de actualización.<br><small class="text-muted">Error: ' + error + '</small>' +
+                '</div>'
+            );
+        }
+    });
+}

@@ -369,6 +369,18 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 				<div class="btn btn-danger" onclick="ocultar_conf_conexion()">Cancelar</div>
 				<br>
 				<i class="msj_conexion"></i>
+				<br>
+				<hr style="border-top: 1px solid #ccc; margin: 20px 0 15px 0;">
+				<div class="titulos_puntos"><i class="fa fa-refresh"></i> Actualizaci&oacute;n del Sistema (Git)</div>
+				<p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 10px;">
+					Comprueba si hay nuevas versiones en GitHub y actualiza autom&aacute;ticamente los archivos del sistema sin modificar tus datos de conexi&oacute;n local.
+				</p>
+				<button type="button" class="btn btn-info" id="btn_verificar_actualizacion" onclick="verificar_actualizaciones_git()">
+					<i class="fa fa-refresh"></i> Verificar Actualizaciones
+				</button>
+				<div id="contenedor_actualizacion" style="display:none; margin-top: 12px; text-align: left;">
+					<div id="resultado_actualizacion"></div>
+				</div>
 				<br><br>
 			</div>
 		</form>
@@ -539,14 +551,8 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 					<input type="text" class="form-control" id="nrorif" placeholder="Nro Identificación"
 						value="" />
 
-					<div class="input-group" id="contenedor_mesa_automatica">
-						<input type="text" class="form-control" id="input_mesa" placeholder="Mesa"
-							onchange="consultar_mesa()" />
-						<div class="input-group-addon">
-							Autom&aacute;tico&nbsp;<input type="checkbox" id="mesa_automatica"
-								onclick="MesaAutomatica()" />
-						</div>
-					</div>
+					<input type="text" class="form-control" id="input_mesa" placeholder="Mesa"
+						onchange="consultar_mesa()" />
 					<div style="text-align:center">
 						<div class="btn btn-success" onclick="procesar_pedido('1')"><i
 								class="fa fa-check"></i>&nbsp;Procesar</div>
