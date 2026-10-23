@@ -1,13 +1,14 @@
 <?php
 $file = file_get_contents('datos_conexion.json');
 $file = json_decode($file, true);
+$titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_empresa']) : 'Comandas Móviles';
 ?>
 <!DOCTYPE html>
 <html>
 
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
-	<title>Pedidos Restaurant PSKLOUD</title>
+	<title><?php echo $titulo_web; ?></title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<meta charset="UTF-8" />
 	<link rel="shortcut icon" href="imagenes/favicon.png" />
@@ -351,6 +352,10 @@ $file = json_decode($file, true);
 						<input type="checkbox" name="no_tiene_existencia" id="no_tiene_existencia_conf" />&nbsp;
 						No permitir Art&iacute;culos sin existencias
 					</label><br>
+					<label>
+						<input type="checkbox" name="permitir_descuentos" id="permitir_descuentos_conf" />&nbsp;
+						Permitir Descuentos a las Comidas
+					</label><br>
 				<label>
 					<input type="checkbox" name="ocultar_campos" id="ocultar_campos_conf" />&nbsp;
 					Ocultar campos
@@ -513,6 +518,7 @@ $file = json_decode($file, true);
 					<input type="hidden" id="ocultar_integrados" />
 					<input type="hidden" id="cliente_exento" />
 					<input type="hidden" id="no_tiene_existencia" />
+					<input type="hidden" id="permitir_descuentos" value="<?php echo isset($file['permitir_descuentos']) ? $file['permitir_descuentos'] : 'si'; ?>" />
 					<div class="input-group">
 						<input type="text" class="form-control" id="input_vendedor" placeholder="Vendedor" readonly />
 						<div class="input-group-addon" onclick="window.location.href=''"
@@ -589,9 +595,11 @@ $file = json_decode($file, true);
 		</div>
 	</div>
 	<footer>
-		pskmovil
-		<?php echo date('Y'); ?> | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla
-			Completa</a>
+		<strong>Comandas Móviles v2.0</strong> &copy; <?php echo date('Y'); ?> | 
+		<a href="https://wa.me/584128172337?text=Hola%20C%C3%A9sar,%20te%20contacto%20desde%20el%20sistema%20Comandas%20M%C3%B3viles" target="_blank" title="Contactar por WhatsApp">
+			<i class="fa fa-whatsapp" style="color: #25D366; font-size: 14px;"></i> Actualizado por César Figueroa
+		</a>
+		| <a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;">Pantalla Completa</a>
 	</footer>
 </body>
 

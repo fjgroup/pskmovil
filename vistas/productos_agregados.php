@@ -9,12 +9,17 @@ include ("../funciones/funciones.php");
 $objeto_pedido = new crud();
 $bd_conexion_cliente = "cliente";
 
+$permitir_descuentos = isset($datos_conexion['permitir_descuentos']) ? $datos_conexion['permitir_descuentos'] : 'si';
+
 echo "		
 		<table class='table table-striped'>
 			<thead>
 				<tr>
-					<th>Notas</th>
-					<th>Dscto</th>
+					<th>Notas</th>";
+if ($permitir_descuentos != 'no') {
+	echo "<th>Dscto</th>";
+}
+echo "
 					<th>Codigo</th>
 					<th>Cant.</th>
 					<th>Producto</th>
@@ -223,8 +228,11 @@ if (isset($_POST['productos_array'])) {
 			}
 
 			echo "							
-						<td><i class='fa fa-edit'></i></td>
-						<td><i class='fa fa-percent'></i></td>
+						<td><i class='fa fa-edit'></i></td>";
+			if ($permitir_descuentos != 'no') {
+				echo "<td><i class='fa fa-percent'></i></td>";
+			}
+			echo "
 						<td>" . $codigo . "</td>
 						<td>" . $cantidad . "</td>
 						<td>" . $nombre . "</td>

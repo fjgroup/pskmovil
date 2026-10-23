@@ -449,6 +449,12 @@ function mostrar_conf_conexion() {
 				$('#ocultar_integrados_conf').prop('checked', false);
 			}
 
+			if (r.permitir_descuentos == 'no') {
+				$('#permitir_descuentos_conf').prop('checked', false);
+			} else {
+				$('#permitir_descuentos_conf').prop('checked', true);
+			}
+
 		},
 		error: function (err) {
 			ocultar_cargando();
@@ -1090,6 +1096,10 @@ function ocultar_notas() {
 }
 
 function descuentos_productos() {
+	var permitir_descuentos = $('#permitir_descuentos').val();
+	if (permitir_descuentos == 'no') {
+		return;
+	}
 	$('#productos_agregados table tbody tr').mouseenter(function () {
 		var pid = $(this).attr('pid');
 		$('#productos_agregados table tbody tr[pid="' + pid + '"]').find('.fa-percent').unbind();

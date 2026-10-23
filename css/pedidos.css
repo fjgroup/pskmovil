@@ -448,16 +448,25 @@ a:hover {
 footer {
 	position: relative;
 	clear: both;
-	height: 50px;
+	min-height: 48px;
+	height: auto;
 	text-align: center;
 	color: #FFF;
-	padding-top: 10px;
+	padding: 12px 10px;
 	background-color: #000;
-	border-top: 5px solid #0E5B8A;
+	border-top: 4px solid #0E5B8A;
+	font-size: 13px;
+	line-height: 1.6;
 }
 
 footer a {
 	color: #FFF;
+	text-decoration: none;
+}
+
+footer a:hover {
+	color: #25D366;
+	text-decoration: underline;
 }
 
 #msj_php {

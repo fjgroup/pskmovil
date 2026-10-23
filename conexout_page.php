@@ -11,7 +11,7 @@
 <body>
 	<nav class="navbar navbar-default">
 		<div class="container-fluid">
-			<a class="navbar-brand" href="https://premium-soft.com/">Premium Soft</a>
+			<a class="navbar-brand" href="index.php">Comandas Móviles</a>
 		</div>
 	</nav>
 	<div class="col-md-3"></div>

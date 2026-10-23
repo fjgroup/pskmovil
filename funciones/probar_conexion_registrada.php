@@ -36,6 +36,7 @@ if (file_exists($path)) {
 	$ocultar_integrados = $datos_conexion['ocultar_integrados'];
 	$cantidad_por_pagina = $datos_conexion['cantidad_por_pagina'];
 	$no_tiene_existencia = !isset($datos_conexion['no_tiene_existencia']) ? 'no' : $datos_conexion['no_tiene_existencia'];
+	$permitir_descuentos = !isset($datos_conexion['permitir_descuentos']) ? 'si' : $datos_conexion['permitir_descuentos'];
 	if (empty($datos_conexion['tipo_doc'])) {
 		$datos_conexion['tipo_doc'] = 'ESP';
 	}
@@ -199,6 +200,7 @@ if (file_exists($path)) {
 							$('#pw_supervisor').val('" . $pw_supervisor . "');
 							$('#tipo_doc').val('" . $tipo_doc . "');
 							$('#no_tiene_existencia').val('" . $no_tiene_existencia . "');
+							$('#permitir_descuentos').val('" . $permitir_descuentos . "');
 						</script>
 					";
 

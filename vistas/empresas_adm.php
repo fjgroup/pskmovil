@@ -7,7 +7,7 @@
 	</div>
 
 	<div style="text-align:center">
-		PremiumSoft © <?php echo date('d/m/Y'); ?> | Privacy Policy | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla Completa</a>
+		Comandas Móviles v2.0 © <?php echo date('Y'); ?> | <a onclick="launchIntoFullscreen(document.documentElement)">Pantalla Completa</a>
 	</div>	
 
 	<br><br>

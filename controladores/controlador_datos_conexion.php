@@ -241,6 +241,12 @@ if ($_GET['accion'] == "registrar_conexion") {
         $_POST['no_tiene_existencia'] = 'si';
     }
 
+    if( !isset($_POST['permitir_descuentos']) ){
+        $_POST['permitir_descuentos'] = 'no';
+    }else{
+        $_POST['permitir_descuentos'] = 'si';
+    }
+
     if( empty($_POST['cantidad_por_pagina']) ){
         $_POST['cantidad_por_pagina'] = 12;
     }
@@ -255,6 +261,14 @@ if ($_GET['accion'] == "registrar_conexion") {
 
     if( empty($_POST['minutos_inactividad']) ){
         $_POST['minutos_inactividad'] = 0;
+    }
+
+    $datos_existentes = array();
+    if (file_exists('../datos_conexion.json')) {
+        $datos_existentes = json_decode(file_get_contents('../datos_conexion.json'), true);
+        if (!is_array($datos_existentes)) {
+            $datos_existentes = array();
+        }
     }
 
     $array = array(
@@ -282,8 +296,19 @@ if ($_GET['accion'] == "registrar_conexion") {
         "cm_ancho_precuenta"=>$_POST['cm_ancho_precuenta'],
         "tipo_doc"=>$_POST['tipo_doc'],
         "no_tiene_existencia"=>$_POST['no_tiene_existencia'],
+        "permitir_descuentos"=>$_POST['permitir_descuentos'],
         "minutos_inactividad"=>$_POST['minutos_inactividad']
     );
+
+    if (isset($datos_existentes['impuestos'])) {
+        $array['impuestos'] = $datos_existentes['impuestos'];
+    }
+    if (isset($datos_existentes['dividemultiplica'])) {
+        $array['dividemultiplica'] = $datos_existentes['dividemultiplica'];
+    }
+    if (isset($datos_existentes['monedafactor'])) {
+        $array['monedafactor'] = $datos_existentes['monedafactor'];
+    }
     
     $file = file_put_contents('../datos_conexion.json', json_encode($array));
     if($file){
