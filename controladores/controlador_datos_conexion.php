@@ -195,109 +195,64 @@ if ( $_GET['accion'] == "consultar_cliente") {
 
 if ($_GET['accion'] == "registrar_conexion") {
 
+    require_once dirname(__DIR__) . '/funciones/config_helper.php';
+
     foreach($_POST as $index => $value){
         $_POST[$index] = trim($value);
     }
 
-    if( !isset($_POST['compartir_mesas']) ){
-        $_POST['compartir_mesas'] = 'no';
-    }else{
-        $_POST['compartir_mesas'] = 'si';
-    }
+    $compartir_mesas = isset($_POST['compartir_mesas']) ? 'si' : 'no';
+    $usar_subgrupos = isset($_POST['usar_subgrupos']) ? 'si' : 'no';
+    $agrupar_mesas = isset($_POST['agrupar_mesas']) ? 'si' : 'no';
+    $no_usar_impuestos = isset($_POST['no_usar_impuestos']) ? 'si' : 'no';
+    $no_editar_integrados = isset($_POST['no_editar_integrados']) ? 'si' : 'no';
+    $ocultar_integrados = isset($_POST['ocultar_integrados']) ? 'si' : 'no';
+    $no_tiene_existencia = isset($_POST['no_tiene_existencia']) ? 'si' : 'no';
+    $permitir_descuentos = isset($_POST['permitir_descuentos']) ? 'si' : 'no';
 
-    if( !isset($_POST['usar_subgrupos']) ){
-        $_POST['usar_subgrupos'] = 'no';
-    }else{
-        $_POST['usar_subgrupos'] = 'si';
-    }
+    $datos_existentes = obtener_config_sistema();
 
-    if( !isset($_POST['agrupar_mesas']) ){
-        $_POST['agrupar_mesas'] = 'no';
-    }else{
-        $_POST['agrupar_mesas'] = 'si';
-    }
+    $host_loc = !empty($_POST['host']) ? $_POST['host'] : '127.0.0.1';
+    $user_loc = !empty($_POST['user']) ? $_POST['user'] : 'root';
+    $pw_loc   = isset($_POST['pw']) ? $_POST['pw'] : 'root';
+    $port_loc = !empty($_POST['port']) ? (int)$_POST['port'] : 3307;
+    $bd_pos   = !empty($_POST['bd']) ? $_POST['bd'] : 'adminbahiap';
+    $bd_sist  = !empty($_POST['bd_sistema']) ? $_POST['bd_sistema'] : 'mijar_sistema';
 
-    if( !isset($_POST['no_usar_impuestos']) ){
-        $_POST['no_usar_impuestos'] = 'no';
-    }else{
-        $_POST['no_usar_impuestos'] = 'si';
-    }
-
-    if( !isset($_POST['no_editar_integrados']) ){
-        $_POST['no_editar_integrados'] = 'no';
-    }else{
-        $_POST['no_editar_integrados'] = 'si';
-    }
-
-    if( !isset($_POST['ocultar_integrados']) ){
-        $_POST['ocultar_integrados'] = 'no';
-    }else{
-        $_POST['ocultar_integrados'] = 'si';
-    }
-
-    if( !isset($_POST['no_tiene_existencia']) ){
-        $_POST['no_tiene_existencia'] = 'no';
-    }else{
-        $_POST['no_tiene_existencia'] = 'si';
-    }
-
-    if( !isset($_POST['permitir_descuentos']) ){
-        $_POST['permitir_descuentos'] = 'no';
-    }else{
-        $_POST['permitir_descuentos'] = 'si';
-    }
-
-    if( empty($_POST['cantidad_por_pagina']) ){
-        $_POST['cantidad_por_pagina'] = 12;
-    }
-
-    if( empty($_POST['cm_ancho_precuenta']) ){
-        $_POST['cm_ancho_precuenta'] = 8;
-    }
-
-    if( empty($_POST['tipo_doc']) ){
-        $_POST['tipo_doc'] = 'ESP';
-    }
-
-    if( empty($_POST['minutos_inactividad']) ){
-        $_POST['minutos_inactividad'] = 0;
-    }
-
-    $datos_existentes = array();
-    if (file_exists('../datos_conexion.json')) {
-        $datos_existentes = json_decode(file_get_contents('../datos_conexion.json'), true);
-        if (!is_array($datos_existentes)) {
-            $datos_existentes = array();
-        }
-    }
+    $url_host = !empty($_POST['url_hosting']) ? rtrim($_POST['url_hosting'], '/') : 'https://mijardinrestaurant.test';
+    $url_mesa = !empty($_POST['url_web_mesa']) ? $_POST['url_web_mesa'] : ($url_host . '/mesa');
 
     $array = array(
-        "host"=>$_POST['host'],
-        "user"=>$_POST['user'],
-        "pw"=>$_POST['pw'],
-        "bd"=>$_POST['bd'],
-        "port"=>$_POST['port'],
-        "nombre_empresa"=>$_POST['nombre_empresa'],
-        "cod_empresa"=>$_POST['cod_empresa'],
-        "cod_agencia"=>$_POST['cod_agencia'],
-        "cod_cliente"=>$_POST['cod_cliente'],
-        "nrorif"=>$_POST['nrorif'],
-        "cod_zona"=>$_POST['cod_zona'],
-        "cod_deposito"=>$_POST['cod_deposito'],
-        "recargo"=>($_POST['recargo']=='' ? 0 : $_POST['recargo']),
-        "pw_supervisor"=>$_POST['pw_supervisor'],
-        "cantidad_por_pagina"=>$_POST['cantidad_por_pagina'],
-        "cuentas_compartidas_entre_vendedores"=>$_POST['compartir_mesas'],
-        "agrupar_mesas_por_ubicacion"=>$_POST['agrupar_mesas'],
-        "usar_subgrupos"=>$_POST['usar_subgrupos'],
-        "no_usar_impuestos"=>$_POST['no_usar_impuestos'],
-        "no_editar_integrados"=>$_POST['no_editar_integrados'],
-        "ocultar_integrados"=>$_POST['ocultar_integrados'],        
-        "cm_ancho_precuenta"=>$_POST['cm_ancho_precuenta'],
-        "tipo_doc"=>$_POST['tipo_doc'],
-        "no_tiene_existencia"=>$_POST['no_tiene_existencia'],
-        "permitir_descuentos"=>$_POST['permitir_descuentos'],
-        "minutos_inactividad"=>$_POST['minutos_inactividad']
+        "host" => $host_loc,
+        "user" => $user_loc,
+        "pw" => $pw_loc,
+        "bd" => $bd_pos,
+        "bd_pos" => $bd_pos,
+        "bd_sistema" => $bd_sist,
+        "port" => $port_loc,
+        "url_hosting" => $url_host,
+        "url_web_mesa" => $url_mesa,
+        "nombre_empresa" => $_POST['nombre_empresa'] ?? ($datos_existentes['nombre_empresa'] ?? ''),
+        "cod_empresa" => $_POST['cod_empresa'] ?? '',
+        "cod_agencia" => $_POST['cod_agencia'] ?? '',
+        "cod_cliente" => $_POST['cod_cliente'] ?? '',
+        "nrorif" => $_POST['nrorif'] ?? '',
+        "cod_zona" => $_POST['cod_zona'] ?? '',
+        "cod_deposito" => $_POST['cod_deposito'] ?? '',
+        "recargo" => ($_POST['recargo'] == '' ? 0 : $_POST['recargo']),
+        "pw_supervisor" => $datos_existentes['pw_supervisor'] ?? 'PREMIUM',
+        "cantidad_por_pagina" => !empty($_POST['cantidad_por_pagina']) ? $_POST['cantidad_por_pagina'] : 12,
+        "cuentas_compartidas_entre_vendedores" => $compartir_mesas,
+        "agrupar_mesas_por_ubicacion" => $agrupar_mesas,
+        "usar_subgrupos" => $usar_subgrupos,
+        "no_usar_impuestos" => $no_usar_impuestos,
+        "no_editar_integrados" => $no_editar_integrados,
+        "ocultar_integrados" => $ocultar_integrados,        
+        "cm_ancho_precuenta" => !empty($_POST['cm_ancho_precuenta']) ? $_POST['cm_ancho_precuenta'] : 8,
+        "tipo_doc" => !empty($_POST['tipo_doc']) ? $_POST['tipo_doc'] : 'ESP',
+        "no_tiene_existencia" => $no_tiene_existencia,
+        "permitir_descuentos" => $permitir_descuentos,
+        "minutos_inactividad" => !empty($_POST['minutos_inactividad']) ? $_POST['minutos_inactividad'] : 0
     );
 
     if (isset($datos_existentes['impuestos'])) {
@@ -309,20 +264,71 @@ if ($_GET['accion'] == "registrar_conexion") {
     if (isset($datos_existentes['monedafactor'])) {
         $array['monedafactor'] = $datos_existentes['monedafactor'];
     }
-    
-    $file = file_put_contents('../datos_conexion.json', json_encode($array));
-    if($file){
-        echo "
-            <i class='fa fa-check'></i> Datos registrados
-            <script>
-                window.location.reload();
-            </script>
-        ";
-    }else{
-        echo "<i class='fa fa-times'></i> Ha ocurrido un error";
+
+    // Guardar en la base de datos local mijar_sistema (puerto 3307)
+    $guardado = guardar_config_sistema($array);
+
+    // Obtener las formas de pago (cuentas bancarias de listbanc en adminbahiap) para enviar a la BD remota
+    $bancos_para_nube = [];
+    $mysqli_pos = @new mysqli($host_loc, $user_loc, $pw_loc, $bd_pos, $port_loc);
+    if ($mysqli_pos && !$mysqli_pos->connect_errno) {
+        $resBancos = $mysqli_pos->query("SELECT codigo, banco, titular, represent as contacto, telefonos as telefono, cuentaban as cuenta FROM listbanc WHERE inactiva = 0 OR inactiva IS NULL");
+        if ($resBancos && $resBancos->num_rows > 0) {
+            while ($b = $resBancos->fetch_assoc()) {
+                $nombreB = trim($b['banco'] ?? '');
+                $tipoB = 'PAGO_MOVIL';
+                if (stripos($nombreB, 'zelle') !== false) $tipoB = 'ZELLE';
+                elseif (stripos($nombreB, 'transferencia') !== false) $tipoB = 'TRANSFERENCIA';
+
+                $bancos_para_nube[] = [
+                    'banco' => $nombreB,
+                    'titular' => trim($b['titular'] ?? ''),
+                    'contacto' => trim($b['contacto'] ?? ''),
+                    'identificacion' => trim($b['contacto'] ?? ''),
+                    'telefono' => trim($b['telefono'] ?? ''),
+                    'cuenta' => trim($b['cuenta'] ?? ''),
+                    'numero_cuenta' => trim($b['cuenta'] ?? ''),
+                    'tipo' => $tipoB,
+                ];
+            }
+        }
+        $mysqli_pos->close();
     }
 
+    // Enviar a la BD remota del hosting vía HTTPS
+    $url_api = $url_host . '/api/sincronizar-mesas';
+    $payload = json_encode([
+        'bancos' => $bancos_para_nube,
+        'empresa' => $array['nombre_empresa'],
+        'tasa_dia' => $array['monedafactor'] ?? 1,
+    ], JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init($url_api);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $cantBancos = count($bancos_para_nube);
+    if ($code === 200) {
+        echo "<i class='fa fa-check'></i> ¡BD remota y local actualizadas con éxito! (" . $cantBancos . " formas de pago sincronizadas en la nube)
+        <script>
+            setTimeout(function(){ window.location.reload(); }, 1500);
+        </script>";
+    } else {
+        echo "<i class='fa fa-check'></i> Guardado en BD local (" . ($code ? "Nube HTTP $code" : "Nube offline") . ")
+        <script>
+            setTimeout(function(){ window.location.reload(); }, 1500);
+        </script>";
+    }
 }
+
 
 if ($_GET['accion'] == "mostrar_datos_conexion") {
 

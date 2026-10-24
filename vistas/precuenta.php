@@ -7,8 +7,9 @@
 	$datos_config = mysqli_fetch_array($resultado);
 */
 
-$file = file_get_contents('../datos_conexion.json');
-$file = json_decode($file, true);
+require_once dirname(__DIR__) . '/funciones/config_helper.php';
+$datos_conexion = obtener_config_sistema();
+$file = $datos_conexion;
 
 include ("../modelos/modelo_crud.php");
 $objeto_conexion = new crud();

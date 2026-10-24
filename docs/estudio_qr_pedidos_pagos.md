@@ -1,176 +1,230 @@
-# Estudio de Factibilidad Técnica: Módulo de Cuenta por QR y Reporte de Pagos
+# Estudio de Factibilidad Técnica: Módulo de Cuenta por QR, Reporte de Pagos y Menú Web Seguro
 
 **Proyecto:** pskmovil  
-**Fecha:** 22 de Octubre de 2026  
-**Documento:** Propuesta Técnica y Análisis de Base de Datos  
+**Fecha de Actualización:** 23 de Octubre de 2026  
+**Documento:** Propuesta Técnica de Arquitectura Híbrida (Local + Cloud)  
 
 ---
 
-## 1. Resumen del Objetivo
+## 1. Diagnóstico de Seguridad y Red Local
 
-Permitir que, una vez que el mesonero cargue los productos en una mesa activa (ejemplo: `MESA05`), se disponga de un botón **Compartir** que genere un código **QR dinámico**. 
+### 1.1. Riesgos de una Red Plana Compartida
+En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 2010/8080 y MySQL 3306/3307) a la misma red Wi-Fi donde se conectan los clientes presenta riesgos críticos:
+- **Escaneo de Puertos y Vulnerabilidades:** Un comensal o persona en las adyacencias puede escanear la red con herramientas como Nmap o Fing y atacar servicios de Windows (SMB puerto 445, RDP 3389, o MySQL 3306).
+- **Ataques DoS:** Saturar el servidor Apache local y paralizar la toma de comandas de los mesoneros en plena hora pico.
 
-Al ser escaneado por el cliente desde su propio teléfono inteligente:
-1. **Vista de Cuenta en Tiempo Real (Solo Lectura):** El cliente visualiza los artículos ordenados con su **hora**, **cantidad**, **descripción** y **total**, junto al monto final en Bs. y Divisas (Tasa del día).
-2. **Reporte de Pago (Pago Móvil / Transferencia):** El cliente visualiza los datos bancarios del establecimiento y puede registrar el comprobante (método, banco emisor, referencia y monto).
-3. **Panel de Verificación y Aprobación:** En el sistema web (`pskmovil`), los mesoneros y la caja reciben una alerta visual de "Pago por Aprobar". Con la clave autorizada (cajero/ventas), se aprueba el pago.
-4. **Confirmación Inmediata al Cliente:** El dispositivo del cliente actualiza su estado a **"Pago Confirmado"**.
-5. **Seguridad y Aislamiento por Sesión:** El QR utiliza un token único aleatorio. Al cerrarse la mesa o iniciar una nueva cuenta, el token expira para proteger la privacidad de consumos posteriores.
+### 1.2. Reglas de Protección Físicas y Firewall
 
----
+#### A. Segmentación Wi-Fi en el Router
+1. **Wi-Fi Privada (`Restaurante_Interno`):** Exclusiva para el Servidor (`192.168.1.100`), la PC de la Administradora (`192.168.1.101`) y los dispositivos móviles de los mesoneros. Esta contraseña **nunca se comparte con clientes**.
+2. **Wi-Fi Clientes (`Restaurante_Invitados`):** Para los clientes que soliciten internet.
+   - **Aislamiento de Clientes (AP Isolation):** Activado (los dispositivos de los clientes no pueden comunicarse entre sí).
+   - **Bloqueo a Red Local (LAN Isolation):** Activado (el router les da salida a Internet pero bloquea cualquier intento de acceder al rango `192.168.1.X`).
 
-## 2. Análisis del Código y Base de Datos Existente
-
-### 2.1. ¿Se guarda la hora en que se incluyen los artículos?
-**SÍ, completamente.**
-- En la tabla de movimientos de cuenta activa (`opermv`), existe el campo **`fechayhora`** de tipo `datetime` (ejemplo: `2026-10-22 19:35:10`), que se registra automáticamente en cada inserción a través de `controladores/controlador_pedidos.php`.
-- También se cuenta con `fechadoc` (`date`) y `fechadocant`.
-- **Conclusión:** Es 100% viable extraer la hora formateada (`H:i` o `h:i A`) de cada ítem pedido para mostrarla en la comanda del cliente:
+#### B. Regla Estricta para MySQL (Puerto 3306)
+- Dado que solo dos computadoras interactúan con la base de datos de Premium Soft:
+  - **Servidor Local:** `192.168.1.100` (`localhost` / `127.0.0.1`)
+  - **Administradora:** `192.168.1.101`
+- En el **Firewall de Windows Defender** del Servidor:
+  - Se crea una regla de entrada en el puerto TCP `3306` con ámbito restringido (**Scope**): **Únicamente permitir la IP `192.168.1.101` y `127.0.0.1`**. Cualquier otra IP es rechazada de inmediato a nivel de red.
+- En MySQL:
   ```sql
-  SELECT DATE_FORMAT(fechayhora, '%h:%i %p') AS hora, cantidad, nombre, preciounit, preciofin, montoneto
-  FROM opermv
-  WHERE documento = 'EMESA05' AND tipodoc = 'ESP'
-  ORDER BY fechayhora ASC;
+  -- Usuario administrativo exclusivo desde la IP de la administradora
+  GRANT ALL ON adminbahiap.* TO 'admin_bahia'@'192.168.1.101' IDENTIFIED BY 'ClaveRobusta2026!';
+  FLUSH PRIVILEGES;
   ```
 
-### 2.2. ¿Cómo se gestionan los usuarios y contraseñas?
-- En el sistema tradicional de escritorio (heredado de Premium Soft), la tabla `usuarios` no almacena contraseñas en texto plano para los cajeros en terminales móviles.
-- **La tabla operativa de ventas/caja es `listvend`:**
-  - Columnas: `codigo`, `nombre`, `claverest`.
-  - El campo **`claverest`** (varchar(8)) es la clave de restaurante configurada para cada vendedor/cajero (validada en `controladores/controlador_vendedores.php` durante el login).
-- Adicionalmente, el sistema web maneja en `datos_conexion.json` la clave maestra de supervisor:
-  - `"pw_supervisor": "123"` (validada en `funciones/permisos_adm.php`).
-- **Conclusión:** Para la aprobación del pago, se puede autorizar con la **`claverest` del usuario "Caja" o "Ventas"** (o en su defecto con la clave de supervisor).
-
-### 2.3. Estructura de Bancos existente (`bancotab`)
-- La tabla `bancotab` existente contiene únicamente:
-  - `id_empresa`, `agencia`, `codigo`, `nombre` (ej. "BANCO GENÉRICO", "BIOPAGO", "CUENTA ZELLE", "PAGO MOVIL"), `inactivo`.
-- **Limitación identificada:** No posee campos para número de cuenta de 20 dígitos, cédula/RIF del titular ni teléfono para Pago Móvil.
-- **Solución recomendada:** Crear una pequeña tabla de configuración bancaria (`psk_cuentas_receptoras`) o un archivo JSON de configuración con los datos que se presentarán al cliente para pagar.
-
 ---
 
-## 3. Arquitectura de la Solución Propuesta
+## 2. Arquitectura Híbrida: Servidor Local Windows (3307) + Hosting Web (3306)
+
+Para garantizar que los clientes **nunca toquen la red local**, la interacción con comensales se traslada a un hosting en internet con dominio propio (`mijardinrestaurant.com` / `mijardinrestaurant.test`) desarrollado en **Laravel + Blade**.
+
+### 2.1. Separación Estricta de Bases de Datos
+1. **Entorno Local (Puerto 3307 - PC Restaurante):**
+   - **`adminbahiap`:** Base de datos principal de Premium Soft (tablas vírgenes: `operti`, `opermv`, etc.).
+   - **`mijar_sistema` (Local):** Base de datos satélite que almacena el PIN generado por el mesonero en `z_status_pago` y copia local en `z_mesas_activas`.
+2. **Entorno Nube / Remoto (Puerto 3306 - Hosting Web):**
+   - **`mijar_sistema` (Nube):** Base de datos que alimenta el portal web del cliente (`mijardinrestaurant.com` / `mijardinrestaurant.test`).
+   - Solo recibe datos mediante peticiones salientes seguras (**HTTPS POST Outbound**) emitidas por el demonio local `sync_daemon.php`.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Mesonero as Mesonero (pskmovil)
-    actor Cliente as Cliente (Teléfono Móvil)
-    participant Sistema as Servidor pskmovil
-    participant BD as Base de Datos MySQL
-    actor Caja as Cajero / Mesonero
+flowchart TD
+    subgraph RedLocal [Red Local Privada del Restaurante - Puerto 3307]
+        PS[Premium Soft\nBD: adminbahiap :3307]
+        LocalSat[BD Satélite Local\nmijar_sistema :3307]
+        Mesoneros[Mesoneros con Móviles\ncomandasmoviles :8080]
+        BatSync[iniciar_sincronizador.bat\nsync_daemon.php en 2do Plano]
 
-    Mesonero->>Sistema: Presiona "Compartir QR" en MESA05
-    Sistema->>BD: Genera/Obtiene Token único de Sesión Activa
-    Sistema-->>Mesonero: Muestra Modal con Código QR
-    Cliente->>Sistema: Escanea QR (URL con token: /cuenta.php?token=xyz...)
-    Sistema->>BD: Consulta opermv (ítems, horas, totales)
-    Sistema-->>Cliente: Interfaz móvil (Artículos, Hora, Total Bs y Ref USD)
-    Cliente->>Sistema: Registra pago (Banco, Referencia, Monto)
-    Sistema->>BD: Guarda registro en `psk_pagos_mesa` (Estado: Pendiente)
-    Sistema-->>Caja: Alerta visual debajo de Procesar/Comanda ("Pago por Aprobar")
-    Caja->>Sistema: Ingresa clave de Ventas/Caja y aprueba
-    Sistema->>BD: Actualiza estado a "APROBADO"
-    Cliente->>Sistema: Auto-refresh detecta cambio: muestra "¡Pago Confirmado!"
+        Mesoneros -->|1. Toma pedidos| PS
+        Mesoneros -->|2. Botón Compartir: Genera PIN| LocalSat
+        BatSync -->|3. Lee pedidos y PIN| PS
+        BatSync -->|3. Lee PIN| LocalSat
+    end
+
+    subgraph Internet [Internet / Hosting Web - Puerto 3306]
+        WebAPI[API Laravel: POST /api/sincronizar-mesas]
+        CloudDB[(BD Cloud: mijar_sistema :3306)]
+        WebMesa[Ruta /mesa: Consulta del Comensal\nContador Regresivo si no ha sincronizado]
+
+        WebAPI -->|Escribe mesas activas| CloudDB
+        WebMesa -->|Lee cuenta del cliente| CloudDB
+    end
+
+    subgraph Clientes [Clientes del Restaurante]
+        Comensal[Cliente con Teléfono Móvil\nDatos 4G/5G o Wi-Fi Invitados]
+        Comensal -->|Escanea QR o PIN| WebMesa
+    end
+
+    BatSync -->|4. Envía mesas activas cada 12s via HTTPS POST| WebAPI
 ```
 
 ---
 
-## 4. Diseño de Base de Datos Necesario
+## 3. Experiencia de Usuario: Token Dinámico y Contador Regresivo
 
-Para no alterar las tablas nativas de Premium Soft (`operti`, `opermv`, etc.) y garantizar total estabilidad del sistema, se propone la creación de dos tablas satélite ligeras:
+### 3.1. Dos Métodos de Acceso para el Cliente
+1. **Acceso Automático por QR:**
+   - El mesonero presiona "Compartir" en su teléfono.
+   - El QR contiene la URL segura con el PIN: `https://mijardinrestaurant.com/mesa?t=339109`.
+   - Al escanearlo, el cliente entra directamente a su cuenta sin tener que escribir nada.
+2. **Acceso Manual por PIN:**
+   - Si el cliente no escanea el QR, ingresa directamente a `https://mijardinrestaurant.com/mesa`.
+   - La pantalla le solicita el **PIN de 6 dígitos** (ej: `339109`), el cual se lo dicta el mesonero o lo ve en la comanda.
 
-### 4.1. Tabla: `psk_sesiones_qr`
-Garantiza que el enlace sea **único y efímero** para cada grupo de clientes que ocupa la mesa.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | INT AUTO_INCREMENT PRIMARY KEY | Identificador único |
-| `mesa` | VARCHAR(20) | Identificador de mesa (ej. `MESA05`) |
-| `token` | VARCHAR(64) UNIQUE | Hash aleatorio criptográfico (ej. `bin2hex(random_bytes(16))`) |
-| `fecha_apertura` | DATETIME | Momento en que se generó la sesión |
-| `estado` | ENUM('ACTIVA', 'CERRADA') | Estado de la sesión |
-
-> **Mecanismo de Caducidad:** Cuando la mesa es procesada o liberada en el sistema, la sesión pasa a `CERRADA`. Si un cliente anterior vuelve a abrir el enlace después de retirarse, el sistema le indica: *"Esta cuenta ya ha sido cerrada. ¡Gracias por su visita!"*, impidiendo ver pedidos de nuevos comensales.
-
-### 4.2. Tabla: `psk_pagos_mesa`
-Almacena el reporte del pago enviado por el cliente.
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | INT AUTO_INCREMENT PRIMARY KEY | ID de pago |
-| `sesion_token` | VARCHAR(64) | Enlace con la sesión QR |
-| `mesa` | VARCHAR(20) | Código de la mesa |
-| `metodo` | VARCHAR(30) | Pago Móvil / Transferencia / Zelle |
-| `banco_origen` | VARCHAR(50) | Banco desde donde pagó el cliente |
-| `referencia` | VARCHAR(20) | Número de referencia de la transacción |
-| `monto` | DECIMAL(14,2) | Monto reportado por el cliente |
-| `moneda` | VARCHAR(5) | `VES` o `USD` |
-| `estado` | ENUM('PENDIENTE','APROBADO','RECHAZADO') | Estado de aprobación |
-| `fecha_reporte` | DATETIME | Momento en que el cliente envió el reporte |
-| `aprobado_por` | VARCHAR(50) NULL | Código/Nombre de quien aprobó |
-| `fecha_aprobacion` | DATETIME NULL | Fecha y hora de confirmación |
+### 3.2. Pantalla de Espera Dinámica (Contador Regresivo de 15 Segundos)
+Si el cliente abre el enlace o introduce el código antes de que `sync_daemon.php` haya enviado la mesa a la nube:
+- **No se muestra error de "Token no encontrado".**
+- Se presenta una pantalla de espera moderna con un **contador regresivo animado**:
+  - *"Estamos preparando el detalle de tu mesa... Próxima comprobación en 15s..."*
+  - Barra de progreso interactiva y spinner azul corporativo (`#0880C5`).
+  - El navegador realiza consultas automáticas cada 3-4 segundos (`fetch /mesa/estado-ajax`).
+  - En cuanto el demonio local deposita los datos en la nube, la pantalla se recarga automáticamente y despliega los artículos consumidos de forma inmediata.
 
 ---
 
-## 5. Módulos y Componentes a Desarrollar
+## 4. Base de Datos: Respeto Total a Premium Soft (`adminbahiap`)
 
-### 5.1. Botón "Compartir" y Modal de QR en `index.php`
-- Al lado o debajo de los botones **Procesar** y **Comanda**, agregar el botón `<button class="btn btn-info" id="btn_compartir_qr"><i class="fa fa-qrcode"></i> Compartir Cuenta</button>`.
-- Solo se activa si la mesa tiene artículos cargados (`productos_array.length > 0`).
-- Al hacer clic, abre un modal elegante mostrando el código QR generado (usando la librería ligera `qrcode.min.js` en cliente, sin dependencias de internet).
-- Incluye botón para copiar el enlace directo si el mesonero prefiere enviarlo por WhatsApp.
+### 4.1. Principio Fundamental
+**No se altera ni se agrega ninguna columna a las tablas nativas de Premium Soft.**
+El sistema lee de forma directa y limpia las tablas existentes:
+- **`operti`:** Encabezado de la mesa activa (`documento = 'EMESA05'`, `tipodoc = 'ESP'`).
+- **`opermv`:** Artículos cargados en la mesa (`fechayhora`, `cantidad`, `codigo`, `nombre`, `preciounit`, `montoneto`).
+- **`grupos`:** Categorías de comida y bebidas (`codigo`, `nombre`, `rutafoto`, `oculto_restaurant`).
+- **`articulos`:** Menú completo (`codigo`, `nombre`, `precio1`, `rutafoto`, `grupo`).
+- **`usuarios` / `listvend`:** Autenticación de vendedores y cajeros (eliminando la clave fija `PeDrO` de `datos_conexion.json`).
 
-### 5.2. Vista Pública de Cliente (`vistas/cliente_cuenta.php`)
-- Página web responsiva, optimizada para pantallas móviles de cualquier gama.
-- **Cabecera:** Nombre y Logo de la empresa, Mesa (`MESA05`), Fecha y Nombre del Mesonero.
-- **Tabla de Consumo:**
-  - Columnas: **Hora** (`H:i A`), **Cant.**, **Producto**, **Total**.
-- **Resumen Financiero:**
-  - Subtotal.
-  - Impuestos / Recargos.
-  - **TOTAL EN BOLÍVARES (Bs.)**.
-  - **TOTAL EN DÓLARES (REF. USD)** calculado con la tasa del día.
-- **Datos de Pago:**
-  - Sección desplegable con los datos para realizar Pago Móvil o Transferencia (Banco, RIF, Teléfono, Número de Cuenta).
-- **Formulario de Notificación de Pago:**
-  - Selector de método de pago.
-  - Campo de número de referencia bancaria.
-  - Campo de monto pagado.
-  - Botón: "Reportar Pago Realizado".
-- **Monitor de Estado:**
-  - Mediante sondeo asíncrono (polling AJAX cada 4 segundos), cuando la caja apruebe el pago, la pantalla del cliente cambia automáticamente a un banner verde de felicitación: **"¡Pago Aprobado y Confirmado!"**.
+### 4.2. Tabla Satélite Intermediaria Local: `psk_status_pago`
+Para rastrear el estado del pago reportado por el cliente sin tocar Premium Soft, se crea una única tabla auxiliar ligera en la base de datos local:
 
-### 5.3. Sección de Alerta y Aprobación en la Pantalla de Pedidos
-- Debajo de los botones **Procesar** y **Comanda**:
-  - Un contenedor dinámico `#alerta_pago_cliente`:
-    - Si hay un pago pendiente para la mesa seleccionada, se muestra una tarjeta destacada (fondo amarillo/naranja con borde parpadeante sutil):
-      - *«Pago Móvil Reportado: Ref. 123456 - Bs. 2.643,38»*
-      - Botón verde: **Aprobar Pago**.
-- Al presionar **Aprobar Pago**:
-  - Se despliega el modal solicitando la clave del usuario de Ventas/Caja (`claverest` en `listvend` o clave de supervisor).
-  - Al validar la clave, el pago pasa a `APROBADO`.
+```sql
+CREATE TABLE IF NOT EXISTS psk_status_pago (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    documento VARCHAR(20) NOT NULL UNIQUE, -- Ej: 'EMESA05'
+    token_pin VARCHAR(10) NOT NULL,        -- Ej: '482910'
+    estado ENUM('0', '2', '1') DEFAULT '0', -- 0: En consumo / No pagado
+                                           -- 2: En confirmación (AZUL)
+                                           -- 1: Pagado y Verificado (VERDE)
+    metodo VARCHAR(30) NULL,               -- Pago Móvil / Zelle / Transferencia
+    banco_origen VARCHAR(50) NULL,
+    referencia VARCHAR(30) NULL,
+    monto DECIMAL(14,2) DEFAULT 0.00,
+    moneda VARCHAR(5) DEFAULT 'VES',
+    fecha_reporte DATETIME NULL,
+    aprobado_por VARCHAR(50) NULL,
+    fecha_confirmacion DATETIME NULL,
+    INDEX idx_doc (documento),
+    INDEX idx_pin (token_pin)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
 
 ---
 
-## 6. Estimación de Tiempos de Implementación
+## 5. Mecanismo de Sincronización Bidireccional (PC Windows ↔ Hosting Web)
 
-| Fase | Tareas | Tiempo Estimado |
-|---|---|---|
-| **Fase 1: Base de Datos y Sesiones QR** | Creación de tablas `psk_sesiones_qr` y `psk_pagos_mesa`. Endpoint backend para generar/validar tokens efímeros. Integración de generador QR en `index.php`. | **6 a 8 horas** |
-| **Fase 2: Vista Pública del Cliente** | Diseño responsivo de la interfaz web del cliente (`cliente_cuenta.php`). Consulta de ítems con fecha/hora de `opermv`. Resumen de montos y desglose de tasa. | **8 a 10 horas** |
-| **Fase 3: Formulario de Pago y Cuentas Bancarias** | Módulo de configuración de datos bancarios. Formulario para reporte de pago móvil/transferencia por parte del cliente. | **4 a 6 horas** |
-| **Fase 4: Panel de Aprobación en `pskmovil`** | Detección en tiempo real del pago en la mesa. Modal de validación de clave con `listvend.claverest`. Cambio de estado en tiempo real para el cliente. | **6 a 8 horas** |
-| **Fase 5: Pruebas, Seguridad y Caducidad de Tokens** | Validación de caducidad al cerrar la mesa, pruebas en redes WiFi/IP local, control de concurrencia y validación de referencias bancarias. | **4 a 6 horas** |
-| **TOTAL ESTIMADO** | **Proyecto Completo** | **28 a 38 horas** *(aprox. 4 a 6 días de trabajo continuo)* |
+### 5.1. ¿Cómo extrae `comandasmoviles` la información del Hosting?
+La PC del restaurante **no abre puertos para recibir conexiones externas**. Todo se resuelve mediante peticiones salientes seguras (Outbound HTTPS):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as sincronizador.php (Windows 11)
+    participant BDLocal as MySQL Local (adminbahiap)
+    participant Cloud as API mijardinrestaurant.com
+    participant Cliente as Cliente Móvil
+
+    Cliente->>Cloud: Reporta Pago Móvil (Ref: 987654, Bs. 2.650)
+    Cloud->>Cloud: Guarda pago con estado = 'PENDIENTE'
+
+    Note over Cron: Cada 90 segundos ejecuta ciclo:
+    Cron->>BDLocal: 1. Lee mesas abiertas (operti + opermv)
+    Cron->>Cloud: 2. POST /api/sincronizar (Envía JSON de mesas abiertas)
+    Cloud-->>Cron: 3. Responde JSON con pagos pendientes: [{"documento":"EMESA05", "ref":"987654", "monto":2650}]
+    
+    Cron->>BDLocal: 4. UPDATE psk_status_pago SET estado = '2', referencia = '987654'...
+    Note over BDLocal: ¡La mesa EMESA05 ahora tiene estado 2 en local!
+```
+
+### 5.2. Código de Colores en `comandasmoviles`
+Al listar o consultar las mesas en tránsito dentro de `comandasmoviles`:
+- **Color Estándar (Blanco/Gris):** `estado = 0` (Sin reporte de pago, comensales consumiendo activamente).
+- **Color AZUL:** `estado = 2` (El cliente ya reportó el pago móvil; espera que la caja o administradora verifique la cuenta bancaria).
+- **Color VERDE:** `estado = 1` (La administradora o caja verificó el pago y presionó "Confirmar").
 
 ---
 
-## 7. Conclusión y Recomendación
+## 6. Sincronización Continua: `sync_daemon.php` e `iniciar_sincronizador.bat`
 
-La implementación es **100% viable técnicamente**:
-1. La base de datos actual ya guarda la **hora exacta de los artículos** en `opermv.fechayhora`.
-2. Las claves de acceso de los cajeros/vendedores están disponibles en `listvend.claverest`.
-3. El uso de tokens aleatorios resuelve completamente el requisito de privacidad para que clientes posteriores no accedan a consumos ajenos.
-4. No se alteran las tablas contables maestras de Premium Soft, garantizando que el sistema principal de escritorio siga funcionando sin ninguna discrepancia.
+El proceso local de sincronización se ejecuta mediante [sync_daemon.php](file:///e:/herd/comandasmoviles/sync_daemon.php) con lanzador directo [iniciar_sincronizador.bat](file:///e:/herd/comandasmoviles/iniciar_sincronizador.bat):
+
+1. **Lectura Local (Puerto 3307):**
+   - Consulta las mesas abiertas en `adminbahiap.operti` (`tipodoc = 'ESP'`).
+   - Obtiene los platos y montos desde `adminbahiap.opermv`.
+   - Consulta o genera el PIN en `mijar_sistema.z_status_pago`.
+   - Actualiza la copia local en `mijar_sistema.z_mesas_activas`.
+2. **Transmisión Segura Outbound (HTTPS):**
+   - Emite un `POST https://mijardinrestaurant.test/api/sincronizar-mesas`.
+   - La base de datos de la nube (`mijar_sistema` en puerto 3306) actualiza sus registros de comensal.
+   - En caso de mesas cerradas o facturadas, las archiva como inactivas.
+
+```bat
+@echo off
+title Sincronizador Cloud - Mi Jardin Restaurant
+cd /d "%~dp0"
+echo ========================================================
+echo     SINCRONIZADOR CLOUD - MI JARDIN RESTAURANT
+echo        (MYSQL PUERTO 3307 LOCAL -> NUBE HTTPS)
+echo ========================================================
+echo.
+php sync_daemon.php
+pause
+```
+
+---
+
+## 7. Hoja de Ruta y Organización por Fases
+
+```mermaid
+gantt
+    title Plan de Implementación - Mi Jardín Restaurant
+    dateFormat  YYYY-MM-DD
+    section Fase 1: Comandas Móviles
+    Botón Compartir + PIN 6 dígitos         :done, p1, 2026-10-20, 2026-10-22
+    Medidas idénticas de botones y HTTPS     :done, p2, 2026-10-23, 2026-10-23
+    section Fase 2: Portal Web Comensal
+    Estructura Blade + Plus Jakarta Sans    :done, p3, 2026-10-22, 2026-10-23
+    Pantalla Espera con Contador 15s        :done, p4, 2026-10-23, 2026-10-23
+    section Fase 3: Sincronización Multi-BD
+    Separación DB Local (3307) vs Nube (3306):done, p5, 2026-10-23, 2026-10-23
+    sync_daemon.php + iniciar_sincronizador :done, p6, 2026-10-23, 2026-10-23
+    section Fase 4: Reporte y Validación de Pagos (FASE FINAL)
+    Formulario Comensal (Banesco/BDV/Zelle) :active, p7, 2026-10-24, 2d
+    Monitor de Caja / Aprobación de Pagos   :p8, after p7, 2d
+    Notificación y Pantalla de Éxito Final  :p9, after p8, 1d
+```
+
+### Detalle de Fases:
+* **Fase 1 (Completada):** Botón «Compartir» en Comandas Móviles con medidas equivalentes a Procesar y Comanda, generación de PIN de 6 dígitos y modal de QR con protocolo HTTPS.
+* **Fase 2 (Completada):** Portal web del comensal en Laravel + Blade, pantalla de consulta por PIN y pantalla de espera con contador regresivo de 15 segundos animado.
+* **Fase 3 (Completada):** Separación de entornos de base de datos (`adminbahiap` y `mijar_sistema` en puerto 3307 local vs `mijar_sistema` en puerto 3306 nube) y demonio de sincronización automática `sync_daemon.php` con archivo `.bat`.
+* **Fase 4 (Fase Final - Pagos):** Recepción de pagos móviles y transferencias reportadas por el comensal, validación en caja/supervisor y confirmación inmediata en la pantalla del cliente.

@@ -1,29 +1,24 @@
 <?php
-
+require_once dirname(__DIR__) . '/funciones/config_helper.php';
 
 class conexion{
 	function __construct(){		
 	}
 	function query($bd_conexion,$query){	
 
-	$file = file_get_contents("../datos_conexion.json");
-	$datos_conexion = json_decode($file,true);		
+		$datos_conexion = obtener_config_sistema();
 
-	if($bd_conexion == "cliente"){
-		if(isset($datos_conexion['host'])){
-			$host = $datos_conexion['host'];
-			$user = $datos_conexion['user'];
-			$pw = $datos_conexion['pw'];
-			$bd = $datos_conexion['bd'];
-			if( !empty($datos_conexion['port']) ){
-				$port = ':'.$datos_conexion['port'];
-			}else{
-				$port = ':3306';
-			}
+		$host = $datos_conexion['host'] ?? '127.0.0.1';
+		$user = $datos_conexion['user'] ?? 'root';
+		$pw = $datos_conexion['pw'] ?? 'root';
+		$bd = $datos_conexion['bd_pos'] ?? ($datos_conexion['bd'] ?? 'adminbahiap');
+		$port = !empty($datos_conexion['port']) ? ':'.$datos_conexion['port'] : ':3307';
+
+		if($bd_conexion == "sistema"){
+			$bd = $datos_conexion['bd_sistema'] ?? 'mijar_sistema';
 		}
-	}
-		
-	@$conexion = mysqli_connect($host.$port,$user,$pw);
+			
+		@$conexion = mysqli_connect($host.$port,$user,$pw);
 		if($conexion){
 			@$select_bd = mysqli_select_db($conexion,$bd);
 			if($select_bd){
@@ -44,5 +39,4 @@ class conexion{
 	}
 	
 }
-
 ?>

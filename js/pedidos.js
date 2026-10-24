@@ -597,6 +597,10 @@ function mostrar_conf_conexion() {
 			$('#pw_supervisor').val(r.pw_supervisor);
 			$('#cantidad_por_pagina').val(r.cantidad_por_pagina);
 			$('#cm_ancho_precuenta').val(r.cm_ancho_precuenta);
+			$('#bd').val(r.bd_pos || r.bd || 'adminbahiap');
+			$('#bd_sistema').val(r.bd_sistema || 'mijar_sistema');
+			$('#url_hosting').val(r.url_hosting || (r.url_web_mesa ? r.url_web_mesa.replace(/\/mesa\/?$/i, '') : 'https://mijardinrestaurant.test'));
+			$('#url_web_mesa').val(r.url_web_mesa || 'https://mijardinrestaurant.test/mesa');
 
 			if (r.cuentas_compartidas_entre_vendedores == 'si') {
 				$('#compartir_mesas').prop('checked', true);
@@ -1513,6 +1517,7 @@ function VerProductosAgregados() {
 			descuentos_productos();
 			$('#modal_compuestos').modal('hide');
 			$('#modal_compuestos #lista_compuestos').html('');
+			actualizar_estado_boton_compartir();
 		}
 	});
 }
@@ -2156,6 +2161,7 @@ function limpiar_productos_agregados() {
 	$('#monedafactor').val(monedafactor);
 	$('#dividemultiplica').val(dividemultiplica);
 	$('#input_mesa').val('');
+	$('#btn_compartir_qr').hide();
 }
 
 function ResumirLineas() {
@@ -2722,6 +2728,7 @@ function ver_productos_agregados() {
 			eliminar_producto();
 			notas_productos();
 			descuentos_productos();
+			actualizar_estado_boton_compartir();
 		}
 	});
 }
@@ -2759,4 +2766,100 @@ function mostrar_modal_reg_cli() {
 	$('#reg_cli').show();
 	$('#reg_cli input[type="text"]').val('');
 }
+
+var url_qr_actual = '';
+
+function actualizar_estado_boton_compartir() {
+	var mesa = $('#input_mesa').val() ? $('#input_mesa').val().trim() : '';
+	if (typeof productos_array !== 'undefined' && productos_array.length > 0 && mesa !== '') {
+		$('#btn_compartir_qr').css('display', 'inline-block');
+	} else {
+		$('#btn_compartir_qr').hide();
+	}
+}
+
+function compartir_cuenta_qr() {
+	var mesa = $('#input_mesa').val() ? $('#input_mesa').val().trim() : '';
+	
+	if (mesa === '') {
+		alert('Por favor ingrese o seleccione una mesa para compartir.');
+		$('#input_mesa').focus();
+		return;
+	}
+
+	if (typeof productos_array === 'undefined' || productos_array.length === 0) {
+		alert('La mesa no tiene productos cargados para compartir.');
+		return;
+	}
+
+	mostrar_cargando();
+
+	var datos_envio = {
+		mesa: mesa,
+		productos_array: productos_array
+	};
+
+	$.ajax({
+		type: "POST",
+		url: "controladores/controlador_qr.php?accion=obtener_pin",
+		data: datos_envio,
+		dataType: "json",
+		success: function(r) {
+			ocultar_cargando();
+			if (r && r.success) {
+				url_qr_actual = r.url;
+				$('#qr_mesa_nombre').text('MESA ' + r.mesa);
+				$('#qr_pin_numero').text(r.pin);
+				
+				// Limpiar contenedor previo
+				$('#contenedor_qrcode').empty();
+
+				try {
+					if (typeof QRCode !== 'undefined') {
+						new QRCode(document.getElementById("contenedor_qrcode"), {
+							text: r.url,
+							width: 180,
+							height: 180,
+							colorDark: "#2B303A",
+							colorLight: "#FFFFFF",
+							correctLevel: QRCode.CorrectLevel.M
+						});
+					} else {
+						// Alternativa de fallback con SVG/IMG si la libreria fallara
+						$('#contenedor_qrcode').html('<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(r.url) + '" style="width:180px;height:180px;" alt="QR Code" />');
+					}
+				} catch (e) {
+					console.error("Error generando QR:", e);
+					$('#contenedor_qrcode').html('<p style="font-size:12px;color:red;">No se pudo renderizar el QR gráfico.</p>');
+				}
+
+				$('#modal_compartir_qr').modal('show');
+			} else {
+				alert((r && r.error) ? r.error : 'No se pudo generar el código QR.');
+			}
+		},
+		error: function(xhr, status, error) {
+			ocultar_cargando();
+			console.error("Error al generar QR:", error, xhr.responseText);
+			alert('Error de comunicación al generar el QR de la mesa.');
+		}
+	});
+}
+
+function copiar_enlace_qr() {
+	if (!url_qr_actual) return;
+	
+	if (navigator.clipboard) {
+		navigator.clipboard.writeText(url_qr_actual).then(function() {
+			var btn = $('#btn_copiar_url_qr');
+			var originalText = btn.html();
+			btn.html('<i class="fa fa-check"></i> ¡Enlace Copiado!');
+			setTimeout(function() { btn.html(originalText); }, 2000);
+		});
+	} else {
+		prompt('Copie este enlace:', url_qr_actual);
+	}
+}
+
+
 
