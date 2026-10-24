@@ -67,12 +67,26 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         return false;
     }
 
-    // Tasa del día
-    $tasa = (float) ($datos_conexion['monedafactor'] ?? 1);
+    // Tasa del día en tiempo real: consultar directamente tabla monedas de Premium Soft (o datos_conexion.json)
+    $tasa = 0;
+    $res_tasa = $mysqli_pos->query("SELECT ultimacotizacion FROM monedas WHERE (tipo = 2 OR codigo = '001') AND ultimacotizacion > 0 ORDER BY codigo ASC LIMIT 1");
+    if ($res_tasa && $res_tasa->num_rows > 0) {
+        $row_tasa = $res_tasa->fetch_assoc();
+        $tasa = (float) $row_tasa['ultimacotizacion'];
+    }
+
+    if ($tasa <= 0) {
+        $tasa = (float) ($datos_conexion['monedafactor'] ?? 1);
+    }
     if ($tasa <= 0) $tasa = 1;
 
+    // Mantener sincronizada la tasa en z_config_sistema de mijar_sistema
+    $mysqli_sistema->query("INSERT INTO z_config_sistema (clave, valor, updated_at) 
+        VALUES ('monedafactor', '{$tasa}', NOW()) 
+        ON DUPLICATE KEY UPDATE valor = '{$tasa}', updated_at = NOW()");
+
     // 2. Consultar mesas abiertas en operti (tipodoc = 'ESP')
-    $sql_mesas = "SELECT documento, nombrecli, totalfinal, fechayhora 
+    $sql_mesas = "SELECT documento, nombrecli, totneto, totimpuest, totalfinal, fechayhora 
                   FROM operti 
                   WHERE tipodoc = 'ESP' 
                   ORDER BY documento ASC";
@@ -104,10 +118,11 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                                         ON DUPLICATE KEY UPDATE token_pin = '{$pin}', updated_at = '{$f_now}';");
             }
 
-            // Consultar ítems de la mesa en opermv
+            // Consultar ítems reales de la mesa en opermv (fuente de la verdad)
             $items = [];
-            $total_bs = 0;
-            $sql_items = "SELECT fechayhora, cantidad, nombre, preciounit, montoneto 
+            $subtotal_items = 0;
+            $impuesto_items = 0;
+            $sql_items = "SELECT fechayhora, cantidad, nombre, preciounit, montoneto, timpueprc, impuesto1 
                           FROM opermv 
                           WHERE documento = '" . $mysqli_pos->real_escape_string($documento) . "' 
                           ORDER BY fechayhora ASC";
@@ -117,7 +132,16 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                 while ($it = $res_items->fetch_assoc()) {
                     $cant = (float) $it['cantidad'];
                     $monto = (float) $it['montoneto'];
-                    $total_bs += $monto;
+                    if ($monto <= 0 && $cant > 0 && (float) $it['preciounit'] > 0) {
+                        $monto = $cant * (float) $it['preciounit'];
+                    }
+                    $subtotal_items += $monto;
+
+                    $imp = isset($it['impuesto1']) && (float) $it['impuesto1'] > 0 
+                        ? (float) $it['impuesto1'] 
+                        : ($monto * ((float) ($it['timpueprc'] ?? 0) / 100));
+                    $impuesto_items += $imp;
+
                     $items[] = [
                         'hora' => date('h:i A', strtotime($it['fechayhora'] ?? 'now')),
                         'cant' => $cant,
@@ -126,21 +150,44 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                         'total' => $monto,
                     ];
                 }
+
+                $subtotal_bs = $subtotal_items;
+                $impuesto_bs = $impuesto_items;
+                $total_final_bs = $subtotal_bs + $impuesto_bs;
+
+                // Si operti difiere (por eliminación de productos en comandas móviles u otros), reparar operti
+                if (abs((float)($m['totneto'] ?? 0) - $subtotal_bs) > 0.05 || abs((float)($m['totalfinal'] ?? 0) - $total_final_bs) > 0.05) {
+                    $mysqli_pos->query("UPDATE operti SET 
+                        totbruto = " . round($subtotal_bs, 2) . ",
+                        totneto = " . round($subtotal_bs, 2) . ",
+                        totimpuest = " . round($impuesto_bs, 2) . ",
+                        totalfinal = " . round($total_final_bs, 2) . "
+                        WHERE documento = '" . $mysqli_pos->real_escape_string($documento) . "' AND tipodoc = 'ESP'");
+                }
             } else {
-                $total_bs = (float) $m['totalfinal'];
+                $subtotal_bs = isset($m['totneto']) && (float)$m['totneto'] > 0 ? (float)$m['totneto'] : 0.00;
+                $impuesto_bs = isset($m['totimpuest']) ? (float)$m['totimpuest'] : 0.00;
+                $total_final_bs = isset($m['totalfinal']) && (float)$m['totalfinal'] > 0 ? (float)$m['totalfinal'] : ($subtotal_bs + $impuesto_bs);
             }
 
-            $total_usd = $total_bs / $tasa;
+            $subtotal_usd   = round($subtotal_bs / $tasa, 2);
+            $impuesto_usd   = round($impuesto_bs / $tasa, 2);
+            $total_final_usd = round($total_final_bs / $tasa, 2);
+
             $items_json = json_encode($items, JSON_UNESCAPED_UNICODE);
             $f_act = date('Y-m-d H:i:s');
 
             // Actualizar tabla local mijar_sistema.z_mesas_activas (3307)
-            $mysqli_sistema->query("INSERT INTO z_mesas_activas (documento, mesa, token_pin, total_bs, total_usd, tasa_dia, items_json, estado, created_at, updated_at)
-                                    VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', 'MESA {$mesa_clean}', '{$pin}', " . round($total_bs, 2) . ", " . round($total_usd, 2) . ", " . round($tasa, 4) . ", '" . $mysqli_sistema->real_escape_string($items_json) . "', 'ACTIVA', '{$f_act}', '{$f_act}')
+            $mysqli_sistema->query("INSERT INTO z_mesas_activas (documento, mesa, token_pin, subtotal_bs, impuesto_bs, total_bs, subtotal_usd, impuesto_usd, total_usd, tasa_dia, items_json, estado, created_at, updated_at)
+                                    VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', 'MESA {$mesa_clean}', '{$pin}', " . round($subtotal_bs, 2) . ", " . round($impuesto_bs, 2) . ", " . round($total_final_bs, 2) . ", " . round($subtotal_usd, 2) . ", " . round($impuesto_usd, 2) . ", " . round($total_final_usd, 2) . ", " . round($tasa, 4) . ", '" . $mysqli_sistema->real_escape_string($items_json) . "', 'ACTIVA', '{$f_act}', '{$f_act}')
                                     ON DUPLICATE KEY UPDATE 
                                         token_pin = '{$pin}',
-                                        total_bs = " . round($total_bs, 2) . ",
-                                        total_usd = " . round($total_usd, 2) . ",
+                                        subtotal_bs = " . round($subtotal_bs, 2) . ",
+                                        impuesto_bs = " . round($impuesto_bs, 2) . ",
+                                        total_bs = " . round($total_final_bs, 2) . ",
+                                        subtotal_usd = " . round($subtotal_usd, 2) . ",
+                                        impuesto_usd = " . round($impuesto_usd, 2) . ",
+                                        total_usd = " . round($total_final_usd, 2) . ",
                                         tasa_dia = " . round($tasa, 4) . ",
                                         items_json = '" . $mysqli_sistema->real_escape_string($items_json) . "',
                                         estado = 'ACTIVA',
@@ -150,8 +197,12 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                 'documento' => $documento,
                 'mesa' => "MESA " . $mesa_clean,
                 'token_pin' => $pin,
-                'total_bs' => round($total_bs, 2),
-                'total_usd' => round($total_usd, 2),
+                'subtotal_bs' => round($subtotal_bs, 2),
+                'impuesto_bs' => round($impuesto_bs, 2),
+                'total_bs' => round($total_final_bs, 2),
+                'subtotal_usd' => round($subtotal_usd, 2),
+                'impuesto_usd' => round($impuesto_usd, 2),
+                'total_usd' => round($total_final_usd, 2),
                 'tasa_dia' => round($tasa, 4),
                 'items' => $items,
                 'estado_pago' => $pin_row['estado'] ?? '0',

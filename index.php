@@ -463,14 +463,16 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 					<div id="productos_precuenta"></div>
 					Precio Neto
 					<input type="text" class="form-control" id="precio_neto_total" readonly />
-					<div id="lista_impuestos_detalle"></div>
+					IVA
+					<input type="text" class="form-control" id="total_iva" readonly value="0,00" />
+					<div id="lista_impuestos_detalle" style="display: none;"></div>
 					Descuento
 					<input type="text" class="form-control" id="total_descuento" readonly />
 					SubTotal
 					<input type="text" class="form-control" id="subtotal" readonly />
 					<label for="">Recargo</label>
 					<input type="text" class="form-control" id="recargo_total" readonly />
-					<label for="" id="texto_total">Total <span class="simbolo_moneda_nacional"></span></label>
+					<label for="" id="texto_total">Total <span class="simbolo_moneda_nacional">Bs.</span></label>
 					<input type="text" class="form-control precio_total" id="precio_total" readonly value="0,00" />
 					<div id="div_total_moneda_extranjera" style="display: none;">
 						<input type="hidden" id="dividemultiplica" />
@@ -625,8 +627,8 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 					<div id="productos_agregados"></div>
 					<div style="margin-top:5px;margin-bottom:40px;">
 						<label>
-							<input type='checkbox' id='resumir_lineas' onclick="ResumirLineas()" checked /> Resumir
-							Lineas
+							<input type='checkbox' id='resumir_lineas' onclick="ResumirLineas()" checked /> Agrupar cantidades por productos
+
 						</label>
 					</div>
 				</div>
@@ -693,11 +695,13 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 	</div>
 
 	<footer>
-		<strong>Comandas Móviles v2.0</strong> &copy; <?php echo date('Y'); ?> | 
+		<div><strong>Comandas Móviles v2.0</strong> &copy; <?php echo date('Y'); ?></div>
+		<div>
 		<a href="https://wa.me/584128172337?text=Hola%20C%C3%A9sar,%20te%20contacto%20desde%20el%20sistema%20Comandas%20M%C3%B3viles" target="_blank" title="Contactar por WhatsApp">
 			<i class="fa fa-whatsapp" style="color: #25D366; font-size: 14px;"></i> Actualizado por César Figueroa
 		</a>
-		| <a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;">Pantalla Completa</a>
+		</div>
+		<div><a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;">Pantalla Completa</a></div>
 	</footer>
 </body>
 

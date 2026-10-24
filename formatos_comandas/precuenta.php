@@ -7,8 +7,8 @@
 	$datos_config = mysqli_fetch_array($resultado);
 */
 
-$file = file_get_contents('datos_conexion.json');
-$file = json_decode($file, true);
+require_once dirname(__DIR__) . '/funciones/config_helper.php';
+$file = obtener_config_sistema();
 
 if (empty($file['nombre_empresa'])) {
 	$file['nombre_empresa'] = "NOMBRE DE EMPRESA";

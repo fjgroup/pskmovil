@@ -332,7 +332,7 @@ if ($_GET['accion'] == "registrar_conexion") {
 
 if ($_GET['accion'] == "mostrar_datos_conexion") {
 
-    $file = file_get_contents('../datos_conexion.json');
+    $file = json_encode(obtener_config_sistema());
     echo $file;
 
 }

@@ -21,8 +21,8 @@ if ($permitir_descuentos != 'no') {
 	echo "<th>Dscto</th>";
 }
 echo "
-					<th>Codigo</th>
-					<th>Cant.</th>
+
+					<th class='text-center'>Cant.</th>
 					<th>Producto</th>
 					<th>Total</th>
 					<th class='text-center'>Eliminar</th>
@@ -234,8 +234,8 @@ if (isset($_POST['productos_array'])) {
 				echo "<td><i class='fa fa-percent'></i></td>";
 			}
 			echo "
-						<td>" . $codigo . "</td>
-						<td>" . $cantidad . "</td>
+
+						<td class='text-center' style='font-weight: bold; font-size: 14px;'>" . (float)$cantidad . "</td>
 						<td>" . $nombre . "</td>
 						<td>" . number_format($precioneto, 2, ',', '.') . "</td>
 						<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='" . $se_comando . "' se_guardo='" . $se_guardo . "' pid='" . $pid . "' pidhijo='" . $pidhijo . "'></i></td>
@@ -251,7 +251,24 @@ if (isset($_POST['productos_array'])) {
 
 	$script = "<script>";
 
-	$totalimpuesto = 0;
+	$mesa_activa_id = !empty($_POST['mesa']) ? trim($_POST['mesa']) : '';
+	if (!empty($mesa_activa_id)) {
+		$doc_m = 'E' . ltrim($mesa_activa_id, 'E');
+		try {
+			$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar_sistema', (int)($datos_conexion['port'] ?? 3307));
+			if ($mysqli_sist && !$mysqli_sist->connect_errno) {
+				$res_m = $mysqli_sist->query("SELECT impuesto_bs FROM z_mesas_activas WHERE documento = '" . $mysqli_sist->real_escape_string($doc_m) . "' OR mesa = '" . $mysqli_sist->real_escape_string($mesa_activa_id) . "' OR mesa = 'MESA " . $mysqli_sist->real_escape_string($mesa_activa_id) . "' LIMIT 1");
+				if ($res_m && $row_m = $res_m->fetch_assoc()) {
+					if ($row_m['impuesto_bs'] !== null && (float)$row_m['impuesto_bs'] > 0) {
+						$monto_impuesto = (float) $row_m['impuesto_bs'];
+					}
+				}
+				$mysqli_sist->close();
+			}
+		} catch (\Throwable $e) {}
+	}
+
+	$totalimpuesto = $monto_impuesto;
 	$script .= "$('.alicuotas').val(" . json_encode(number_format(0, 2, ',', '.')) . ");";
 	foreach ($array_impuestos as $codigo_imp => $totimp) {
 		$totalimpuesto += $totimp;
@@ -262,6 +279,7 @@ if (isset($_POST['productos_array'])) {
             $('#total_descuento').val(" . json_encode(number_format($total_descuento, 2, ',', '.')) . ");
             $('#subtotal').val(" . json_encode(number_format($subtotal, 2, ',', '.')) . ");
             $('#precio_neto_total').val(" . json_encode(number_format($total_bruto, 2, ',', '.')) . ");
+            $('#total_iva').val(" . json_encode(number_format($monto_impuesto, 2, ',', '.')) . ");
             $('.precio_total').val(" . json_encode(number_format($monto_total, 2, ',', '.')) . ");
             $('.precio_total_moneda_extranjera').val('" . number_format($monto_total_ext, 2, '.', '') . "');
             $('#total_impuesto_precuenta').val(" . $totalimpuesto . ");

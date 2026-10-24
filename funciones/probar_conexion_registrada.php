@@ -1,17 +1,15 @@
 <?php
-include ("../modelos/modelo_crud.php");
+require_once dirname(__DIR__) . "/modelos/modelo_crud.php";
 $objeto_conexion = new crud();
 $bd_conexion_servidor = "servidor";
 $bd_conexion_cliente = "cliente";
 
 $hoy = date("Y-m-d");
 
-$path = "../datos_conexion.json";
+require_once __DIR__ . '/config_helper.php';
+$datos_conexion = obtener_config_sistema();
 
-if (file_exists($path)) {
-
-	$file = file_get_contents($path);
-	$datos_conexion = json_decode($file, true);
+if (!empty($datos_conexion)) {
 
 	$host = trim($datos_conexion['host']);
 	$user = trim($datos_conexion['user']);
@@ -143,8 +141,7 @@ if (file_exists($path)) {
 					$datos_conexion['impuestos'][] = array("codigo" => "02", "nombre" => "Alicuota Reducida", "prc" => 0);
 					$datos_conexion['impuestos'][] = array("codigo" => "03", "nombre" => "Alicuota Extendida", "prc" => 0);
 				}
-
-				file_put_contents('../datos_conexion.json', json_encode($datos_conexion));
+				guardar_config_sistema($datos_conexion);
 
 				$resultado_pidpadre = true;
 				try {
@@ -167,12 +164,7 @@ if (file_exists($path)) {
 
 					if ($resultado_imprimircuenta) {
 						$script = "<script>";
-
-						foreach ($datos_conexion['impuestos'] as $imp) {
-							$prc = number_format($imp['prc'], 0);
-							$nombre = str_ireplace(array(1, 2, 3, 4, 5, 6, 7, 8, 9, '%', '&'), '', $imp['nombre']);
-							$script .= "$('#lista_impuestos_detalle').append(`<div>" . $nombre . " " . $prc . "%<input type='text' class='form-control alicuotas' id='ali_reducida_" . $imp['codigo'] . "' readonly/></div>`);";
-						}
+						$script .= "$('#lista_impuestos_detalle').empty();";
 
 						if ($datos_config['monedafactor'] > 0) {
 							$script .= "
@@ -180,11 +172,16 @@ if (file_exists($path)) {
 							";
 						}
 
+						$monnacsimb = trim($datos_config['monnacsimb'] ?? 'Bs.');
+						if ($monnacsimb === 'Bs.S' || $monnacsimb === 'BsS' || empty($monnacsimb)) {
+							$monnacsimb = 'Bs.';
+						}
+
 						$script .= "
 							$('#dividemultiplica').val(" . $datos_config['dividemultiplica'] . ");
 							$('#monedafactor').val(" . $datos_config['monedafactor'] . ");
 							$('#tasa_del_dia').html('" . $datos_config['monedafactor'] . "');
-							$('.simbolo_moneda_nacional').html('" . $datos_config['monnacsimb'] . "');
+							$('.simbolo_moneda_nacional').html('" . $monnacsimb . "');
 							$('.simbolo_moneda_extranjera').html('" . $datos_config['monexsimb'] . "');
 							$('#ocultar_integrados').val('" . $ocultar_integrados . "');
 							$('#no_editar_integrados').val('" . $no_editar_integrados . "');
@@ -236,7 +233,7 @@ if (file_exists($path)) {
 } else {
 	echo "
 	<script>
-		$('#msj_login').html('Archivo de conexion no existe');
+		$('#msj_login').html('Configuración de conexión no encontrada');
 	</script>";
 }
 

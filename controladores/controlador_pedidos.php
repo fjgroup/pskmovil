@@ -1089,6 +1089,27 @@ if ($_GET['accion'] == "cancelar_pedido") {
 			echo "Ha ocurrido un error";
 		}
 	}
+}
 
+if (isset($_GET['accion']) && $_GET['accion'] == "obtener_impuesto_mesa") {
+	header('Content-Type: application/json');
+	$mesa_raw = trim($_GET['mesa'] ?? '');
+	$doc = 'E' . ltrim($mesa_raw, 'E');
+	$impuesto = 0.00;
 
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar_sistema', (int)($datos_conexion['port'] ?? 3307));
+	if ($mysqli_sist && !$mysqli_sist->connect_errno) {
+		$sql = "SELECT impuesto_bs FROM z_mesas_activas WHERE documento = '" . $mysqli_sist->real_escape_string($doc) . "' OR mesa = '" . $mysqli_sist->real_escape_string($mesa_raw) . "' OR mesa = 'MESA " . $mysqli_sist->real_escape_string($mesa_raw) . "' LIMIT 1";
+		$res = $mysqli_sist->query($sql);
+		if ($res && $row = $res->fetch_assoc()) {
+			$impuesto = (float)($row['impuesto_bs'] ?? 0);
+		}
+		$mysqli_sist->close();
+	}
+
+	echo json_encode([
+		'impuesto_bs' => $impuesto,
+		'impuesto_formateado' => number_format($impuesto, 2, ',', '.')
+	]);
+	exit;
 }

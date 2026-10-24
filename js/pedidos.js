@@ -672,6 +672,15 @@ function mostrar_detalle_cuenta() {
 	}
 	$('#detalle_cuenta').show();
 	$('#bloqueo').show();
+	$('.simbolo_moneda_nacional').html('Bs.');
+
+	if (mesa) {
+		$.getJSON("controladores/controlador_pedidos.php?accion=obtener_impuesto_mesa&mesa=" + encodeURIComponent(mesa), function (data) {
+			if (data && data.impuesto_formateado !== undefined && parseFloat(data.impuesto_bs) > 0) {
+				$('#total_iva').val(data.impuesto_formateado);
+			}
+		});
+	}
 	$('#productos_precuenta').html('');
 	$('#resumir_lineas_precuenta').val(resumir_lineas);
 	$('#input_mesa_precuenta').val($('#input_mesa').val());
@@ -1501,7 +1510,7 @@ function VerProductosAgregados() {
 	var ocultar_integrados = $('#ocultar_integrados').val();
 	var codcliente = $('#cod_cliente_ped').val();
 	var nrorif = $('#nrorif').val();
-	var datos = { "productos_array": productos_array, "cod_cliente": codcliente, "nrorif": nrorif };
+	var datos = { "productos_array": productos_array, "cod_cliente": codcliente, "nrorif": nrorif, "mesa": $('#input_mesa').val() };
 	$.ajax({
 		type: "POST",
 		url: "vistas/productos_agregados.php?resumir_lineas=" + resumir_lineas,
@@ -2711,7 +2720,7 @@ function ver_productos_agregados() {
 		resumir_lineas = 1;
 	}
 	var ocultar_integrados = $('#ocultar_integrados').val();
-	var datos = { "productos_array": productos_array };
+	var datos = { "productos_array": productos_array, "mesa": $('#input_mesa').val() };
 	$.ajax({
 		type: "POST",
 		url: "vistas/productos_agregados.php?resumir_lineas=" + resumir_lineas,

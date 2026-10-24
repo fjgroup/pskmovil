@@ -114,9 +114,6 @@ if (!function_exists("guardar_config_sistema")) {
             // Error en BD
         }
 
-        // Mantener archivo local respaldado
-        $json_file = dirname(__DIR__) . DIRECTORY_SEPARATOR . "datos_conexion.json";
-        @file_put_contents($json_file, json_encode($datos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         return $guardado_bd;
     }

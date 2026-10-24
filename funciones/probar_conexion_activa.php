@@ -1,11 +1,7 @@
 <?php
 
-$path = "../datos_conexion.json";
-$file = array();
-if (file_exists($path)) {
-	$file = file_get_contents($path);
-	$file = json_decode($file, true);
-}
+require_once __DIR__ . '/config_helper.php';
+$file = obtener_config_sistema();
 
 try {
 	$host = trim($file['host']);

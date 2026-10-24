@@ -14,8 +14,8 @@
 1. **`comandasmoviles` (Sistema Interno de Servicio):**
    - Utilizado por mesoneros, supervisores y capitanes de sala desde tablets y teléfonos en la red local interna del restaurante.
    - Gestiona la apertura de mesas, comandas a cocina/barra y precuentas con velocidad instantánea.
-2. **`mijardinrestaurant` (Portal Nube & Autoservicio del Comensal):**
-   - Alojará en un **servidor dedicado / VPS en internet** (`mijardinrestaurant.com`).
+2. **`mijardinrestaurant` (Portal Nube & Autoservicio):**
+   - Alojará en un **hosting web / VPS en internet** (`mijardinrestaurant.com`).
    - Permite a los clientes consultar su cuenta en vivo mediante códigos QR y PIN de 6 dígitos, dividir gastos con amigos y reportar transferencias / Pago Móvil sin ingresar a la red Wi-Fi privada del restaurante.
 
 ---
@@ -42,13 +42,14 @@ Ambas bases de datos corren localmente en el servidor del restaurante en el **pu
 
 ---
 
-### 2.2. Entorno Remoto (Servidor Dedicado / VPS Cloud - MySQL Puerto 3306)
+### 2.2. Entorno Remoto (hosting web / VPS Cloud - MySQL Puerto 3306)
 Correrá en el hosting web de producción (en entorno de desarrollo local se prueba en el puerto 3306):
 
-3. **`mijar_sistema` (Base de Datos Cloud):**
-   - Alimentada exclusivamente por peticiones salientes seguras (**Outbound HTTPS POST**) emitidas por el demonio local `sync_daemon.php` hacia la API de Laravel (`/api/sincronizar-mesas`).
-   - Sirve la información a los comensales (`/mesa?t={PIN}`) y almacena en `z_config_bancos` las formas de pago oficiales actualizadas de manera manual.
-   - **Aislamiento Total:** El comensal nunca tiene conexión directa con el puerto 3307 ni con la red física del restaurante.
+3. **`mijar_sistema` (Base de Datos Cloud / Producción):**
+   - **Única conexión de Laravel:** `mijardinrestaurant` solo tiene configurada y solo se conecta a esta única base de datos (`mijar_sistema`). No tiene acceso directo ni conexiones secundarias al puerto 3307 ni a `adminbahiap`.
+   - Alimentada exclusivamente por peticiones salientes seguras (**Outbound HTTPS POST**) emitidas por el demonio local `sync_daemon.php` o por el botón manual "Actualizar BD remota" en `comandasmoviles` hacia la API de Laravel (`/api/sincronizar-mesas` y `/api/sincronizar/bancos`).
+   - Sirve la información a los clientes del restaurant (`/mesa?t={PIN}`) y almacena en `z_config_bancos` las formas de pago oficiales.
+   - **Aislamiento Total:** El cliente y la aplicación web pública nunca tienen conexión con el puerto 3307 ni con la red física del restaurante.
 
 ---
 
@@ -65,7 +66,7 @@ Correrá en el hosting web de producción (en entorno de desarrollo local se pru
                  │
                  │ (2) sync_daemon.php lee cada 12 segundos
                  ▼
-[ HTTPS POST Outbound Seguro ] ──► [ Servidor Dedicado / VPS ]
+[ HTTPS POST Outbound Seguro ] ──► [ Hosting web / VPS ]
                                             │
                                             ▼
                                [ API Laravel: /api/sincronizar-mesas ]

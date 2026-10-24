@@ -309,7 +309,7 @@ a:hover {
 
 #productos_agregados table thead th:nth-child(3),
 #productos_agregados table tbody td:nth-child(3) {
-	display: none;
+	/* display: none; */
 }
 
 .input-group-addon {
