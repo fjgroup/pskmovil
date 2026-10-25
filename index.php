@@ -685,6 +685,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 
 			<div class="paginado"></div>
 		</div>
+	</div>
 	<!-- MODAL COMPARTIR CUENTA POR QR Y PIN -->
 	<div class="modal fade" id="modal_compartir_qr" tabindex="-1" role="dialog" aria-labelledby="modalQrLabel" style="z-index: 99999;">
 		<div class="modal-dialog modal-sm" role="document">
@@ -724,7 +725,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 			<i class="fa fa-whatsapp" style="color: #25D366; font-size: 14px;"></i> Actualizado por César Figueroa
 		</a>
 		</div>
-		<div><a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;">Pantalla Completa</a></div>
+		<div><a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;"><i class="fa fa-arrows-alt"></i> Pantalla Completa</a></div>
 	</footer>
 </body>
 

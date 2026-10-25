@@ -1,9 +1,17 @@
-html,
+html {
+	height: 100%;
+}
+
 body {
 	font-family: sans-serif;
 	margin: 0px;
 	padding: 0px;
-	height: 100%;
+	min-height: 100%;
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: -ms-flexbox;
+	display: flex;
+	flex-direction: column;
 }
 
 .col-md-12,
@@ -425,7 +433,8 @@ a:hover {
 #contenedor {
 	position: relative;
 	width: 100%;
-	min-height: 100%;
+	flex: 1 0 auto;
+	-webkit-flex: 1 0 auto;
 	display: -ms-flexbox;
 	display: -moz-box;
 	display: -webkit-box;
@@ -435,38 +444,60 @@ a:hover {
 	-webkit-align-items: flex-start;
 	justify-content: center;
 	-webkit-justify-content: center;
-	margin-bottom: -50px;
 	padding: 10px 0px;
-}
-
-#contenedor:after {
-	content: "";
-	display: block;
-	height: 50px;
 }
 
 footer {
 	position: relative;
 	clear: both;
+	width: 100%;
 	min-height: 48px;
 	height: auto;
+	margin-top: auto;
 	text-align: center;
 	color: #FFF;
-	padding: 12px 10px;
+	padding: 12px 20px;
 	background-color: #000;
 	border-top: 4px solid #0E5B8A;
 	font-size: 13px;
 	line-height: 1.6;
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: -ms-flexbox;
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	box-sizing: border-box;
+	z-index: 10;
+}
+
+footer > div {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 }
 
 footer a {
 	color: #FFF;
 	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 }
 
 footer a:hover {
 	color: #25D366;
 	text-decoration: underline;
+}
+
+@media screen and (max-width: 768px) {
+	footer {
+		flex-direction: column;
+		gap: 6px;
+		padding: 12px 10px;
+	}
 }
 
 #msj_php {
