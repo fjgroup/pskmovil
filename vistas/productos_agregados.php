@@ -255,7 +255,7 @@ if (isset($_POST['productos_array'])) {
 	if (!empty($mesa_activa_id)) {
 		$doc_m = 'E' . ltrim($mesa_activa_id, 'E');
 		try {
-			$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar_sistema', (int)($datos_conexion['port'] ?? 3307));
+			$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
 			if ($mysqli_sist && !$mysqli_sist->connect_errno) {
 				$res_m = $mysqli_sist->query("SELECT impuesto_bs FROM z_mesas_activas WHERE documento = '" . $mysqli_sist->real_escape_string($doc_m) . "' OR mesa = '" . $mysqli_sist->real_escape_string($mesa_activa_id) . "' OR mesa = 'MESA " . $mysqli_sist->real_escape_string($mesa_activa_id) . "' LIMIT 1");
 				if ($res_m && $row_m = $res_m->fetch_assoc()) {

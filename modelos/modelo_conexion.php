@@ -17,7 +17,7 @@ class conexion{
 		$port = !empty($datos_conexion['port']) ? ':'.$datos_conexion['port'] : ':'.$puerto_def;
 
 		if($bd_conexion == "sistema"){
-			$bd = $datos_conexion['bd_sistema'] ?? 'mijar_sistema';
+			$bd = $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema';
 		}
 			
 		@$conexion = mysqli_connect($host.$port,$user,$pw);

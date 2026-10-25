@@ -33,7 +33,7 @@ Ambas bases de datos corren localmente en el servidor del restaurante en el **pu
    - **HOMOLOGACIÓN SENIAT:** Este sistema está homologado y fiscalizado por el **SENIAT** (Servicio Nacional Integrado de Administración Aduanera y Tributaria de Venezuela). Está sujeto a auditorías impositivas permanentes. Cualquier alteración a su esquema nativo invalida la certificación fiscal y genera sanciones legales graves.
    - **Acceso:** `comandasmoviles` solo realiza lecturas y registros estrictamente necesarios en tablas estándar (`operti`, `opermv`, etc.).
 
-2. **`mijar_sistema` (Base de Datos Satélite Local - Puerto 3307):**
+2. **`mijar26273_sistema` (Base de Datos Satélite Local - Puerto 3307):**
    - Base de datos auxiliar creada específicamente para la innovación digital del restaurante sin tocar `adminbahiap`.
    - Almacena:
      - Tabla `z_status_pago`: Registro de pagos notificados y seguimiento de PIN por mesa.
@@ -45,8 +45,8 @@ Ambas bases de datos corren localmente en el servidor del restaurante en el **pu
 ### 2.2. Entorno Remoto (hosting web / VPS Cloud - MySQL Puerto 3306)
 Correrá en el hosting web de producción (en entorno de desarrollo local se prueba en el puerto 3306):
 
-3. **`mijar_sistema` (Base de Datos Cloud / Producción):**
-   - **Única conexión de Laravel:** `mijardinrestaurant` solo tiene configurada y solo se conecta a esta única base de datos (`mijar_sistema`). No tiene acceso directo ni conexiones secundarias al puerto 3307 ni a `adminbahiap`.
+3. **`mijar26273_sistema` (Base de Datos Cloud / Producción):**
+   - **Única conexión de Laravel:** `mijardinrestaurant` solo tiene configurada y solo se conecta a esta única base de datos (`mijar26273_sistema`). No tiene acceso directo ni conexiones secundarias al puerto 3307 ni a `adminbahiap`.
    - Alimentada exclusivamente por peticiones salientes seguras (**Outbound HTTPS POST**) emitidas por el demonio local `sync_daemon.php` o por el botón manual "Actualizar BD remota" en `comandasmoviles` hacia la API de Laravel (`/api/sincronizar-mesas` y `/api/sincronizar/bancos`).
    - Sirve la información a los clientes del restaurant (`/mesa?t={PIN}`) y almacena en `z_config_bancos` las formas de pago oficiales.
    - **Aislamiento Total:** El cliente y la aplicación web pública nunca tienen conexión con el puerto 3307 ni con la red física del restaurante.
@@ -62,7 +62,7 @@ Correrá en el hosting web de producción (en entorno de desarrollo local se pru
 [ comandasmoviles (Local :8080) ]
      │
      ├───► [ adminbahiap :3307 ] (BD Fiscal Premium Soft - Intocable / SENIAT)
-     └───► [ mijar_sistema :3307 ] (BD Satélite Local: PIN, Tokens, Config)
+     └───► [ mijar26273_sistema :3307 ] (BD Satélite Local: PIN, Tokens, Config)
                  │
                  │ (2) sync_daemon.php lee cada 12 segundos
                  ▼
@@ -72,7 +72,7 @@ Correrá en el hosting web de producción (en entorno de desarrollo local se pru
                                [ API Laravel: /api/sincronizar-mesas ]
                                             │
                                             ▼
-                               [ BD Cloud: mijar_sistema :3306 ]
+                               [ BD Cloud: mijar26273_sistema :3306 ]
                                             ▲
                                             │ (3) Consulta en tiempo real
                                             │

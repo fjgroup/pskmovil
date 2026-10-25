@@ -217,7 +217,7 @@ if ($_GET['accion'] == "registrar_conexion") {
     $pw_loc   = isset($_POST['pw']) ? $_POST['pw'] : 'root';
     $port_loc = !empty($_POST['port']) ? (int)$_POST['port'] : 3307;
     $bd_pos   = !empty($_POST['bd']) ? $_POST['bd'] : 'adminbahiap';
-    $bd_sist  = !empty($_POST['bd_sistema']) ? $_POST['bd_sistema'] : 'mijar_sistema';
+    $bd_sist  = !empty($_POST['bd_sistema']) ? $_POST['bd_sistema'] : 'mijar26273_sistema';
 
     $url_host = !empty($_POST['url_hosting']) ? rtrim($_POST['url_hosting'], '/') : 'https://mijardinrestaurant.test';
     $url_mesa = !empty($_POST['url_web_mesa']) ? $_POST['url_web_mesa'] : ($url_host . '/mesa');
@@ -268,7 +268,7 @@ if ($_GET['accion'] == "registrar_conexion") {
         $array['monedafactor'] = $datos_existentes['monedafactor'];
     }
 
-    // Guardar en la base de datos local mijar_sistema (puerto 3307)
+    // Guardar en la base de datos local mijar26273_sistema (puerto 3307)
     $guardado = guardar_config_sistema($array);
 
     // Obtener las formas de pago (cuentas bancarias de listbanc en adminbahiap) para enviar a la BD remota
@@ -284,6 +284,7 @@ if ($_GET['accion'] == "registrar_conexion") {
                 elseif (stripos($nombreB, 'transferencia') !== false) $tipoB = 'TRANSFERENCIA';
 
                 $bancos_para_nube[] = [
+                    'codigo' => trim($b['codigo'] ?? ''),
                     'banco' => $nombreB,
                     'titular' => trim($b['titular'] ?? ''),
                     'contacto' => trim($b['contacto'] ?? ''),
@@ -296,6 +297,21 @@ if ($_GET['accion'] == "registrar_conexion") {
             }
         }
         $mysqli_pos->close();
+    }
+
+    // Guardar en la base de datos satélite local mijar26273_sistema (puerto 3307)
+    $mysqli_sat = @new mysqli($host_loc, $user_loc, $pw_loc, $bd_sist, $port_loc);
+    if ($mysqli_sat && !$mysqli_sat->connect_errno) {
+        $mysqli_sat->query("TRUNCATE TABLE z_config_bancos");
+        foreach ($bancos_para_nube as $bn) {
+            $stmt = $mysqli_sat->prepare("INSERT INTO z_config_bancos (codigo_pos, banco, titular, identificacion, telefono, numero_cuenta, tipo, activo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
+            if ($stmt) {
+                $stmt->bind_param('sssssss', $bn['codigo'], $bn['banco'], $bn['titular'], $bn['identificacion'], $bn['telefono'], $bn['numero_cuenta'], $bn['tipo']);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+        $mysqli_sat->close();
     }
 
     // Enviar a la BD remota del hosting vía HTTPS

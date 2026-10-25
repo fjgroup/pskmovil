@@ -15,7 +15,7 @@
 
 date_default_timezone_set('America/Caracas');
 
-// Cargar configuración centralizada desde la BD mijar_sistema
+// Cargar configuración centralizada desde la BD mijar26273_sistema
 require_once __DIR__ . '/funciones/config_helper.php';
 $datos_conexion = obtener_config_sistema();
 
@@ -28,7 +28,7 @@ $user_local = $datos_conexion['user'] ?? 'root';
 $pass_local = $datos_conexion['pw'] ?? 'root';
 $port_local = (int) ($datos_conexion['port'] ?? ($modo_entorno === 'produccion' ? 3306 : 3307));
 $bd_pos     = $datos_conexion['bd_pos'] ?? ($datos_conexion['bd'] ?? 'adminbahiap');
-$bd_sistema = $datos_conexion['bd_sistema'] ?? 'mijar_sistema';
+$bd_sistema = $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema';
 
 // Endpoint Cloud seguro HTTPS (Outbound hacia el servidor dedicado / VPS)
 if (!empty($datos_conexion['url_hosting'])) {
@@ -185,9 +185,15 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
 
     $mysqli_sistema = @new mysqli($host_local, $user_local, $pass_local, $bd_sistema, $port_local);
     if ($mysqli_sistema->connect_error) {
-        echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_sistema} ({$port_local}): " . $mysqli_sistema->connect_error . PHP_EOL;
-        $mysqli_pos->close();
-        return false;
+        $bd_alt = ($bd_sistema === 'mijar26273_sistema') ? 'mijar_sistema' : 'mijar26273_sistema';
+        $mysqli_sistema = @new mysqli($host_local, $user_local, $pass_local, $bd_alt, $port_local);
+        if (!$mysqli_sistema->connect_error) {
+            $bd_sistema = $bd_alt;
+        } else {
+            echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_sistema} ({$port_local}): " . $mysqli_sistema->connect_error . PHP_EOL;
+            $mysqli_pos->close();
+            return false;
+        }
     }
 
     // Tasa del día en tiempo real: consultar directamente tabla monedas de Premium Soft
@@ -203,7 +209,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     }
     if ($tasa <= 0) $tasa = 1;
 
-    // Mantener sincronizada la tasa en z_config_sistema de mijar_sistema
+    // Mantener sincronizada la tasa en z_config_sistema de mijar26273_sistema
     $mysqli_sistema->query("INSERT INTO z_config_sistema (clave, valor, updated_at) 
         VALUES ('monedafactor', '{$tasa}', NOW()) 
         ON DUPLICATE KEY UPDATE valor = '{$tasa}', updated_at = NOW()");
@@ -217,15 +223,17 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
 
     $mesas_para_nube = [];
     $total_mesas_encontradas = 0;
+    $documentos_abiertos = [];
 
     if ($res_mesas && $res_mesas->num_rows > 0) {
         while ($m = $res_mesas->fetch_assoc()) {
             $total_mesas_encontradas++;
             $documento = trim($m['documento']);
+            $documentos_abiertos[] = $documento;
             $mesa_clean = preg_replace('/^E/i', '', $documento);
 
             // Buscar si ya tiene PIN en z_status_pago
-            $sql_pin = "SELECT token_pin, estado FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1";
+            $sql_pin = "SELECT token_pin, estado, referencia, metodo, banco_origen, monto FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1";
             $res_pin = $mysqli_sistema->query($sql_pin);
             $pin_row = $res_pin ? $res_pin->fetch_assoc() : null;
 
@@ -298,7 +306,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
             $items_json = json_encode($items, JSON_UNESCAPED_UNICODE);
             $f_act = date('Y-m-d H:i:s');
 
-            // Actualizar tabla local mijar_sistema.z_mesas_activas
+            // Actualizar tabla local mijar26273_sistema.z_mesas_activas
             $mysqli_sistema->query("INSERT INTO z_mesas_activas (documento, mesa, token_pin, subtotal_bs, impuesto_bs, total_bs, subtotal_usd, impuesto_usd, total_usd, tasa_dia, items_json, estado, created_at, updated_at)
                                     VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', 'MESA {$mesa_clean}', '{$pin}', " . round($subtotal_bs, 2) . ", " . round($impuesto_bs, 2) . ", " . round($total_final_bs, 2) . ", " . round($subtotal_usd, 2) . ", " . round($impuesto_usd, 2) . ", " . round($total_final_usd, 2) . ", " . round($tasa, 4) . ", '" . $mysqli_sistema->real_escape_string($items_json) . "', 'ACTIVA', '{$f_act}', '{$f_act}')
                                     ON DUPLICATE KEY UPDATE 
@@ -329,6 +337,30 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                 'estado_pago' => $pin_row['estado'] ?? '0',
                 'referencia' => $pin_row['referencia'] ?? null,
             ];
+        }
+    }
+
+    // Reconciliación: Detectar mesas facturadas y cerradas en Premium Soft
+    $docs_abiertos_escaped = array_map(function($d) use ($mysqli_sistema) {
+        return "'" . $mysqli_sistema->real_escape_string($d) . "'";
+    }, $documentos_abiertos);
+
+    $where_cerradas = !empty($docs_abiertos_escaped) 
+        ? "WHERE estado = 'ACTIVA' AND documento NOT IN (" . implode(',', $docs_abiertos_escaped) . ")"
+        : "WHERE estado = 'ACTIVA'";
+
+    $q_cerradas = $mysqli_sistema->query("SELECT documento, token_pin FROM z_mesas_activas {$where_cerradas}");
+    if ($q_cerradas && $q_cerradas->num_rows > 0) {
+        while ($mc = $q_cerradas->fetch_assoc()) {
+            $doc_c = $mc['documento'];
+            $mysqli_sistema->query("UPDATE z_mesas_activas SET estado = 'CERRADA', updated_at = NOW() WHERE documento = '{$doc_c}'");
+
+            // Si tenía un pago reportado (estado 2 o con referencia), confirmarlo automáticamente a estado 1 (Verde)
+            $mysqli_sistema->query("UPDATE z_status_pago 
+                SET estado = '1', aprobado_por = 'Caja Premium', fecha_confirmacion = NOW(), updated_at = NOW() 
+                WHERE documento = '{$doc_c}' AND (estado = '2' OR (referencia != '' AND estado != '4'))");
+            
+            echo "[{$timestamp}] [FACTURADA] Mesa {$doc_c} fue procesada y liberada por Premium Soft. Pago aprobado automáticamente a estado 1." . PHP_EOL;
         }
     }
 
@@ -377,10 +409,41 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         $info_top = !empty($top_productos) ? " + Top 5 Productos" : "";
         echo "[{$timestamp}] [OK NUBE 200] Sincronizada(s) {$cant_mesas} mesa(s){$info_top}: " . (empty($resumen) ? "Sin mesas abiertas" : implode(' | ', $resumen)) . PHP_EOL;
 
-        // Si la nube envió pagos pendientes reportados, registrarlos en local
+        // Si la nube envió pagos pendientes reportados, registrarlos en local (mijar26273_sistema:3307)
         if (!empty($json_resp['pagos_pendientes']) && is_array($json_resp['pagos_pendientes'])) {
             $c_rep = count($json_resp['pagos_pendientes']);
-            echo "[{$timestamp}] [AVISO] Se detectaron {$c_rep} pago(s) reportado(s) por clientes en la nube." . PHP_EOL;
+            echo "[{$timestamp}] [AVISO] Se detectaron {$c_rep} pago(s) reportado(s) por clientes en la nube. Sincronizando con z_status_pago local..." . PHP_EOL;
+
+            $mysqli_sync_pago = @new mysqli($host_local, $user_local, $pass_local, $bd_sistema, (int)$port_local);
+            if ($mysqli_sync_pago && !$mysqli_sync_pago->connect_errno) {
+                foreach ($json_resp['pagos_pendientes'] as $p) {
+                    $doc_p = $mysqli_sync_pago->real_escape_string($p['documento'] ?? '');
+                    $pin_p = $mysqli_sync_pago->real_escape_string($p['token_pin'] ?? '');
+                    $est_p = $mysqli_sync_pago->real_escape_string($p['estado'] ?? '2');
+                    $met_p = $mysqli_sync_pago->real_escape_string($p['metodo'] ?? '');
+                    $ban_p = $mysqli_sync_pago->real_escape_string($p['banco_origen'] ?? '');
+                    $ref_p = $mysqli_sync_pago->real_escape_string($p['referencia'] ?? '');
+                    $mon_p = (float)($p['monto'] ?? 0);
+                    $fec_p = $mysqli_sync_pago->real_escape_string($p['fecha_reporte'] ?? date('Y-m-d H:i:s'));
+
+                    if (!empty($doc_p)) {
+                        $mysqli_sync_pago->query("INSERT INTO z_status_pago (documento, token_pin, estado, metodo, banco_origen, referencia, monto, fecha_reporte, created_at, updated_at)
+                            VALUES ('{$doc_p}', '{$pin_p}', '{$est_p}', '{$met_p}', '{$ban_p}', '{$ref_p}', {$mon_p}, '{$fec_p}', NOW(), NOW())
+                            ON DUPLICATE KEY UPDATE 
+                                estado = '{$est_p}',
+                                metodo = '{$met_p}',
+                                banco_origen = '{$ban_p}',
+                                referencia = '{$ref_p}',
+                                monto = {$mon_p},
+                                fecha_reporte = '{$fec_p}',
+                                updated_at = NOW()");
+                    }
+                }
+                $mysqli_sync_pago->close();
+                echo "[{$timestamp}] [OK] z_status_pago local actualizado correctamente en puerto {$port_local}." . PHP_EOL;
+            } else {
+                echo "[{$timestamp}] [ERROR] No se pudo conectar a {$bd_sistema} para actualizar pagos." . PHP_EOL;
+            }
         }
     } else {
         echo "[{$timestamp}] [ERROR NUBE HTTP {$http_code}] {$curl_err} " . substr($respuesta, 0, 150) . PHP_EOL;

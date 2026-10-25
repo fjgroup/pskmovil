@@ -274,7 +274,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 						</div>
 						<div class="col-md-6 col-sm-6" style="margin-top:8px;">
 							<label>BD 2: Satélite Local (Mesas & Config):</label>
-							<input type="text" class="form-control" name="bd_sistema" id="bd_sistema" value="mijar_sistema" placeholder="mijar_sistema" />
+							<input type="text" class="form-control" name="bd_sistema" id="bd_sistema" value="mijar26273_sistema" placeholder="mijar26273_sistema" />
 							<small class="text-muted" style="font-size:11px; display:block; margin-top:2px;">
 								<i class="fa fa-check-circle"></i> Guarda tokens PIN, estados y configuración sin tocar Premium Soft.
 							</small>

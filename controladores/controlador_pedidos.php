@@ -1013,6 +1013,19 @@ if ($_GET['accion'] == "ver_pedidos") {
 
 	$consulta = $objeto_pedido->general_query($bd_conexion, $query);
 
+	// Consultar estados de pago en satélite local (mijar26273_sistema:3307)
+	$pagos_mesas = [];
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
+	if ($mysqli_sist && !$mysqli_sist->connect_errno) {
+		$res_p = $mysqli_sist->query("SELECT documento, token_pin, estado, metodo, banco_origen, referencia, monto, fecha_reporte FROM z_status_pago");
+		if ($res_p) {
+			while ($r_p = $res_p->fetch_assoc()) {
+				$pagos_mesas[$r_p['documento']] = $r_p;
+			}
+		}
+		$mysqli_sist->close();
+	}
+
 	echo "
 		<table class='table table-striped' style='font-size:12px;'>
 			<thead>
@@ -1026,35 +1039,141 @@ if ($_GET['accion'] == "ver_pedidos") {
 			<tbody>	
 	";
 
-
 	$recargo = $datos_conexion['recargo'] / 100;
 	while ($pedido = mysqli_fetch_array($consulta)) {
 
 		$pedido['totalfinal'] = $pedido['totalfinal'] + ($pedido['totalfinal'] * $recargo);
 
-		//$pedido['documento'] = str_replace('E','',$pedido['documento']);
-		$pedido['documento'] = substr($pedido['documento'], 1, strlen($pedido['documento']));
+		$doc_original = $pedido['documento'];
+		$doc_clean = substr($pedido['documento'], 1, strlen($pedido['documento']));
+		$doc_full = "E" . $doc_clean;
 		$codigo_vendedor = "";
+
+		// Verificar información de pago
+		$pago = $pagos_mesas[$doc_full] ?? ($pagos_mesas[$doc_original] ?? null);
+		$estado_pago = $pago['estado'] ?? '0';
+
+		$btn_class = "btn-warning";
+		$badge_pago = "";
+		$fila_style = "";
+
+		if ($estado_pago == '2') {
+			// AZUL - Pago Móvil / Transferencia reportado por cliente (Por confirmar)
+			$btn_class = "btn-info";
+			$fila_style = "background-color: #ebf5fb;";
+			$badge_pago = "<br><span class='label label-info' style='background:#0880C5;font-size:10px;display:inline-block;margin-top:3px;'><i class='fa fa-clock-o'></i> PAGO POR CONFIRMAR</span>";
+		} elseif ($estado_pago == '1') {
+			// VERDE - Pago Confirmado
+			$btn_class = "btn-success";
+			$fila_style = "background-color: #eafaf1;";
+			$badge_pago = "<br><span class='label label-success' style='background:#5CB85C;font-size:10px;display:inline-block;margin-top:3px;'><i class='fa fa-check'></i> PAGO CONFIRMADO</span>";
+		} elseif ($estado_pago == '4') {
+			// ROJO - Pago Rechazado
+			$btn_class = "btn-danger";
+			$fila_style = "background-color: #fdedec;";
+			$badge_pago = "<br><span class='label label-danger' style='background:#D9534F;font-size:10px;display:inline-block;margin-top:3px;'><i class='fa fa-times'></i> PAGO RECHAZADO</span>";
+		}
+
 		echo "		
-			<tr>
+			<tr style='{$fila_style}'>
 				<td style='text-align:center;'>
-					<div class='btn btn-warning' style='width:40px;padding:5px;font-size:13px;' onclick='seleccionar_mesa(" . json_encode($pedido['documento']) . "," . json_encode(trim($pedido['codcliente'])) . "," . json_encode($pedido['nombrecli']) . ",".'"'.$codigo_vendedor.'"'."," . json_encode($pedido['nrorif']) . ")'>
+					<div class='btn {$btn_class}' style='width:40px;padding:5px;font-size:13px;' onclick='seleccionar_mesa(" . json_encode($doc_clean) . "," . json_encode(trim($pedido['codcliente'])) . "," . json_encode($pedido['nombrecli']) . ",".'"'.$codigo_vendedor.'"'."," . json_encode($pedido['nrorif']) . ")'>
 						<i class='fa fa-edit'></i>
 					</div>
 				</td>				
-				<td>" . $pedido['documento'] . "</td>
-				<td>" . strtoupper($pedido['nombrecli']) . "</td>
-				<td class='text-right'>" . number_format($pedido['totalfinal'], 2, ',', '.') . "</td>
-			</tr>		
-		";
+				<td>
+					<strong>" . $doc_clean . "</strong>";
+
+		if ($pago && in_array($estado_pago, ['1', '2', '4'])) {
+			echo "<br><button type='button' class='btn btn-xs btn-primary' style='padding:1px 5px;font-size:10px;margin-top:3px;' onclick='toggle_detalle_pago(\"" . $doc_clean . "\")'><i class='fa fa-eye'></i> Ver Pago</button>";
+		}
+
+		echo "
+				</td>
+				<td>" . strtoupper($pedido['nombrecli']) . " {$badge_pago}</td>
+				<td class='text-right'><strong>" . number_format($pedido['totalfinal'], 2, ',', '.') . "</strong></td>
+			</tr>";
+
+		// Fila desplegable con detalle del pago y botones Confirmar / Rechazar
+		if ($pago && in_array($estado_pago, ['1', '2', '4'])) {
+			$borde_color = ($estado_pago == '1') ? '#5CB85C' : (($estado_pago == '4') ? '#D9534F' : '#0880C5');
+			$monto_rep = isset($pago['monto']) && (float)$pago['monto'] > 0 ? number_format($pago['monto'], 2, ',', '.') : number_format($pedido['totalfinal'], 2, ',', '.');
+			$fec_rep = !empty($pago['fecha_reporte']) ? $pago['fecha_reporte'] : date('Y-m-d H:i');
+
+			echo "
+			<tr id='detalle_pago_{$doc_clean}' style='display:none; {$fila_style}'>
+				<td colspan='4' style='padding:10px 15px; border-left: 5px solid {$borde_color}; background-color: #fafbfc;'>
+					<div style='display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;'>
+						<div style='font-size: 11px; line-height: 1.6;'>
+							<div><strong>Método:</strong> <span class='text-primary'>{$pago['metodo']}</span> | <strong>Banco:</strong> {$pago['banco_origen']}</div>
+							<div><strong>Referencia:</strong> <code style='font-size:13px; font-weight:bold; color:#0880C5;'>{$pago['referencia']}</code> | <strong>Monto Reportado:</strong> <b style='font-size:12px;'>Bs. {$monto_rep}</b></div>
+							<div class='text-muted' style='font-size:10px;'><i class='fa fa-calendar'></i> Reportado el {$fec_rep}</div>
+						</div>
+						<div style='display: flex; gap: 10px; align-items: center;'>
+							<button type='button' class='btn btn-danger' style='width: auto !important; padding: 7px 18px !important; font-size: 13px !important; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;' onclick='cambiar_estado_pago(\"{$doc_full}\", \"4\", this)' title='Rechazar pago si no se encontró en el banco para que el cliente corrija la referencia'>
+								<i class='fa fa-times-circle'></i> Rechazar Pago
+							</button>
+						</div>
+					</div>
+				</td>
+			</tr>";
+		}
 	}
 
 	echo "
 				</tbody>
-			</table>
-	";
+			</table>";
 }
 
+if (isset($_GET['accion']) && $_GET['accion'] == "cambiar_estado_pago") {
+	header('Content-Type: application/json');
+	$documento = trim($_POST['documento'] ?? '');
+	$nuevo_estado = trim($_POST['estado'] ?? '1'); // '1' = Confirmado, '4' = Rechazado
+
+	if (empty($documento)) {
+		echo json_encode(['success' => false, 'error' => 'Documento requerido']);
+		exit;
+	}
+
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
+	if (!$mysqli_sist || $mysqli_sist->connect_errno) {
+		echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos satélite']);
+		exit;
+	}
+
+	$doc_esc = $mysqli_sist->real_escape_string($documento);
+	$est_esc = $mysqli_sist->real_escape_string($nuevo_estado);
+
+	$mysqli_sist->query("UPDATE z_status_pago SET estado = '{$est_esc}', updated_at = NOW() WHERE documento = '{$doc_esc}'");
+	$mysqli_sist->close();
+
+	// Notificar inmediatamente a la API Cloud de Laravel
+	$url_hosting = rtrim($datos_conexion['url_hosting'] ?? 'https://mijardinrestaurant.test', '/');
+	$url_api_cloud = $url_hosting . '/api/confirmar-pago';
+
+	$ch = curl_init($url_api_cloud);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_POST, true);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+		'documento' => $documento,
+		'estado' => $nuevo_estado,
+		'usuario' => 'Mesonero / Comandas Móviles',
+	]));
+	curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+	@curl_exec($ch);
+	@curl_close($ch);
+
+	echo json_encode([
+		'success' => true,
+		'documento' => $documento,
+		'estado' => $nuevo_estado,
+		'mensaje' => ($nuevo_estado == '1' ? '¡Pago Confirmado y Aprobado!' : 'Pago Rechazado.')
+	]);
+	exit;
+}
 if ($_GET['accion'] == "cancelar_pedido") {
 
 	if ($_POST['mesa'] != "") {
@@ -1097,7 +1216,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_impuesto_mesa") {
 	$doc = 'E' . ltrim($mesa_raw, 'E');
 	$impuesto = 0.00;
 
-	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar_sistema', (int)($datos_conexion['port'] ?? 3307));
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
 	if ($mysqli_sist && !$mysqli_sist->connect_errno) {
 		$sql = "SELECT impuesto_bs FROM z_mesas_activas WHERE documento = '" . $mysqli_sist->real_escape_string($doc) . "' OR mesa = '" . $mysqli_sist->real_escape_string($mesa_raw) . "' OR mesa = 'MESA " . $mysqli_sist->real_escape_string($mesa_raw) . "' LIMIT 1";
 		$res = $mysqli_sist->query($sql);

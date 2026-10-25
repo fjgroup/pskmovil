@@ -1,7 +1,7 @@
 <?php
 /**
  * Helper central de configuracion para Comandas Moviles.
- * Lee prioritariamente la configuracion desde la base de datos satelite local "mijar_sistema" (puerto 3307),
+ * Lee prioritariamente la configuracion desde la base de datos satelite local "mijar26273_sistema" (puerto 3307),
  * protegiendo los datos confidenciales y eliminando la dependencia de archivos planos JSON inseguros.
  */
 
@@ -17,41 +17,44 @@ if (!function_exists("obtener_config_sistema")) {
         $port_default = 3307;
         $user_default = "root";
         $pass_default = "root";
-        $bd_sistema   = "mijar_sistema";
+        $bd_candidatas = ["mijar26273_sistema", "mijar_sistema"];
 
-        // 1. Intentar consultar z_config_sistema en mijar_sistema (puerto 3307)
-        try {
-            $mysqli = @new mysqli($host_default, $user_default, $pass_default, $bd_sistema, $port_default);
-            if (!$mysqli->connect_errno) {
-                $res = $mysqli->query("SELECT clave, valor FROM z_config_sistema");
-                if ($res && $res->num_rows > 0) {
-                    $config = [];
-                    while ($row = $res->fetch_assoc()) {
-                        $k = $row["clave"];
-                        $v = $row["valor"];
-                        if ($k === "config_completa") {
-                            $decoded = json_decode($v, true);
-                            if (is_array($decoded)) {
-                                $config = array_merge($config, $decoded);
-                            }
-                        } else {
-                            if ($k === "impuestos") {
-                                $config[$k] = json_decode($v, true) ?: $v;
+        // 1. Intentar consultar z_config_sistema en bases satélite candidatas (puerto 3307)
+        foreach ($bd_candidatas as $bd_sistema) {
+            try {
+                $mysqli = @new mysqli($host_default, $user_default, $pass_default, $bd_sistema, $port_default);
+                if (!$mysqli->connect_errno) {
+                    $res = $mysqli->query("SELECT clave, valor FROM z_config_sistema");
+                    if ($res && $res->num_rows > 0) {
+                        $config = [];
+                        while ($row = $res->fetch_assoc()) {
+                            $k = $row["clave"];
+                            $v = $row["valor"];
+                            if ($k === "config_completa") {
+                                $decoded = json_decode($v, true);
+                                if (is_array($decoded)) {
+                                    $config = array_merge($config, $decoded);
+                                }
                             } else {
-                                $config[$k] = $v;
+                                if ($k === "impuestos") {
+                                    $config[$k] = json_decode($v, true) ?: $v;
+                                } else {
+                                    $config[$k] = $v;
+                                }
                             }
+                        }
+                        $mysqli->close();
+                        if (!empty($config)) {
+                            $config['bd_sistema'] = $bd_sistema;
+                            $config_cache = $config;
+                            return $config;
                         }
                     }
                     $mysqli->close();
-                    if (!empty($config)) {
-                        $config_cache = $config;
-                        return $config;
-                    }
                 }
-                $mysqli->close();
+            } catch (\Throwable $e) {
+                // Silencioso para fallback
             }
-        } catch (\Throwable $e) {
-            // Silencioso para fallback
         }
 
         // 2. Fallback de seguridad al archivo JSON si la BD local aun no estuviera iniciada
@@ -75,13 +78,15 @@ if (!function_exists("guardar_config_sistema")) {
         $port_default = (int) ($datos["port"] ?? 3307);
         $user_default = $datos["user"] ?? "root";
         $pass_default = $datos["pw"] ?? "root";
-        $bd_sistema   = "mijar_sistema";
+        $bd_preferida = !empty($datos["bd_sistema"]) ? $datos["bd_sistema"] : "mijar26273_sistema";
+        $bd_candidatas = array_unique([$bd_preferida, "mijar26273_sistema", "mijar_sistema"]);
 
         $guardado_bd = false;
 
-        try {
-            $mysqli = @new mysqli($host_default, $user_default, $pass_default, $bd_sistema, $port_default);
-            if (!$mysqli->connect_errno) {
+        foreach ($bd_candidatas as $bd_sistema) {
+            try {
+                $mysqli = @new mysqli($host_default, $user_default, $pass_default, $bd_sistema, $port_default);
+                if (!$mysqli->connect_errno) {
                 // Crear tabla si no existe
                 $mysqli->query("CREATE TABLE IF NOT EXISTS `z_config_sistema` (
                     `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -109,10 +114,12 @@ if (!function_exists("guardar_config_sistema")) {
                 }
                 $mysqli->close();
                 $guardado_bd = true;
+                break;
             }
         } catch (\Throwable $e) {
             // Error en BD
         }
+    }
 
 
         return $guardado_bd;

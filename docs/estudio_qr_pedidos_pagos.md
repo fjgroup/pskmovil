@@ -43,16 +43,16 @@ Para garantizar que los clientes **nunca toquen la red local**, la interacción 
 ### 2.1. Separación Estricta de Bases de Datos
 1. **Entorno Local (Puerto 3307 - PC Restaurante):**
    - **`adminbahiap`:** Base de datos principal de Premium Soft (tablas vírgenes: `operti`, `opermv`, etc.).
-   - **`mijar_sistema` (Local):** Base de datos satélite que almacena el PIN generado por el mesonero en `z_status_pago` y copia local en `z_mesas_activas`.
+   - **`mijar26273_sistema` (Local):** Base de datos satélite que almacena el PIN generado por el mesonero en `z_status_pago` y copia local en `z_mesas_activas`.
 2. **Entorno Nube / Remoto (Puerto 3306 - Hosting Web):**
-   - **`mijar_sistema` (Nube):** Base de datos que alimenta el portal web del cliente (`mijardinrestaurant.com` / `mijardinrestaurant.test`).
+   - **`mijar26273_sistema` (Nube):** Base de datos que alimenta el portal web del cliente (`mijardinrestaurant.com` / `mijardinrestaurant.test`).
    - Solo recibe datos mediante peticiones salientes seguras (**HTTPS POST Outbound**) emitidas por el demonio local `sync_daemon.php`.
 
 ```mermaid
 flowchart TD
     subgraph RedLocal [Red Local Privada del Restaurante - Puerto 3307]
         PS[Premium Soft\nBD: adminbahiap :3307]
-        LocalSat[BD Satélite Local\nmijar_sistema :3307]
+        LocalSat[BD Satélite Local\nmijar26273_sistema :3307]
         Mesoneros[Mesoneros con Móviles\ncomandasmoviles :8080]
         BatSync[iniciar_sincronizador.bat\nsync_daemon.php en 2do Plano]
 
@@ -64,7 +64,7 @@ flowchart TD
 
     subgraph Internet [Internet / Hosting Web - Puerto 3306]
         WebAPI[API Laravel: POST /api/sincronizar-mesas]
-        CloudDB[(BD Cloud: mijar_sistema :3306)]
+        CloudDB[(BD Cloud: mijar26273_sistema :3306)]
         WebMesa[Ruta /mesa: Consulta del Comensal\nContador Regresivo si no ha sincronizado]
 
         WebAPI -->|Escribe mesas activas| CloudDB
@@ -180,11 +180,11 @@ El proceso local de sincronización se ejecuta mediante [sync_daemon.php](file:/
 1. **Lectura Local (Puerto 3307):**
    - Consulta las mesas abiertas en `adminbahiap.operti` (`tipodoc = 'ESP'`).
    - Obtiene los platos y montos desde `adminbahiap.opermv`.
-   - Consulta o genera el PIN en `mijar_sistema.z_status_pago`.
-   - Actualiza la copia local en `mijar_sistema.z_mesas_activas`.
+   - Consulta o genera el PIN en `mijar26273_sistema.z_status_pago`.
+   - Actualiza la copia local en `mijar26273_sistema.z_mesas_activas`.
 2. **Transmisión Segura Outbound (HTTPS):**
    - Emite un `POST https://mijardinrestaurant.test/api/sincronizar-mesas`.
-   - La base de datos de la nube (`mijar_sistema` en puerto 3306) actualiza sus registros de comensal.
+   - La base de datos de la nube (`mijar26273_sistema` en puerto 3306) actualiza sus registros de comensal.
    - En caso de mesas cerradas o facturadas, las archiva como inactivas.
 
 ```bat
@@ -226,5 +226,5 @@ gantt
 ### Detalle de Fases:
 * **Fase 1 (Completada):** Botón «Compartir» en Comandas Móviles con medidas equivalentes a Procesar y Comanda, generación de PIN de 6 dígitos y modal de QR con protocolo HTTPS.
 * **Fase 2 (Completada):** Portal web del comensal en Laravel + Blade, pantalla de consulta por PIN y pantalla de espera con contador regresivo de 15 segundos animado.
-* **Fase 3 (Completada):** Separación de entornos de base de datos (`adminbahiap` y `mijar_sistema` en puerto 3307 local vs `mijar_sistema` en puerto 3306 nube) y demonio de sincronización automática `sync_daemon.php` con archivo `.bat`.
+* **Fase 3 (Completada):** Separación de entornos de base de datos (`adminbahiap` y `mijar26273_sistema` en puerto 3307 local vs `mijar26273_sistema` en puerto 3306 nube) y demonio de sincronización automática `sync_daemon.php` con archivo `.bat`.
 * **Fase 4 (Fase Final - Pagos):** Recepción de pagos móviles y transferencias reportadas por el comensal, validación en caja/supervisor y confirmación inmediata en la pantalla del cliente.

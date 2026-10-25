@@ -915,3 +915,20 @@ footer a:hover {
 	align-items: center;
 	gap: 6px;
 }
+
+/* Botones de acción (Confirmar / Rechazar pago) en sección Mesas en Tránsito */
+#en_transito .btn-success,
+#en_transito .btn-danger {
+	width: auto !important;
+	padding: 7px 16px !important;
+	font-size: 13px !important;
+	font-weight: bold !important;
+	border-radius: 5px !important;
+	white-space: nowrap !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 6px !important;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+	margin: 2px !important;
+}

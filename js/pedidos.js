@@ -614,7 +614,7 @@ function mostrar_conf_conexion() {
 			$('#cantidad_por_pagina').val(r.cantidad_por_pagina);
 			$('#cm_ancho_precuenta').val(r.cm_ancho_precuenta);
 			$('#bd').val(r.bd_pos || r.bd || 'adminbahiap');
-			$('#bd_sistema').val(r.bd_sistema || 'mijar_sistema');
+			$('#bd_sistema').val(r.bd_sistema || 'mijar26273_sistema');
 			$('#url_hosting').val(r.url_hosting || (r.url_web_mesa ? r.url_web_mesa.replace(/\/mesa\/?$/i, '') : 'https://mijardinrestaurant.test'));
 			$('#url_web_mesa').val(r.url_web_mesa || 'https://mijardinrestaurant.test/mesa');
 
@@ -2888,3 +2888,54 @@ function copiar_enlace_qr() {
 
 
 
+
+// GESTIÓN DE PAGOS REPORTADOS POR COMENSALES (ESTADO AZUL, VERDE, ROJO)
+function toggle_detalle_pago(mesa_clean) {
+	var fila = $('#detalle_pago_' + mesa_clean);
+	if (fila.is(':visible')) {
+		fila.hide();
+	} else {
+		fila.show();
+	}
+}
+
+function cambiar_estado_pago(documento, estado, btn) {
+	var msj = '¿Está seguro de RECHAZAR el pago de la mesa ' + documento + '?\n\nAl cliente le aparecerá la alerta en rojo indicándole que no se encontró la transferencia para que verifique y vuelva a reportar la referencia.';
+	if (estado === '1') {
+		msj = '¿Está seguro de CONFIRMAR el pago de la mesa ' + documento + '?';
+	}
+	if (!confirm(msj)) {
+		return;
+	}
+
+	var $btn = $(btn);
+	var originalHtml = $btn.html();
+	$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Procesando...');
+
+	$.ajax({
+		type: 'POST',
+		url: 'controladores/controlador_pedidos.php?accion=cambiar_estado_pago',
+		data: {
+			documento: documento,
+			estado: estado
+		},
+		dataType: 'json',
+		success: function (res) {
+			if (res.success) {
+				alert(res.mensaje);
+				// Refrescar automáticamente la lista de mesas en tránsito
+				if (typeof ver_transacciones_transito === 'function') {
+					ver_transacciones_transito();
+				}
+			} else {
+				alert('Error: ' + (res.error || 'No se pudo actualizar el pago'));
+				$btn.prop('disabled', false).html(originalHtml);
+			}
+		},
+		error: function (xhr, status, err) {
+			alert('Error de conexión al cambiar el estado del pago.');
+			console.error(err, xhr.responseText);
+			$btn.prop('disabled', false).html(originalHtml);
+		}
+	});
+}

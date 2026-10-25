@@ -35,19 +35,24 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
     $mesa_clean = preg_replace('/^E/i', '', $mesa_input);
     $documento = "E" . $mesa_clean;
 
-    // 1. Conectar a base de datos satélite local mijar_sistema en puerto 3307
+    // 1. Conectar a base de datos satélite local mijar26273_sistema en puerto 3307
     $host_db = $datos_conexion['host'] ?? '127.0.0.1';
     $user_db = $datos_conexion['user'] ?? 'root';
     $pass_db = $datos_conexion['pw'] ?? 'root';
     $port_db = (int) ($datos_conexion['port'] ?? 3307);
 
-    $mysqli_sistema = @new mysqli($host_db, $user_db, $pass_db, "mijar_sistema", $port_db);
+    $bd_satelite = $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema';
+    $mysqli_sistema = @new mysqli($host_db, $user_db, $pass_db, $bd_satelite, $port_db);
     if ($mysqli_sistema->connect_error) {
-        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base local mijar_sistema (puerto 3307): ' . $mysqli_sistema->connect_error]);
+        $bd_alt = ($bd_satelite === 'mijar26273_sistema') ? 'mijar_sistema' : 'mijar26273_sistema';
+        $mysqli_sistema = @new mysqli($host_db, $user_db, $pass_db, $bd_alt, $port_db);
+    }
+    if ($mysqli_sistema->connect_error) {
+        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base local satélite (' . ($bd_satelite ?? 'mijar26273_sistema') . '): ' . $mysqli_sistema->connect_error]);
         exit;
     }
 
-    // 2. Obtener o generar PIN aleatorio de 6 dígitos en mijar_sistema (3307)
+    // 2. Obtener o generar PIN aleatorio de 6 dígitos en mijar26273_sistema (3307)
     $query = "SELECT token_pin, estado FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1";
     $res = $mysqli_sistema->query($query);
     $registro = $res ? $res->fetch_assoc() : null;
@@ -106,7 +111,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
     if ($tasa <= 0) $tasa = 1;
     $total_usd = $total_bs / $tasa;
 
-    // 4. Guardar copia local en mijar_sistema.z_mesas_activas (puerto 3307)
+    // 4. Guardar copia local en mijar26273_sistema.z_mesas_activas (puerto 3307)
     $items_json = json_encode($items, JSON_UNESCAPED_UNICODE);
     $fecha_act = date('Y-m-d H:i:s');
     $ins_mesa = "INSERT INTO z_mesas_activas (documento, mesa, token_pin, total_bs, total_usd, tasa_dia, items_json, estado, created_at, updated_at)
