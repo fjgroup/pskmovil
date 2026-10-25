@@ -215,15 +215,38 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 			</div>
 			<div class="ventanas_contenido" style="padding: 15px 20px; max-height: calc(90vh - 60px); overflow-y: auto;">
 				
-				<!-- SECCIÓN 1: BASES DE DATOS LOCALES (PUERTO 3307) -->
+				<!-- SELECTOR DE MODO DE ENTORNO: DESARROLLO VS PRODUCCIÓN -->
+				<div class="seccion_config_box" style="background:#f8fafc; border: 2px solid #0880C5; border-radius: 8px; padding: 12px 16px; margin-bottom: 15px;">
+					<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+						<div>
+							<strong style="font-size:14px; color:#1e293b;"><i class="fa fa-server"></i> Modo de Entorno:</strong>
+							<small style="display:block; color:#64748b; font-size:11px;">Selecciona si estás en la PC de desarrollo o en el restaurante en producción.</small>
+						</div>
+						<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+							<div class="btn-group" id="selector_modo_entorno">
+								<label class="btn btn-default" id="label_modo_desarrollo" onclick="cambiar_modo_entorno('desarrollo')" style="font-weight:bold; cursor:pointer;">
+									<input type="radio" name="modo_entorno" id="modo_desarrollo" value="desarrollo" style="display:none;"> 💻 Desarrollo (PC Local)
+								</label>
+								<label class="btn btn-default" id="label_modo_produccion" onclick="cambiar_modo_entorno('produccion')" style="font-weight:bold; cursor:pointer;">
+									<input type="radio" name="modo_entorno" id="modo_produccion" value="produccion" style="display:none;"> 🏢 Producción (Restaurante)
+								</label>
+							</div>
+							<button type="button" class="btn btn-success" onclick="registrar_conf_conexion();" style="font-weight:bold; padding: 7px 16px;">
+								<i class="fa fa-save"></i> Guardar Cambios
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<!-- SECCIÓN 1: BASES DE DATOS LOCALES -->
 				<div class="seccion_config_box">
 					<div class="seccion_config_titulo">
-						<i class="fa fa-database"></i> 1. Bases de Datos Locales (Restaurante - Puerto 3307)
+						<i class="fa fa-database"></i> 1. Bases de Datos Locales
 					</div>
 					<div class="row">
 						<div class="col-md-6 col-sm-6">
 							<label>Host / IP Local MySQL:</label>
-							<input type="text" class="form-control" name="host" id="host" placeholder="127.0.0.1 o 192.168.0.102"
+							<input type="text" class="form-control" name="host" id="host" placeholder="127.0.0.1"
 								onkeyup="limpiar_parametros_adicionales()" />
 						</div>
 						<div class="col-md-6 col-sm-6">
@@ -422,7 +445,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 				<!-- BOTONES DE ACCIÓN PRINCIPALES -->
 				<div style="display:flex; gap:10px; align-items:center; margin-top:15px; margin-bottom:10px;">
 					<button type="button" class="btn btn-success btn-lg" onclick="registrar_conf_conexion();" style="font-weight:bold; font-size:14px; padding: 10px 22px;">
-						<i class="fa fa-save"></i> Actualizar BD remota
+						<i class="fa fa-save"></i> Guardar Configuración
 					</button>
 					<button type="button" class="btn btn-danger btn-lg" onclick="ocultar_conf_conexion()" style="font-size:14px; padding: 10px 20px;">
 						<i class="fa fa-times"></i> Cancelar

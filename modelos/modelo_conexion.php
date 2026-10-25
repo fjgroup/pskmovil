@@ -12,7 +12,9 @@ class conexion{
 		$user = $datos_conexion['user'] ?? 'root';
 		$pw = $datos_conexion['pw'] ?? 'root';
 		$bd = $datos_conexion['bd_pos'] ?? ($datos_conexion['bd'] ?? 'adminbahiap');
-		$port = !empty($datos_conexion['port']) ? ':'.$datos_conexion['port'] : ':3307';
+		$modo = strtolower(trim($datos_conexion['modo_entorno'] ?? 'desarrollo'));
+		$puerto_def = ($modo === 'produccion') ? '3306' : '3307';
+		$port = !empty($datos_conexion['port']) ? ':'.$datos_conexion['port'] : ':'.$puerto_def;
 
 		if($bd_conexion == "sistema"){
 			$bd = $datos_conexion['bd_sistema'] ?? 'mijar_sistema';

@@ -222,7 +222,10 @@ if ($_GET['accion'] == "registrar_conexion") {
     $url_host = !empty($_POST['url_hosting']) ? rtrim($_POST['url_hosting'], '/') : 'https://mijardinrestaurant.test';
     $url_mesa = !empty($_POST['url_web_mesa']) ? $_POST['url_web_mesa'] : ($url_host . '/mesa');
 
+    $modo_entorno = !empty($_POST['modo_entorno']) ? strtolower(trim($_POST['modo_entorno'])) : ($datos_existentes['modo_entorno'] ?? 'desarrollo');
+
     $array = array(
+        "modo_entorno" => $modo_entorno,
         "host" => $host_loc,
         "user" => $user_loc,
         "pw" => $pw_loc,

@@ -491,44 +491,32 @@ function ocultar_busqueda() {
 }
 
 function registrar_conf_conexion() {
-	if ($('.msj_conexion').eq(0).html().indexOf('Conexion exitosa') > -1) {
+	var datos = new FormData($('#conf_conexion form')[0]);
+	datos.append("id_empresa", $('#id_empresa').val() || '');
 
-		if ($('#cod_empresa').val() != "" && $('#cod_agencia').val() != "" && $('#cod_cliente').val() != "" &&
-			$('#cod_zona').val() != "" && $('#cod_deposito').val() != "" && $('#recargo').val() != "" &&
-			$('#pw_supervisor').val() != "" && $('#pw_admin') != "" && $('#conf_pw_admin').val() != "") {
-
-			if ($('#conf_pw_admin').val() == $('#pw_admin').val()) {
-
-				var datos = new FormData($('#conf_conexion form')[0]);
-				datos.append("id_empresa", $('#id_empresa').val());
-
-				$.ajax({
-					type: "POST",
-					url: "controladores/controlador_datos_conexion.php?accion=registrar_conexion",
-					data: datos,
-					cache: false,
-					processData: false,
-					contentType: false,
-					beforeSend: function () {
-						mostrar_cargando();
-					},
-					success: function (r) {
-						ocultar_cargando();
-						$('.msj_conexion').eq(1).html(r);
-						$('#bloqueo').show();
-					}
-				});
-			} else {
-				$('.msj_conexion').eq(1).html("<i class='fa fa-times'></i> Password no coincide");
-			}
-
-		} else {
-			$('.msj_conexion').eq(1).html("<i class='fa fa-times'></i> Complete la informacion");
+	$.ajax({
+		type: "POST",
+		url: "controladores/controlador_datos_conexion.php?accion=registrar_conexion",
+		data: datos,
+		cache: false,
+		processData: false,
+		contentType: false,
+		beforeSend: function () {
+			mostrar_cargando();
+		},
+		success: function (r) {
+			ocultar_cargando();
+			$('.msj_conexion').html("<span style='color:green; font-weight:bold;'><i class='fa fa-check'></i> Configuración guardada correctamente.</span>");
+			setTimeout(function() {
+				ocultar_conf_conexion();
+				probar_conexion_registrada();
+			}, 1000);
+		},
+		error: function(err) {
+			ocultar_cargando();
+			$('.msj_conexion').html("<span style='color:red;'><i class='fa fa-times'></i> Error al guardar configuración.</span>");
 		}
-	} else {
-		$('.msj_conexion').eq(1).html("<i class='fa fa-times'></i> Compruebe la conexion");
-	}
-
+	});
 }
 
 
@@ -569,6 +557,33 @@ function autorizar_conf_conexion() {
 	});
 }
 
+function cambiar_modo_entorno(modo, soloVisual) {
+	modo = (modo || 'desarrollo').toLowerCase();
+	if (modo === 'produccion') {
+		$('#modo_produccion').prop('checked', true);
+		$('#label_modo_produccion').removeClass('btn-default').addClass('btn-success');
+		$('#label_modo_desarrollo').removeClass('btn-primary btn-info').addClass('btn-default');
+
+		if (!soloVisual) {
+			$('#port').val('3306');
+			$('#url_hosting').val('https://mijardinrestaurant.com');
+			$('#url_web_mesa').val('https://mijardinrestaurant.com/mesa');
+			$('#host').val('127.0.0.1');
+		}
+	} else {
+		$('#modo_desarrollo').prop('checked', true);
+		$('#label_modo_desarrollo').removeClass('btn-default').addClass('btn-primary');
+		$('#label_modo_produccion').removeClass('btn-success').addClass('btn-default');
+
+		if (!soloVisual) {
+			$('#port').val('3307');
+			$('#url_hosting').val('https://mijardinrestaurant.test');
+			$('#url_web_mesa').val('https://mijardinrestaurant.test/mesa');
+			$('#host').val('127.0.0.1');
+		}
+	}
+}
+
 function mostrar_conf_conexion() {
 	$('.msj_conexion').eq(0).html('');
 	$('#conf_conexion').show();
@@ -582,6 +597,7 @@ function mostrar_conf_conexion() {
 		},
 		success: function (r) {
 			ocultar_cargando();
+			cambiar_modo_entorno(r.modo_entorno || 'desarrollo', true);
 			$('#host').val(r.host);
 			$('#port').val(r.port);
 			$('#user').val(r.user);

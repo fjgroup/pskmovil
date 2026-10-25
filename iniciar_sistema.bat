@@ -2,21 +2,44 @@
 title Sistema Mesoneros y Sincronizador Cloud - Mi Jardin Restaurant
 cd /d "%~dp0"
 
+:: 1. Detectar ejecutable real de PHP (Laravel Herd o PATH del sistema)
+set "PHP_CMD="
+if exist "%USERPROFILE%\.config\herd\bin\php84\php.exe" (
+    set "PHP_CMD=%USERPROFILE%\.config\herd\bin\php84\php.exe"
+) else if exist "C:\Users\Principal\.config\herd\bin\php84\php.exe" (
+    set "PHP_CMD=C:\Users\Principal\.config\herd\bin\php84\php.exe"
+) else (
+    for /f "delims=" %%I in ('where php.exe 2^>nul') do (
+        if not defined PHP_CMD set "PHP_CMD=%%I"
+    )
+)
+if not defined PHP_CMD set "PHP_CMD=php"
+
+:: 2. Detectar la IP asignada por el router activamente (Ruta por defecto 0.0.0.0)
+set "LOCAL_IP=127.0.0.1"
+for /f "tokens=4" %%a in ('route print 0.0.0.0 ^| findstr "\<0.0.0.0\>" 2^>nul') do (
+    set "LOCAL_IP=%%a"
+)
+
+:: 3. Puerto web para comandas moviles (2010 por defecto en PSK Movil)
+set "WEB_PORT=2010"
+
 echo ========================================================
 echo   SISTEMA RESTAURANTE MI JARDIN (LOCAL + NUBE UNIFICADO)
 echo ========================================================
 echo.
 echo [1/2] Iniciando Sincronizador Cloud en segundo plano...
-start "Sincronizador Cloud - Mi Jardin" /min php sync_daemon.php
-echo       Sincronizador activo (MySQL 3307 -^> Nube HTTPS).
+start "Sincronizador Cloud - Mi Jardin" /min "%PHP_CMD%" sync_daemon.php
+echo       Sincronizador activo (Premium Soft -^> Nube HTTPS).
 echo.
-echo [2/2] Iniciando Servidor Web Local para Mesoneros (Puerto 8080)...
-start "Servidor Web Mesoneros - Mi Jardin" /min php -S 0.0.0.0:8080
-echo       Servidor web local activo en puerto 8080.
+echo [2/2] Iniciando Servidor Web Local para Mesoneros (Puerto %WEB_PORT%)...
+start "Servidor Web Mesoneros - Mi Jardin" /min "%PHP_CMD%" -S 0.0.0.0:%WEB_PORT%
+echo       Servidor web local activo en puerto %WEB_PORT%.
 echo.
 echo ========================================================
-echo ACCESO PARA MESONEROS Y SUPERVISORES (WIFI PRIVADA):
-echo http://%COMPUTERNAME%:8080 o la IP del servidor (ej: http://192.168.0.102:8080)
+echo ACCESO PARA MESONEROS Y SUPERVISORES (WIFI RESTAURANTE):
+echo Desde celulares o tablets:  http://%LOCAL_IP%:%WEB_PORT%
+echo Desde esta computadora:    http://localhost:%WEB_PORT%
 echo ========================================================
 echo.
 echo [INFO] Ambos servicios estan corriendo en segundo plano.

@@ -3,8 +3,9 @@
  * ============================================================================
  * SINCRONIZADOR LOCAL A LA NUBE - MI JARDIN RESTAURANT
  * ============================================================================
- * Lee las mesas activas de Premium Soft y la tabla satélite local (puerto 3307)
- * y las envía de forma segura (HTTPS Outbound) hacia la API de la nube (puerto 3306).
+ * Lee las mesas activas de Premium Soft, el Top 3 de productos más vendidos
+ * de las últimas 100 ventas en Kardex, y la tabla satélite local.
+ * Envía la información y fotos a la nube vía HTTPS Outbound.
  *
  * Ejecución:
  *   php sync_daemon.php          (Modo demonio continuo cada 12 segundos)
@@ -14,26 +15,32 @@
 
 date_default_timezone_set('America/Caracas');
 
-// Cargar configuración centralizada desde la BD mijar_sistema (puerto 3307)
+// Cargar configuración centralizada desde la BD mijar_sistema
 require_once __DIR__ . '/funciones/config_helper.php';
 $datos_conexion = obtener_config_sistema();
 
-// Parámetros de bases locales (Único puerto 3307 para ambas bases)
+// Entorno: 'desarrollo' o 'produccion' (gestionado en BD z_config_sistema)
+$modo_entorno = strtolower(trim($datos_conexion['modo_entorno'] ?? 'desarrollo'));
+
+// Parámetros de bases locales (3307 en desarrollo, 3306 en producción si no se especifica)
 $host_local = $datos_conexion['host'] ?? '127.0.0.1';
 $user_local = $datos_conexion['user'] ?? 'root';
 $pass_local = $datos_conexion['pw'] ?? 'root';
-$port_local = (int) ($datos_conexion['port'] ?? 3307);
+$port_local = (int) ($datos_conexion['port'] ?? ($modo_entorno === 'produccion' ? 3306 : 3307));
 $bd_pos     = $datos_conexion['bd_pos'] ?? ($datos_conexion['bd'] ?? 'adminbahiap');
 $bd_sistema = $datos_conexion['bd_sistema'] ?? 'mijar_sistema';
 
 // Endpoint Cloud seguro HTTPS (Outbound hacia el servidor dedicado / VPS)
-$url_api_cloud = "https://mijardinrestaurant.test/api/sincronizar-mesas";
 if (!empty($datos_conexion['url_hosting'])) {
     $base = rtrim($datos_conexion['url_hosting'], '/');
     $url_api_cloud = $base . '/api/sincronizar-mesas';
 } elseif (!empty($datos_conexion['url_web_mesa'])) {
     $base = preg_replace('#/mesa/?$#i', '', $datos_conexion['url_web_mesa']);
     $url_api_cloud = $base . '/api/sincronizar-mesas';
+} elseif ($modo_entorno === 'produccion') {
+    $url_api_cloud = "https://mijardinrestaurant.com/api/sincronizar-mesas";
+} else {
+    $url_api_cloud = "https://mijardinrestaurant.test/api/sincronizar-mesas";
 }
 
 $modo_once = in_array('--once', $argv);
@@ -42,12 +49,128 @@ $intervalo_segundos = 12;
 echo "========================================================" . PHP_EOL;
 echo "  SINCRONIZADOR CLOUD - MI JARDIN RESTAURANT" . PHP_EOL;
 echo "========================================================" . PHP_EOL;
+echo " Entorno:        " . strtoupper($modo_entorno) . PHP_EOL;
 echo " Servidor Local: MySQL {$host_local}:{$port_local}" . PHP_EOL;
 echo " BD POS:         {$bd_pos}" . PHP_EOL;
 echo " BD Satélite:    {$bd_sistema}" . PHP_EOL;
 echo " Endpoint Nube:  {$url_api_cloud}" . PHP_EOL;
 echo " Modo:           " . ($modo_once ? "Ejecución única (--once)" : "Continuo (cada {$intervalo_segundos}s)") . PHP_EOL;
 echo "========================================================" . PHP_EOL . PHP_EOL;
+
+/**
+ * Calcula los 3 productos más vendidos de las últimas 100 ventas en kardex.
+ * Se ejecuta automáticamente cada 1 hora (3600 segundos) o al iniciar el servicio.
+ */
+function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
+{
+    static $cache_top = [];
+    static $ultimo_tiempo_top = 0;
+
+    $ahora = time();
+    // Ejecutar cada 1 hora (3600 segundos) o al iniciar
+    if (!empty($cache_top) && ($ahora - $ultimo_tiempo_top < 3600)) {
+        return $cache_top;
+    }
+
+    $sql = "
+        SELECT 
+            k.codigo,
+            a.nombre,
+            a.precio1,
+            a.impuesto1,
+            a.preciofin1,
+            a.rutafoto,
+            SUM(k.cantidad) AS total_vendido
+        FROM kardex k
+        INNER JOIN articulo a ON a.codigo = k.codigo
+        WHERE k.origen = 'FAC'
+          AND CAST(a.grupo AS UNSIGNED) NOT BETWEEN 10 AND 17
+          AND k.documento IN (
+              SELECT doc FROM (
+                  SELECT DISTINCT documento AS doc
+                  FROM kardex
+                  WHERE origen = 'FAC'
+                  ORDER BY documento DESC
+                  LIMIT 200
+              ) ultimas_ventas
+          )
+        GROUP BY k.codigo, a.nombre, a.precio1, a.impuesto1, a.preciofin1, a.rutafoto
+        ORDER BY total_vendido DESC
+        LIMIT 5
+    ";
+
+    $res = $mysqli_pos->query($sql);
+    if (!$res || $res->num_rows === 0) {
+        return $cache_top;
+    }
+
+    $top = [];
+    $pos = 1;
+    $now = date('Y-m-d H:i:s');
+
+    while ($r = $res->fetch_assoc()) {
+        $codigo = trim($r['codigo']);
+        $nombre = trim(mb_convert_encoding($r['nombre'], 'UTF-8', 'ISO-8859-1'));
+        $precio1 = (float)$r['precio1'];
+        $impuesto1 = (float)$r['impuesto1'];
+        $precio_bs = round($precio1 * (1 + ($impuesto1 / 100)), 2);
+        $precio_usd = $tasa > 0 ? round($precio_bs / $tasa, 2) : 0;
+        $total_vendido = round((float)$r['total_vendido'], 2);
+
+        $rutafoto = trim($r['rutafoto'] ?? '');
+        $img_name = !empty($rutafoto) ? basename(str_replace('\\', '/', $rutafoto)) : '';
+        $img_base64 = null;
+
+        // Buscar imagen física en disco para transferirla a la nube si existe
+        $posibles_rutas = [
+            $rutafoto,
+            'C:\\Premium\\Imagenes\\' . $img_name,
+            __DIR__ . '/imagenes/' . $img_name,
+        ];
+
+        foreach ($posibles_rutas as $pr) {
+            if (!empty($pr) && file_exists($pr) && is_file($pr)) {
+                $img_base64 = base64_encode(file_get_contents($pr));
+                break;
+            }
+        }
+
+        // Actualizar tabla z_top_productos en BD satélite local (puerto 3307)
+        $mysqli_sistema->query("
+            INSERT INTO z_top_productos (posicion, codigo, nombre, precio_bs, precio_usd, imagen, total_vendido, updated_at)
+            VALUES ({$pos}, '{$mysqli_sistema->real_escape_string($codigo)}', '{$mysqli_sistema->real_escape_string($nombre)}', {$precio_bs}, {$precio_usd}, '{$mysqli_sistema->real_escape_string($img_name)}', {$total_vendido}, '{$now}')
+            ON DUPLICATE KEY UPDATE
+                codigo = '{$mysqli_sistema->real_escape_string($codigo)}',
+                nombre = '{$mysqli_sistema->real_escape_string($nombre)}',
+                precio_bs = {$precio_bs},
+                precio_usd = {$precio_usd},
+                imagen = '{$mysqli_sistema->real_escape_string($img_name)}',
+                total_vendido = {$total_vendido},
+                updated_at = '{$now}';
+        ");
+
+        $top[] = [
+            'posicion' => $pos,
+            'codigo' => $codigo,
+            'nombre' => $nombre,
+            'precio_bs' => $precio_bs,
+            'precio_usd' => $precio_usd,
+            'total_vendido' => $total_vendido,
+            'imagen_nombre' => $img_name,
+            'imagen_base64' => $img_base64,
+        ];
+
+        $pos++;
+    }
+
+    $mysqli_sistema->query("DELETE FROM z_top_productos WHERE posicion > 5");
+
+    $cache_top = $top;
+    $ultimo_tiempo_top = $ahora;
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] Calculados 5 artículos más vendidos (200 ult. ventas, excl. grupos 10-17) y guardados en satélite local." . PHP_EOL;
+
+    return $top;
+}
 
 function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion)
 {
@@ -56,18 +179,18 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     // 1. Conexión a bases locales (puerto 3307)
     $mysqli_pos = @new mysqli($host_local, $user_local, $pass_local, $bd_pos, $port_local);
     if ($mysqli_pos->connect_error) {
-        echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_pos} (3307): " . $mysqli_pos->connect_error . PHP_EOL;
+        echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_pos} ({$port_local}): " . $mysqli_pos->connect_error . PHP_EOL;
         return false;
     }
 
     $mysqli_sistema = @new mysqli($host_local, $user_local, $pass_local, $bd_sistema, $port_local);
     if ($mysqli_sistema->connect_error) {
-        echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_sistema} (3307): " . $mysqli_sistema->connect_error . PHP_EOL;
+        echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_sistema} ({$port_local}): " . $mysqli_sistema->connect_error . PHP_EOL;
         $mysqli_pos->close();
         return false;
     }
 
-    // Tasa del día en tiempo real: consultar directamente tabla monedas de Premium Soft (o datos_conexion.json)
+    // Tasa del día en tiempo real: consultar directamente tabla monedas de Premium Soft
     $tasa = 0;
     $res_tasa = $mysqli_pos->query("SELECT ultimacotizacion FROM monedas WHERE (tipo = 2 OR codigo = '001') AND ultimacotizacion > 0 ORDER BY codigo ASC LIMIT 1");
     if ($res_tasa && $res_tasa->num_rows > 0) {
@@ -110,7 +233,6 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
             if ($pin_row && !empty($pin_row['token_pin'])) {
                 $pin = $pin_row['token_pin'];
             } else {
-                // Generar PIN de 6 dígitos automático
                 $pin = (string) rand(100000, 999999);
                 $f_now = date('Y-m-d H:i:s');
                 $mysqli_sistema->query("INSERT INTO z_status_pago (documento, token_pin, estado, created_at, updated_at) 
@@ -155,7 +277,6 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                 $impuesto_bs = $impuesto_items;
                 $total_final_bs = $subtotal_bs + $impuesto_bs;
 
-                // Si operti difiere (por eliminación de productos en comandas móviles u otros), reparar operti
                 if (abs((float)($m['totneto'] ?? 0) - $subtotal_bs) > 0.05 || abs((float)($m['totalfinal'] ?? 0) - $total_final_bs) > 0.05) {
                     $mysqli_pos->query("UPDATE operti SET 
                         totbruto = " . round($subtotal_bs, 2) . ",
@@ -177,7 +298,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
             $items_json = json_encode($items, JSON_UNESCAPED_UNICODE);
             $f_act = date('Y-m-d H:i:s');
 
-            // Actualizar tabla local mijar_sistema.z_mesas_activas (3307)
+            // Actualizar tabla local mijar_sistema.z_mesas_activas
             $mysqli_sistema->query("INSERT INTO z_mesas_activas (documento, mesa, token_pin, subtotal_bs, impuesto_bs, total_bs, subtotal_usd, impuesto_usd, total_usd, tasa_dia, items_json, estado, created_at, updated_at)
                                     VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', 'MESA {$mesa_clean}', '{$pin}', " . round($subtotal_bs, 2) . ", " . round($impuesto_bs, 2) . ", " . round($total_final_bs, 2) . ", " . round($subtotal_usd, 2) . ", " . round($impuesto_usd, 2) . ", " . round($total_final_usd, 2) . ", " . round($tasa, 4) . ", '" . $mysqli_sistema->real_escape_string($items_json) . "', 'ACTIVA', '{$f_act}', '{$f_act}')
                                     ON DUPLICATE KEY UPDATE 
@@ -211,16 +332,23 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         }
     }
 
+    // 3. Procesar Top 3 artículos más vendidos de las últimas 100 ventas en Kardex
+    $top_productos = procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa);
+
     $mysqli_pos->close();
     $mysqli_sistema->close();
 
-    // 3. Enviar a la nube vía HTTPS POST Outbound
-    if (empty($mesas_para_nube)) {
-        echo "[{$timestamp}] Sin mesas activas con pedidos para sincronizar." . PHP_EOL;
+    // 4. Enviar a la nube vía HTTPS POST Outbound
+    if (empty($mesas_para_nube) && empty($top_productos)) {
+        echo "[{$timestamp}] Sin mesas activas ni productos destacados para sincronizar." . PHP_EOL;
         return true;
     }
 
-    $payload = json_encode(['mesas' => $mesas_para_nube], JSON_UNESCAPED_UNICODE);
+    $payload_arr = [
+        'mesas' => $mesas_para_nube,
+        'top_productos' => $top_productos,
+    ];
+    $payload = json_encode($payload_arr, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($url_api_cloud);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -230,7 +358,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         'Content-Type: application/json',
         'Accept: application/json',
     ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
@@ -246,7 +374,8 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         foreach ($mesas_para_nube as $m) {
             $resumen[] = "{$m['mesa']} (PIN: {$m['token_pin']}, Bs. " . number_format($m['total_bs'], 2, ',', '.') . " / $" . number_format($m['total_usd'], 2) . ")";
         }
-        echo "[{$timestamp}] [OK NUBE 200] Sincronizada(s) {$cant_mesas} mesa(s): " . implode(' | ', $resumen) . PHP_EOL;
+        $info_top = !empty($top_productos) ? " + Top 5 Productos" : "";
+        echo "[{$timestamp}] [OK NUBE 200] Sincronizada(s) {$cant_mesas} mesa(s){$info_top}: " . (empty($resumen) ? "Sin mesas abiertas" : implode(' | ', $resumen)) . PHP_EOL;
 
         // Si la nube envió pagos pendientes reportados, registrarlos en local
         if (!empty($json_resp['pagos_pendientes']) && is_array($json_resp['pagos_pendientes'])) {
