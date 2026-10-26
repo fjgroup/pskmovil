@@ -999,41 +999,7 @@ function eliminar_producto() {
 					}
 				});
 			} else {
-				mostrar_pw_administrador("Eliminar producto");
-				$('#pw_administrador .btn-success').unbind();
-				$('#pw_administrador .btn-success').click(function () {
-					var password_sup = $('#password_sup').val();
-					datos.password_sup = password_sup;
-					$.ajax({
-						type: "POST",
-						url: "funciones/permisos_adm.php",
-						data: datos,
-						beforeSend: function () {
-							mostrar_cargando();
-						},
-						success: function (r) {
-							ocultar_cargando();
-							if (r == "true") {
-								$.ajax({
-									type: "POST",
-									url: "controladores/controlador_inventario.php?accion=eliminar_producto",
-									data: datos,
-									beforeSend: function () {
-										mostrar_cargando();
-									},
-									success: function (r) {
-										ocultar_cargando();
-										ocultar_pw_administrador();
-										$('#msj_php .ventanas_contenido').html(r);
-									}
-								});
-							} else {
-								$('#pw_administrador i').html("Contrase&ntildea incorrecta");
-								$('#bloqueo').show();
-							}
-						}
-					});
-				});
+				mostrar_msj("<i class='fa fa-lock'></i><br>Este producto ya fue guardado o comandado.<br>Para anularlo debe solicitarlo en Caja desde el software Premium.");
 			}
 		});
 	});

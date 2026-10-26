@@ -142,7 +142,7 @@ if (isset($_POST['productos_array'])) {
 			} else {
 				$se_comando = 0;
 			}
-			$se_guardo = $se_comando;
+			$se_guardo = ($se_comando == 1 || (isset($datos[8]) && trim($datos[8]) == '1')) ? 1 : 0;
 			if (strpos($datos[6], '-') > -1) {
 				$imp = explode('-', $datos[6]);
 				$impuesto = $imp[1] / 100;
@@ -238,7 +238,7 @@ if (isset($_POST['productos_array'])) {
 						<td class='text-center' style='font-weight: bold; font-size: 14px;'>" . (float)$cantidad . "</td>
 						<td>" . $nombre . "</td>
 						<td>" . number_format($precioneto, 2, ',', '.') . "</td>
-						<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='" . $se_comando . "' se_guardo='" . $se_guardo . "' pid='" . $pid . "' pidhijo='" . $pidhijo . "'></i></td>
+						" . (($se_comando == 1 || $se_guardo == 1) ? "<td class='text-center' title='Producto guardado/comandado. Para anularlo debe solicitarlo en Caja.'><i class='fa fa-lock' style='color: #9E9E9E; font-size: 14px;'></i></td>" : "<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='0' se_guardo='0' pid='" . $pid . "' pidhijo='" . $pidhijo . "' title='Eliminar de la comanda actual'></i></td>") . "
 					</tr>		
 				";
 		}

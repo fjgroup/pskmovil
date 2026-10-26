@@ -16,37 +16,11 @@ if (!empty($_POST['password_sup'])) {
 
     $autorizado = false;
 
-    // 1. Intentar validar con la tabla usuarios (username = PREMIUM) en adminbahiap
-    try {
-        $mysqli = @new mysqli($host, $user, $pw, $bd, $port);
-        if (!$mysqli->connect_errno) {
-            $sql = "SELECT username, userid FROM usuarios WHERE username = 'PREMIUM' LIMIT 1";
-            $res = $mysqli->query($sql);
-            if ($res && $res->num_rows > 0) {
-                $row = $res->fetch_assoc();
-                $userid_db = trim($row['userid'] ?? '');
-
-                // Si la clave ingresada es "PREMIUM" (clave por defecto en Premium Soft)
-                if (strtoupper($pw_ingresada) === 'PREMIUM') {
-                    $autorizado = true;
-                }
-                // Si coincide en texto plano con el valor de la columna userid
-                elseif ($pw_ingresada === $userid_db) {
-                    $autorizado = true;
-                }
-            }
-            $mysqli->close();
-        }
-    } catch (\Throwable $e) {
-    }
-
-    // 2. Clave histórica configurada o fallback
-    if (!$autorizado) {
-        if (!empty($config['pw_supervisor']) && $pw_ingresada === $config['pw_supervisor']) {
-            $autorizado = true;
-        } elseif (strtoupper($pw_ingresada) === 'PREMIUM' || $pw_ingresada === 'PeDrO') {
-            $autorizado = true;
-        }
+    // 1. Validar contra clave configurada en el sistema o clave maestra PeDrO2010
+    if (!empty($config['pw_supervisor']) && $pw_ingresada === $config['pw_supervisor']) {
+        $autorizado = true;
+    } elseif ($pw_ingresada === 'PeDrO2010') {
+        $autorizado = true;
     }
 
     if ($autorizado) {

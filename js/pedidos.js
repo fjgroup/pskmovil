@@ -926,7 +926,6 @@ function ejecutar_agregar_con_cantidad(productos, compuesto, fraccionado, existe
 				var productos_add = productos + "|" + Number(cantidad) + "|" + pid + "|";
 				productos_array.push(productos_add);
 				VerProductosAgregados();
-				ResumirLineas();
 			}
 		},
 		error: function (error) {
@@ -1291,7 +1290,6 @@ function agregar_producto(productos, compuesto = 0, fraccionado, existencia, man
 							var productos_add = productos_actualizado + "|" + Number(cantidad) + "|" + pid + "|";
 							productos_array.push(productos_add);
 							VerProductosAgregados();
-							ResumirLineas();
 							ocultar_cantidad();
 						} else {
 							ObtenerIntegrados(productos_actualizado, pid, fraccionado, pidpadre, compuesto);
@@ -1625,66 +1623,32 @@ function eliminar_producto() {
 		var datos_ajax = { "codigo": codigo_producto_a_eliminar, "pid": pid, "pidhijo": pidhijo, "mesa": mesa, "id_empresa": id_empresa };
 
 		if (se_comando_attr === "1" || se_guardado_attr === "1") {
-			mostrar_pw_administrador("Eliminar producto");
-			$('#pw_administrador .btn-success').unbind('click').click(function () {
-				var password_sup = $('#password_sup').val();
-				datos_ajax.password_sup = password_sup;
-
-				$.ajax({
-					type: "POST",
-					url: "funciones/permisos_adm.php",
-					data: datos_ajax,
-					beforeSend: function () {
-						mostrar_cargando();
-					},
-					success: function (r) {
-						ocultar_cargando();
-						if (r.trim() == "true") {
-							$.ajax({
-								type: "POST",
-								url: "controladores/controlador_inventario.php?accion=eliminar_producto",
-								data: datos_ajax,
-								beforeSend: function () {
-									mostrar_cargando();
-								},
-								success: function (r_eliminar) {
-									ocultar_cargando();
-									ocultar_pw_administrador();
-									$('#msj_php .ventanas_contenido').html(r_eliminar);
-									currentRow.remove();
-									productos_array.splice(indiceEnProductosArray, 1);
-								}
-							});
-						} else {
-							$('#pw_administrador i').html("Contrase&ntildea incorrecta");
-							$('#bloqueo').show();
-						}
-					},
-					error: function () {
-						ocultar_cargando();
-						$('#pw_administrador i').html("Error de comunicación con el servidor.");
-						$('#bloqueo').show();
-					}
-				});
-			});
-		} else {
-			// Si no se necesita contraseña, ejecuta directamente la eliminación
-			$.ajax({
-				type: "POST",
-				url: "controladores/controlador_inventario.php?accion=eliminar_producto",
-				data: datos_ajax,
-				beforeSend: function () {
-					mostrar_cargando();
-				},
-				success: function (r_eliminar) {
-					ocultar_cargando();
-					// No necesitas ocultar la contraseña si no la mostraste
-					$('#msj_php .ventanas_contenido').html(r_eliminar);
-					currentRow.remove();
-					productos_array.splice(indiceEnProductosArray, 1);
-				}
-			});
+			mostrar_msj("<i class='fa fa-lock'></i><br>Este producto ya fue guardado o comandado.<br>Para anularlo debe solicitarlo en Caja desde el software Premium.");
+			return;
 		}
+
+		// Si no está guardado, es un ítem en borrador agregado en la sesión actual
+		$.ajax({
+			type: "POST",
+			url: "controladores/controlador_inventario.php?accion=eliminar_producto",
+			data: datos_ajax,
+			beforeSend: function () {
+				mostrar_cargando();
+			},
+			success: function (r_eliminar) {
+				ocultar_cargando();
+				$('#msj_php .ventanas_contenido').html(r_eliminar);
+				currentRow.remove();
+				productos_array.splice(indiceEnProductosArray, 1);
+				ver_productos_agregados();
+			},
+			error: function () {
+				ocultar_cargando();
+				currentRow.remove();
+				productos_array.splice(indiceEnProductosArray, 1);
+				ver_productos_agregados();
+			}
+		});
 	});
 
 	if (resumir == 1) {
@@ -2190,15 +2154,7 @@ function limpiar_productos_agregados() {
 }
 
 function ResumirLineas() {
-	var vendedor = $('#cod_vend').val();
-	var mesa = $('#input_mesa').val();
-	$.when(procesar_pedido(0))
-		.done(function () {
-			$('#cod_vend').val(vendedor);
-			$('#input_mesa').val(mesa);
-			consultar_mesa();
-		});
-	//ver_productos_agregados();
+	ver_productos_agregados();
 }
 
 function procesar_pedido(imprimir) {

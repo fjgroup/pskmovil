@@ -816,6 +816,22 @@ if ($_GET['accion'] == "consultar_mesa") {
 if ($_GET['accion'] == "eliminar_producto") {
 
 	$documento = "E" . $_POST['mesa'];
+	$pid_solicitado = trim($_POST['pid'] ?? '');
+
+	// Seguridad: Si el producto ya existe en la base de datos (opermv), no se permite anular desde el móvil
+	if (!empty($pid_solicitado)) {
+		$q_check = "SELECT pid FROM opermv WHERE pid = '" . $pid_solicitado . "' AND documento = '" . $documento . "' LIMIT 1";
+		$res_check = $objeto_inventario->general_query($bd_conexion, $q_check);
+		if ($res_check && mysqli_num_rows($res_check) > 0) {
+			echo "
+				<script>
+					alert('Seguridad: Este producto ya fue guardado en el sistema.\\nPara anularlo debe solicitarlo en Caja desde el software Premium.');
+					ver_cuenta_mesa();
+				</script>
+			";
+			exit;
+		}
+	}
 
 	$query = "
 		DELETE
