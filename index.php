@@ -704,7 +704,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 		</div>
 				<div style="display:inline-flex; align-items:center; gap:16px;">
 			<a onclick="verificar_actualizaciones_git_footer()" title="Verificar actualización en GitHub" style="cursor: pointer; color: #FFF; text-decoration: none;">
-				<i class="fa fa-sync-alt"></i> Actualizar
+				<i class="fa fa-refresh"></i> Actualizar
 			</a>
 			<a onclick="sincronizar_bancos_footer()" title="Guardar y enviar cuentas bancarias de Premium al hosting" style="cursor: pointer; color: #FFF; text-decoration: none;">
 				<i class="fa fa-save"></i> Enviar Bancos
@@ -718,5 +718,5 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 
 </html>
 
-<script src="js/script.js"></script>
-<script src="js/conect.js"></script>
+<script src="js/script.js?v=<?php echo time(); ?>"></script>
+<script src="js/conect.js?v=<?php echo time(); ?>"></script>
