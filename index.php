@@ -261,7 +261,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 						<div class="col-md-6 col-sm-6">
 							<label>URL Base del Hosting Web:</label>
 							<input type="text" class="form-control" name="url_hosting" id="url_hosting" placeholder="https://mijardinrestaurant.com" />
-							<small class="text-muted" style="font-size:11px;">Ej: https://mijardinrestaurant.com o https://mijardinrestaurant.test</small>
+							<small class="text-muted" style="font-size:11px;">Ej: https://mijardinrestaurant.com</small>
 						</div>
 						<div class="col-md-6 col-sm-6">
 							<label>URL Consulta Mesa para Clientes (QR):</label>

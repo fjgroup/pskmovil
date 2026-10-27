@@ -11,7 +11,7 @@
 El ecosistema digital de **Mi Jardín Restaurant** consta de dos componentes integrados mediante peticiones salientes seguras (Outbound HTTPS POST):
 
 1. **`comandasmoviles` (Aplicación Interna POS Móvil):**
-   - Sistema web PHP/JS para tablets y teléfonos de mesoneros y cajeros en red local.
+   - Sistema web PHP/JS para tablets y teléfonos de mesoneros y cajeros en red local interna bajo el puerto **`2010`** (`http://192.168.0.102:2010/`).
    - Interactúa en tiempo real con el servidor de base de datos local del restaurante.
 2. **`mijardinrestaurant.com` (Portal Nube Autoservicio - Laravel):**
    - Servidor Cloud VPS en internet (`https://mijardinrestaurant.com`).

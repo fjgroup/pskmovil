@@ -577,8 +577,8 @@ function cambiar_modo_entorno(modo, soloVisual) {
 
 		if (!soloVisual) {
 			$('#port').val('3307');
-			$('#url_hosting').val('https://mijardinrestaurant.test');
-			$('#url_web_mesa').val('https://mijardinrestaurant.test/mesa');
+			$('#url_hosting').val('https://mijardinrestaurant.com');
+			$('#url_web_mesa').val('https://mijardinrestaurant.com/mesa');
 			$('#host').val('127.0.0.1');
 		}
 	}
@@ -615,8 +615,8 @@ function mostrar_conf_conexion() {
 			$('#cm_ancho_precuenta').val(r.cm_ancho_precuenta);
 			$('#bd').val(r.bd_pos || r.bd || 'adminbahiap');
 			$('#bd_sistema').val(r.bd_sistema || 'mijar26273_sistema');
-			$('#url_hosting').val(r.url_hosting || (r.url_web_mesa ? r.url_web_mesa.replace(/\/mesa\/?$/i, '') : 'https://mijardinrestaurant.test'));
-			$('#url_web_mesa').val(r.url_web_mesa || 'https://mijardinrestaurant.test/mesa');
+			$('#url_hosting').val(r.url_hosting || (r.url_web_mesa ? r.url_web_mesa.replace(/\/mesa\/?$/i, '') : 'https://mijardinrestaurant.com'));
+			$('#url_web_mesa').val(r.url_web_mesa || 'https://mijardinrestaurant.com/mesa');
 
 			if (r.cuentas_compartidas_entre_vendedores == 'si') {
 				$('#compartir_mesas').prop('checked', true);

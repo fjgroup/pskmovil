@@ -219,8 +219,11 @@ if ($_GET['accion'] == "registrar_conexion") {
     $bd_pos   = !empty($_POST['bd']) ? $_POST['bd'] : 'adminbahiap';
     $bd_sist  = !empty($_POST['bd_sistema']) ? $_POST['bd_sistema'] : 'mijar26273_sistema';
 
-    $url_host = !empty($_POST['url_hosting']) ? rtrim($_POST['url_hosting'], '/') : 'https://mijardinrestaurant.test';
-    $url_mesa = !empty($_POST['url_web_mesa']) ? $_POST['url_web_mesa'] : ($url_host . '/mesa');
+    $url_host = !empty($_POST['url_hosting']) ? rtrim($_POST['url_hosting'], '/') : 'https://mijardinrestaurant.com';
+    if (strpos($url_host, '.test') !== false) {
+        $url_host = 'https://mijardinrestaurant.com';
+    }
+    $url_mesa = !empty($_POST['url_web_mesa']) && strpos($_POST['url_web_mesa'], '.test') === false ? $_POST['url_web_mesa'] : ($url_host . '/mesa');
 
     $modo_entorno = !empty($_POST['modo_entorno']) ? strtolower(trim($_POST['modo_entorno'])) : ($datos_existentes['modo_entorno'] ?? 'desarrollo');
 

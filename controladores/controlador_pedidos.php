@@ -1198,7 +1198,10 @@ if (isset($_GET['accion']) && $_GET['accion'] == "cambiar_estado_pago") {
 	$mysqli_sist->close();
 
 	// Notificar inmediatamente a la API Cloud de Laravel
-	$url_hosting = rtrim($datos_conexion['url_hosting'] ?? 'https://mijardinrestaurant.test', '/');
+	$url_hosting = rtrim($datos_conexion['url_hosting'] ?? 'https://mijardinrestaurant.com', '/');
+	if (strpos($url_hosting, '.test') !== false) {
+		$url_hosting = 'https://mijardinrestaurant.com';
+	}
 	$url_api_cloud = $url_hosting . '/api/confirmar-pago';
 
 	$ch = curl_init($url_api_cloud);

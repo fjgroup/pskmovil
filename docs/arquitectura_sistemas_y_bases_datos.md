@@ -66,25 +66,25 @@ Corre en el servidor web de producción (`https://mijardinrestaurant.com`):
 [ MESONERO ]
      │ (1) Toma pedido / Genera PIN
      ▼
-[ comandasmoviles (Local :8080) ]
+[ comandasmoviles (Local :2010 - http://192.168.0.102:2010/) ]
      │
-     ├───► [ adminbahiap :3307 ] (BD Fiscal Premium Soft - Intocable / SENIAT)
-     └───► [ mijar26273_sistema :3307 ] (BD Satélite Local: PIN, Tokens, Config)
+     ├───► [ adminbahiap :3307 Casa / :3306 Restaurante ] (BD Fiscal Premium Soft - Intocable / SENIAT)
+     └───► [ mijar26273_sistema :3307 Casa / :3306 Restaurante ] (BD Satélite Local: PIN, Tokens, Config)
                  │
                  │ (2) sync_daemon.php lee cada 12 segundos
                  ▼
-[ HTTPS POST Outbound Seguro ] ──► [ Hosting web / VPS ]
+[ HTTPS POST Outbound Seguro ] ──► [ Hosting Cloud VPS: https://mijardinrestaurant.com ]
                                             │
                                             ▼
                                [ API Laravel: /api/sincronizar-mesas ]
                                             │
                                             ▼
-                               [ BD Cloud: mijar26273_sistema :3306 ]
+                               [ BD Cloud: mijar26273_sistema en Hosting ]
                                             ▲
                                             │ (3) Consulta en tiempo real
                                             │
                                   [ COMENSAL EN LA MESA ]
-                              (QR / PIN: mijardinrestaurant.com/mesa)
+                              (QR / PIN: https://mijardinrestaurant.com/mesa?t={PIN})
 ```
 
 ---

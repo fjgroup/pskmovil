@@ -15,13 +15,10 @@ require_once dirname(__DIR__) . '/funciones/config_helper.php';
 $datos_conexion = obtener_config_sistema();
 $file = $datos_conexion;
 
-// Determinar la URL base segura (HTTPS) para el QR del comensal
-$url_base = "https://mijardinrestaurant.test/mesa";
-if (!empty($datos_conexion['url_web_mesa'])) {
+// Determinar la URL base segura (HTTPS) para el QR del comensal (Hosting Cloud en internet)
+$url_base = "https://mijardinrestaurant.com/mesa";
+if (!empty($datos_conexion['url_web_mesa']) && strpos($datos_conexion['url_web_mesa'], '.test') === false) {
     $url_base = rtrim($datos_conexion['url_web_mesa'], '/');
-} elseif (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], '192.168') !== false) {
-    $ip_server = explode(':', $_SERVER['HTTP_HOST'])[0];
-    $url_base = "https://" . $ip_server . "/mesa";
 }
 
 if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {

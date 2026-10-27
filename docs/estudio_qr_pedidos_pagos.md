@@ -36,25 +36,25 @@ En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 20
 
 ---
 
-## 2. Arquitectura Híbrida: Servidor Local Windows (3307) + Hosting Web (3306)
+## 2. Arquitectura Híbrida: Servidor Local Windows (:2010) + Hosting Web Cloud
 
-Para garantizar que los clientes **nunca toquen la red local**, la interacción con comensales se traslada a un hosting en internet con dominio propio (`mijardinrestaurant.com` / `mijardinrestaurant.test`) desarrollado en **Laravel + Blade**.
+Para garantizar que los clientes **nunca toquen la red local**, la interacción con comensales se traslada a un hosting en internet con dominio propio (`https://mijardinrestaurant.com`) desarrollado en **Laravel + Blade**.
 
 ### 2.1. Separación Estricta de Bases de Datos
-1. **Entorno Local (Puerto 3307 - PC Restaurante):**
+1. **Entorno Local (Puerto 3307 Casa / 3306 Restaurante):**
    - **`adminbahiap`:** Base de datos principal de Premium Soft (tablas vírgenes: `operti`, `opermv`, etc.).
    - **`mijar26273_sistema` (Local):** Base de datos satélite que almacena el PIN generado por el mesonero en `z_status_pago` y copia local en `z_mesas_activas`.
-2. **Entorno Nube / Remoto (Puerto 3306 - Hosting Web):**
-   - **`mijar26273_sistema` (Nube):** Base de datos que alimenta el portal web del cliente (`mijardinrestaurant.com` / `mijardinrestaurant.test`).
+2. **Entorno Nube / Remoto (Hosting Web VPS en Internet):**
+   - **`mijar26273_sistema` (Nube):** Base de datos que alimenta el portal web del cliente (`https://mijardinrestaurant.com`).
    - Solo recibe datos mediante peticiones salientes seguras (**HTTPS POST Outbound**) emitidas por el demonio local `sync_daemon.php`.
 
 ```mermaid
 flowchart TD
-    subgraph RedLocal [Red Local Privada del Restaurante - Puerto 3307]
-        PS[Premium Soft\nBD: adminbahiap :3307]
-        LocalSat[BD Satélite Local\nmijar26273_sistema :3307]
-        Mesoneros[Mesoneros con Móviles\ncomandasmoviles :8080]
-        BatSync[iniciar_sincronizador.bat\nsync_daemon.php en 2do Plano]
+    subgraph RedLocal [Red Local Privada del Restaurante - Puerto 2010]
+        PS[Premium Soft\nBD: adminbahiap :3307 / :3306]
+        LocalSat[BD Satélite Local\nmijar26273_sistema]
+        Mesoneros[Mesoneros con Móviles\ncomandasmoviles :2010\nhttp://192.168.0.102:2010/]
+        BatSync[iniciar_sistema.bat\nsync_daemon.php en 2do Plano]
 
         Mesoneros -->|1. Toma pedidos| PS
         Mesoneros -->|2. Botón Compartir: Genera PIN| LocalSat
@@ -62,9 +62,9 @@ flowchart TD
         BatSync -->|3. Lee PIN| LocalSat
     end
 
-    subgraph Internet [Internet / Hosting Web - Puerto 3306]
+    subgraph Internet [Internet / Hosting Web VPS - https://mijardinrestaurant.com]
         WebAPI[API Laravel: POST /api/sincronizar-mesas]
-        CloudDB[(BD Cloud: mijar26273_sistema :3306)]
+        CloudDB[(BD Cloud: mijar26273_sistema en Hosting)]
         WebMesa[Ruta /mesa: Consulta del Comensal\nContador Regresivo si no ha sincronizado]
 
         WebAPI -->|Escribe mesas activas| CloudDB
@@ -183,8 +183,8 @@ El proceso local de sincronización se ejecuta mediante [sync_daemon.php](file:/
    - Consulta o genera el PIN en `mijar26273_sistema.z_status_pago`.
    - Actualiza la copia local en `mijar26273_sistema.z_mesas_activas`.
 2. **Transmisión Segura Outbound (HTTPS):**
-   - Emite un `POST https://mijardinrestaurant.test/api/sincronizar-mesas`.
-   - La base de datos de la nube (`mijar26273_sistema` en puerto 3306) actualiza sus registros de comensal.
+   - Emite un `POST https://mijardinrestaurant.com/api/sincronizar-mesas`.
+   - La base de datos de la nube (`mijar26273_sistema` en el hosting VPS) actualiza sus registros de comensal.
    - En caso de mesas cerradas o facturadas, las archiva como inactivas.
 
 ```bat
