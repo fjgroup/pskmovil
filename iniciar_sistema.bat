@@ -24,13 +24,37 @@ for /f "tokens=4" %%a in ('route print 0.0.0.0 ^| findstr "\<0.0.0.0\>" 2^>nul')
 :: 3. Puerto web para comandas moviles (2010 por defecto en PSK Movil)
 set "WEB_PORT=2010"
 
+:: 4. Detectar puerto MySQL: primero 3307 (DESARROLLO), si no responde 3306 (PRODUCCION)
+::    En desarrollo ambos puertos funcionan, por eso 3307 tiene prioridad.
+set "DB_PORT=0"
+set "ENTORNO=SIN MYSQL"
+netstat -an | findstr /R /C:":3307 .*LISTENING" >nul 2>&1
+if not errorlevel 1 (
+    set "DB_PORT=3307"
+    set "ENTORNO=DESARROLLO"
+) else (
+    netstat -an | findstr /R /C:":3306 .*LISTENING" >nul 2>&1
+    if not errorlevel 1 (
+        set "DB_PORT=3306"
+        set "ENTORNO=PRODUCCION"
+    )
+)
+
 echo ========================================================
 echo   SISTEMA RESTAURANTE MI JARDIN (LOCAL + NUBE UNIFICADO)
 echo ========================================================
 echo.
+echo [INFO] Base de Datos MySQL: Puerto %DB_PORT% ^>^> Entorno %ENTORNO%
+if "%DB_PORT%"=="3307" (
+    echo        Credenciales activas: Usuario 'root' ^| Clave 'root' (Desarrollo)
+) else if "%DB_PORT%"=="3306" (
+    echo        Credenciales activas: Usuario 'root' ^| Clave '1234' (Produccion)
+)
+echo        Destino Cloud: DIRECTO al Hosting (https://mijardinrestaurant.com)
+echo.
 echo [1/2] Iniciando Sincronizador Cloud en segundo plano...
 start "Sincronizador Cloud - Mi Jardin" /min "%PHP_CMD%" sync_daemon.php
-echo       Sincronizador activo (Premium Soft -^> Nube HTTPS).
+echo       Sincronizador activo (Premium Soft -^> Nube HTTPS mijardinrestaurant.com).
 echo.
 echo [2/2] Iniciando Servidor Web Local para Mesoneros (Puerto %WEB_PORT%)...
 start "Servidor Web Mesoneros - Mi Jardin" /min "%PHP_CMD%" -S 0.0.0.0:%WEB_PORT%

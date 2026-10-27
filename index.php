@@ -1,7 +1,13 @@
 <?php
 require_once __DIR__ . '/funciones/config_helper.php';
+require_once __DIR__ . '/funciones/mesas_helper.php';
 $file = obtener_config_sistema();
 $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_empresa']) : 'Comandas Móviles';
+
+// Cargar listado oficial de mesas registradas en idconsumos de Premium Soft
+$mysqli_pos_init = @new mysqli($file['host'] ?? '127.0.0.1', $file['user'] ?? 'root', $file['pw'] ?? 'root', $file['bd_pos'] ?? 'adminbahiap', (int)($file['port'] ?? 3307));
+$mesas_oficiales_arr = ($mysqli_pos_init && !$mysqli_pos_init->connect_errno) ? array_keys(obtener_mesas_oficiales($mysqli_pos_init)) : [];
+if ($mysqli_pos_init) $mysqli_pos_init->close();
 ?>
 <!DOCTYPE html>
 <html>
@@ -22,6 +28,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 	<script type="text/javascript">
 		var codcliente_grabado = '<?php echo $file['cod_cliente']; ?>';
 		var minutos_inactividad = '<?php echo $file['minutos_inactividad']; ?>';
+		var mesas_oficiales_lista = <?php echo json_encode($mesas_oficiales_arr); ?>;
 	</script>
 
 </head>
@@ -215,80 +222,37 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 			</div>
 			<div class="ventanas_contenido" style="padding: 15px 20px; max-height: calc(90vh - 60px); overflow-y: auto;">
 				
-				<!-- SELECTOR DE MODO DE ENTORNO: DESARROLLO VS PRODUCCIÓN -->
-				<div class="seccion_config_box" style="background:#f8fafc; border: 2px solid #0880C5; border-radius: 8px; padding: 12px 16px; margin-bottom: 15px;">
-					<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-						<div>
-							<strong style="font-size:14px; color:#1e293b;"><i class="fa fa-server"></i> Modo de Entorno:</strong>
-							<small style="display:block; color:#64748b; font-size:11px;">Selecciona si estás en la PC de desarrollo o en el restaurante en producción.</small>
-						</div>
-						<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-							<div class="btn-group" id="selector_modo_entorno">
-								<label class="btn btn-default" id="label_modo_desarrollo" onclick="cambiar_modo_entorno('desarrollo')" style="font-weight:bold; cursor:pointer;">
-									<input type="radio" name="modo_entorno" id="modo_desarrollo" value="desarrollo" style="display:none;"> 💻 Desarrollo (PC Local)
-								</label>
-								<label class="btn btn-default" id="label_modo_produccion" onclick="cambiar_modo_entorno('produccion')" style="font-weight:bold; cursor:pointer;">
-									<input type="radio" name="modo_entorno" id="modo_produccion" value="produccion" style="display:none;"> 🏢 Producción (Restaurante)
-								</label>
-							</div>
-							<button type="button" class="btn btn-success" onclick="registrar_conf_conexion();" style="font-weight:bold; padding: 7px 16px;">
-								<i class="fa fa-save"></i> Guardar Cambios
-							</button>
-						</div>
-					</div>
-				</div>
+				
 
-				<!-- SECCIÓN 1: BASES DE DATOS LOCALES -->
-				<div class="seccion_config_box">
-					<div class="seccion_config_titulo">
-						<i class="fa fa-database"></i> 1. Bases de Datos Locales
-					</div>
-					<div class="row">
-						<div class="col-md-6 col-sm-6">
-							<label>Host / IP Local MySQL:</label>
-							<input type="text" class="form-control" name="host" id="host" placeholder="127.0.0.1"
-								onkeyup="limpiar_parametros_adicionales()" />
-						</div>
-						<div class="col-md-6 col-sm-6">
-							<label>Puerto Local MySQL:</label>
-							<input type="text" class="form-control" name="port" id="port" value="3307" placeholder="3307"
-								onkeyup="limpiar_parametros_adicionales()" />
-						</div>
-						<div class="col-md-6 col-sm-6" style="margin-top:8px;">
-							<label>Usuario MySQL:</label>
-							<input type="text" class="form-control" name="user" id="user" placeholder="root"
-								onkeyup="limpiar_parametros_adicionales()" />
-						</div>
-						<div class="col-md-6 col-sm-6" style="margin-top:8px;">
-							<label>Contraseña MySQL:</label>
-							<input type="password" class="form-control" name="pw" id="pw" placeholder="Password MySQL"
-								onkeyup="limpiar_parametros_adicionales()" />
-						</div>
-						<div class="col-md-6 col-sm-6" style="margin-top:8px;">
-							<label>BD 1: Premium Soft (Fiscal / SENIAT):</label>
-							<input type="text" class="form-control" name="bd" id="bd" value="adminbahiap" placeholder="adminbahiap"
-								onkeyup="limpiar_parametros_adicionales()" />
-							<small class="text-muted" style="font-size:11px; display:block; margin-top:2px;">
-								<i class="fa fa-shield"></i> Base fiscal homologada por el SENIAT (Esquema intocable).
-							</small>
-						</div>
-						<div class="col-md-6 col-sm-6" style="margin-top:8px;">
-							<label>BD 2: Satélite Local (Mesas & Config):</label>
-							<input type="text" class="form-control" name="bd_sistema" id="bd_sistema" value="mijar26273_sistema" placeholder="mijar26273_sistema" />
-							<small class="text-muted" style="font-size:11px; display:block; margin-top:2px;">
-								<i class="fa fa-check-circle"></i> Guarda tokens PIN, estados y configuración sin tocar Premium Soft.
-							</small>
-						</div>
-					</div>
-					<div style="margin-top: 12px;">
-						<div class="btn btn-primary" onclick="probar_conexion_temporal()">
-							<i class="fa fa-plug"></i> Probar Conexión Local
-						</div>
-						<i class="msj_conexion"></i>
-					</div>
-				</div>
+				<!-- SECCIÓN 1: VERIFICADOR Y AUTO-REPARADOR DE BASE DE DATOS SATÉLITE -->
+<div class="seccion_config_box" style="background:#FFF; border: 1px solid #DCE4EC; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+	<div class="seccion_config_titulo" style="font-size:15px; font-weight:bold; color:#0880C5; margin-bottom: 8px;">
+		<i class="fa fa-database"></i> 1. Base de Datos Satélite (mijar26273_sistema)
+	</div>
+	<p style="font-size: 12px; color: #555; margin-bottom: 12px; line-height: 1.5;">
+		El sistema opera con <strong>Detección Dual Automática</strong>: puerto <strong>3307</strong> (clave root) en Desarrollo y puerto <strong>3306</strong> (clave 1234) en Producción. Este verificador garantiza que las 5 tablas satélite y los parámetros requeridos existan y estén al día.
+	</p>
+	
+	<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
+		<button type="button" class="btn btn-success" id="btn_verificar_bd_satelite" onclick="ejecutar_verificacion_bd()" style="font-weight:bold; padding: 8px 18px;">
+			<i class="fa fa-wrench"></i> Verificar y Reparar Base de Datos Satélite
+		</button>
+		<span id="estado_conexion_auto" style="font-size: 12px; color: #666; font-weight: 600;">
+			<i class="fa fa-check-circle text-success"></i> Auto-conexión activa (3307 / 3306)
+		</span>
+	</div>
 
-				<!-- SECCIÓN 2: HOSTING Y NUBE (SERVIDOR DEDICADO) -->
+	<div id="resultado_verificador_bd" style="display:none; margin-top: 12px;"></div>
+
+	<!-- Campos ocultos de conexión para compatibilidad interna -->
+	<input type="hidden" name="host" id="host" value="<?php echo $file['host'] ?? '127.0.0.1'; ?>" />
+	<input type="hidden" name="port" id="port" value="<?php echo $file['port'] ?? '3307'; ?>" />
+	<input type="hidden" name="user" id="user" value="<?php echo $file['user'] ?? 'root'; ?>" />
+	<input type="hidden" name="pw" id="pw" value="<?php echo $file['pw'] ?? 'root'; ?>" />
+	<input type="hidden" name="bd" id="bd" value="adminbahiap" />
+	<input type="hidden" name="bd_sistema" id="bd_sistema" value="mijar26273_sistema" />
+</div>
+<!-- SECCIÓN 2: HOSTING Y NUBE (SERVIDOR DEDICADO) -->
 				<div class="seccion_config_box">
 					<div class="seccion_config_titulo">
 						<i class="fa fa-cloud-upload"></i> 2. Conexión con el Hosting Cloud (Servidor Dedicado / VPS)
@@ -445,7 +409,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 				<!-- BOTONES DE ACCIÓN PRINCIPALES -->
 				<div style="display:flex; gap:10px; align-items:center; margin-top:15px; margin-bottom:10px;">
 					<button type="button" class="btn btn-success btn-lg" onclick="registrar_conf_conexion();" style="font-weight:bold; font-size:14px; padding: 10px 22px;">
-						<i class="fa fa-save"></i> Guardar Configuración
+						<i class="fa fa-save"></i> Guardar Parámetros
 					</button>
 					<button type="button" class="btn btn-danger btn-lg" onclick="ocultar_conf_conexion()" style="font-size:14px; padding: 10px 20px;">
 						<i class="fa fa-times"></i> Cancelar
@@ -453,17 +417,7 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 					<i class="msj_conexion" style="font-weight:bold; margin-left:10px;"></i>
 				</div>
 
-				<hr style="border-top: 1px solid #ccc; margin: 20px 0 15px 0;">
-				<div class="titulos_puntos"><i class="fa fa-refresh"></i> Actualización del Sistema (Git)</div>
-				<p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 10px;">
-					Comprueba si hay nuevas versiones en GitHub y actualiza automáticamente los archivos del sistema sin modificar tus datos de conexión local.
-				</p>
-				<button type="button" class="btn btn-info" id="btn_verificar_actualizacion" onclick="verificar_actualizaciones_git()">
-					<i class="fa fa-refresh"></i> Verificar Actualizaciones
-				</button>
-				<div id="contenedor_actualizacion" style="display:none; margin-top: 12px; text-align: left;">
-					<div id="resultado_actualizacion"></div>
-				</div>
+				
 			</div>
 		</form>
 	</div>
@@ -602,8 +556,8 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 			</div>
 			<div>
 				<div id="pestanas">
-					<li onclick="ver_operacion_actual()">Cuenta</li>
-					<li onclick="ver_transacciones_transito()">Transito</li>
+					<li onclick="ver_operacion_actual()">Operación Actual</li>
+					<li onclick="ver_transacciones_transito()">En Tránsito</li>
 					<li onclick="ver_div_derecha()">Procesos</li>
 				</div>
 				<div id="operacion_actual">
@@ -718,6 +672,29 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 		</div>
 	</div>
 
+		<!-- MODAL ACTUALIZACION GITHUB -->
+	<div class="modal fade" id="modal_actualizacion_github" tabindex="-1" role="dialog" style="z-index: 99999;">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content" style="border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+				<div class="modal-header" style="background-color: #24292e; color: #FFF; padding: 12px 18px;">
+					<button type="button" class="close" data-dismiss="modal" style="color: #FFF; opacity: 0.9; font-size: 24px;">&times;</button>
+					<h4 class="modal-title" style="font-weight: bold; font-size: 16px;"><i class="fa fa-refresh"></i> Actualización del Sistema (GitHub)</h4>
+				</div>
+				<div class="modal-body" style="padding: 20px 22px; background: #FAFBFD;">
+					<div id="resultado_actualizacion_footer" style="min-height: 80px;">
+						<div style="text-align:center; padding: 25px; color: #555;">
+							<i class="fa fa-spinner fa-spin fa-2x"></i><br><br>
+							<b>Consultando repositorio remoto en GitHub...</b>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer" style="padding: 10px 18px; background: #FFF; border-top: 1px solid #E9ECEF;">
+					<button type="button" class="btn btn-default" data-dismiss="modal">Cerrar</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<footer>
 		<div><strong>Comandas Móviles v2.0</strong> &copy; <?php echo date('Y'); ?></div>
 		<div>
@@ -725,7 +702,17 @@ $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_e
 			<i class="fa fa-whatsapp" style="color: #25D366; font-size: 14px;"></i> Actualizado por César Figueroa
 		</a>
 		</div>
-		<div><a onclick="launchIntoFullscreen(document.documentElement)" style="cursor: pointer;"><i class="fa fa-arrows-alt"></i> Pantalla Completa</a></div>
+				<div style="display:inline-flex; align-items:center; gap:16px;">
+			<a onclick="verificar_actualizaciones_git_footer()" title="Verificar actualización en GitHub" style="cursor: pointer; color: #FFF; text-decoration: none;">
+				<i class="fa fa-sync-alt"></i> Actualizar
+			</a>
+			<a onclick="sincronizar_bancos_footer()" title="Guardar y enviar cuentas bancarias de Premium al hosting" style="cursor: pointer; color: #FFF; text-decoration: none;">
+				<i class="fa fa-save"></i> Enviar Bancos
+			</a>
+			<a onclick="launchIntoFullscreen(document.documentElement)" title="Pantalla Completa" style="cursor: pointer; color: #FFF; text-decoration: none;">
+				<i class="fa fa-arrows-alt"></i> Pantalla Completa
+			</a>
+		</div>
 	</footer>
 </body>
 

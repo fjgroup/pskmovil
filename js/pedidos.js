@@ -2720,7 +2720,7 @@ function ver_operacion_actual() {
 	$('#en_transito').html('');
 }
 
-function ver_transacciones_transito() {
+function ver_transacciones_transito(silencioso) {
 
 	var vendedor = $('#cod_vend').val();
 	var datos = {};
@@ -2732,9 +2732,21 @@ function ver_transacciones_transito() {
 		url: "controladores/controlador_pedidos.php?accion=ver_pedidos",
 		data: datos,
 		beforeSend: function () {
-			mostrar_cargando();
+			if (silencioso !== true) {
+				mostrar_cargando();
+			}
 		},
 		success: function (r) {
+			if (silencioso === true) {
+				// Refresco automatico: si el usuario ya salio de Transito, no mostrarlo de nuevo
+				if (!$('#en_transito').is(':visible')) { return; }
+				// Recordar detalles de pago abiertos para no cerrarlos al refrescar
+				var abiertos = [];
+				$('#en_transito tr[id^="detalle_pago_"]:visible').each(function () { abiertos.push(this.id); });
+				$('#en_transito').html(r);
+				abiertos.forEach(function (id) { $('#' + id).show(); });
+				return;
+			}
 			ocultar_cargando();
 			$('#operacion_actual').hide();
 			$('#en_transito').show();
@@ -2743,6 +2755,14 @@ function ver_transacciones_transito() {
 	});
 }
 
+// Auto-refresco de Transito cada 8 segundos mientras la lista esta visible
+// (detecta pagos reportados / mesas cerradas en Premium sin presionar F5)
+setInterval(function () {
+	if ($('#en_transito').is(':visible') && !document.hidden) {
+		ver_transacciones_transito(true);
+	}
+}, 8000);
+
 function mostrar_modal_reg_cli() {
 	$('#reg_cli').show();
 	$('#reg_cli input[type="text"]').val('');
@@ -2750,9 +2770,21 @@ function mostrar_modal_reg_cli() {
 
 var url_qr_actual = '';
 
+function es_mesa_oficial_js(mesa) {
+	if (!mesa) return false;
+	var clean = String(mesa).toUpperCase().replace(/^E/, '').replace(/[^A-Z0-9]/g, '');
+	// Tolerar falta de cero (MESA1 -> MESA01, JARD3 -> JARD03)
+	clean = clean.replace(/^([A-Z]+)(\d)$/, '$10$2');
+	if (typeof window.mesas_oficiales_lista !== 'undefined' && Array.isArray(window.mesas_oficiales_lista) && window.mesas_oficiales_lista.length > 0) {
+		return window.mesas_oficiales_lista.indexOf(clean) !== -1;
+	}
+	return /^(MESA|JARD|TASC)\d+/i.test(clean);
+}
+
 function actualizar_estado_boton_compartir() {
 	var mesa = $('#input_mesa').val() ? $('#input_mesa').val().trim() : '';
-	if (typeof productos_array !== 'undefined' && productos_array.length > 0 && mesa !== '') {
+	// Solo mostrar botón Compartir para mesas físicas reales de idconsumos (nunca para pedidos en caja)
+	if (typeof productos_array !== 'undefined' && productos_array.length > 0 && mesa !== '' && es_mesa_oficial_js(mesa)) {
 		$('#btn_compartir_qr').css('display', 'inline-block');
 	} else {
 		$('#btn_compartir_qr').hide();
@@ -2765,6 +2797,11 @@ function compartir_cuenta_qr() {
 	if (mesa === '') {
 		alert('Por favor ingrese o seleccione una mesa para compartir.');
 		$('#input_mesa').focus();
+		return;
+	}
+
+	if (!es_mesa_oficial_js(mesa)) {
+		alert('Los pedidos en caja (comida para llevar) son de uso interno y no disponen de consulta web ni código QR.');
 		return;
 	}
 
@@ -2895,3 +2932,11 @@ function cambiar_estado_pago(documento, estado, btn) {
 		}
 	});
 }
+
+$(function () {
+	$(document).on('input keyup change', '#input_mesa', function () {
+		if (typeof actualizar_estado_boton_compartir === 'function') {
+			actualizar_estado_boton_compartir();
+		}
+	});
+});

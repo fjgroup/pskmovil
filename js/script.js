@@ -295,3 +295,190 @@ function ejecutar_actualizacion_git() {
         }
     });
 }
+
+// ============================================================================
+// VERIFICADOR Y AUTO-REPARADOR DE BASE DE DATOS SATÉLITE
+// ============================================================================
+function ejecutar_verificacion_bd() {
+    var $btn = $('#btn_verificar_bd_satelite');
+    var $box = $('#resultado_verificador_bd');
+
+    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Verificando BD...');
+    $box.slideDown(200).html('<div style="padding:10px; color:#555;"><i class="fa fa-spinner fa-spin"></i> Comprobando estructura canónica de las 5 tablas y parámetros...</div>');
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_verificador_bd.php?accion=verificar_reparar",
+        dataType: "json",
+        timeout: 20000,
+        success: function (r) {
+            $btn.prop('disabled', false).html('<i class="fa fa-wrench"></i> Verificar y Reparar Base de Datos Satélite');
+            if (r.success) {
+                var tablasHtml = r.tablas_creadas.map(function(t) {
+                    return '<span class="badge" style="background:#5CB85C; margin:2px;">' + t + '</span>';
+                }).join(' ');
+
+                var detallesHtml = r.detalles.map(function(d) {
+                    return '<li>' + d + '</li>';
+                }).join('');
+
+                $box.html(
+                    '<div class="alert alert-success" style="margin-bottom:0; font-size:12px;">' +
+                    '<h5 style="margin-top:0; font-weight:bold;"><i class="fa fa-check-circle"></i> Base de Datos Satélite Verificada y al Día</h5>' +
+                    '<div style="margin-bottom:6px;"><strong>Tablas en mijar26273_sistema:</strong> ' + tablasHtml + '</div>' +
+                    '<ul style="margin:0 0 6px 18px; padding:0;">' + detallesHtml + '</ul>' +
+                    (r.columnas_agregadas.length > 0 ? '<div style="color:#2b542c;"><b>Columnas sincronizadas:</b> ' + r.columnas_agregadas.join(', ') + '</div>' : '') +
+                    '</div>'
+                );
+            } else {
+                $box.html(
+                    '<div class="alert alert-danger" style="margin-bottom:0; font-size:12px;">' +
+                    '<h5 style="margin-top:0; font-weight:bold;"><i class="fa fa-times-circle"></i> Error en Verificación</h5>' +
+                    '<div>' + (r.errores ? r.errores.join('<br>') : 'Error desconocido') + '</div>' +
+                    '</div>'
+                );
+            }
+        },
+        error: function (xhr, status, error) {
+            $btn.prop('disabled', false).html('<i class="fa fa-wrench"></i> Verificar y Reparar Base de Datos Satélite');
+            $box.html(
+                '<div class="alert alert-danger" style="margin-bottom:0; font-size:12px;">' +
+                '<i class="fa fa-times"></i> Error de comunicación: ' + error +
+                '</div>'
+            );
+        }
+    });
+}
+
+// ============================================================================
+// SINCRONIZAR BANCOS RÁPIDO DESDE EL FOOTER
+// ============================================================================
+function sincronizar_bancos_footer() {
+    if (typeof mostrar_cargando === 'function') mostrar_cargando();
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_datos_conexion.php?accion=sincronizar_bancos_rapido",
+        dataType: "json",
+        timeout: 20000,
+        success: function (r) {
+            if (typeof ocultar_cargando === 'function') ocultar_cargando();
+            if (r.success) {
+                alert(r.mensaje || "¡Cuentas bancarias sincronizadas con éxito!");
+            } else {
+                alert("Error al sincronizar bancos: " + (r.error || "Respuesta no exitosa"));
+            }
+        },
+        error: function (xhr, status, error) {
+            if (typeof ocultar_cargando === 'function') ocultar_cargando();
+            alert("No se pudo completar la sincronización con el hosting: " + error);
+        }
+    });
+}
+
+// ============================================================================
+// ACTUALIZACIÓN GITHUB DESDE EL FOOTER
+// ============================================================================
+function verificar_actualizaciones_git_footer() {
+    $('#modal_actualizacion_github').modal('show');
+    var $res = $('#resultado_actualizacion_footer');
+    $res.html(
+        '<div style="text-align:center; padding: 25px; color: #555;">' +
+        '<i class="fa fa-spinner fa-spin fa-2x"></i><br><br>' +
+        '<b>Consultando repositorio remoto en GitHub...</b>' +
+        '</div>'
+    );
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_actualizacion.php?accion=verificar",
+        dataType: "json",
+        timeout: 25000,
+        success: function (r) {
+            if (r.status === 'al_dia') {
+                $res.html(
+                    '<div class="alert alert-success" style="margin-bottom:0;">' +
+                    '<h4 style="margin-top:0;"><i class="fa fa-check-circle"></i> ¡El sistema está actualizado!</h4>' +
+                    '<p style="font-size:13px;">No hay cambios pendientes en GitHub.</p>' +
+                    '<span style="font-size:12px; color:#2b542c;">Versión instalada: <code>' + r.commit_actual + '</code> (' + r.detalle_actual + ')</span>' +
+                    '</div>'
+                );
+            } else if (r.status === 'actualizacion_disponible') {
+                var htmlCommits = '';
+                if (r.commits && r.commits.length > 0) {
+                    htmlCommits += '<ul style="margin:5px 0 10px 18px; padding:0; font-size:12px; max-height:120px; overflow-y:auto;">';
+                    r.commits.forEach(function(c) {
+                        htmlCommits += '<li><code>' + c.hash + '</code> ' + c.mensaje + ' <small class="text-muted">(' + c.tiempo + ')</small></li>';
+                    });
+                    htmlCommits += '</ul>';
+                }
+
+                $res.html(
+                    '<div class="alert alert-warning" style="margin-bottom:0;">' +
+                    '<div style="font-size:15px; font-weight:bold; margin-bottom:5px;">' +
+                    '<i class="fa fa-cloud-download"></i> ¡Nueva actualización disponible! (' + r.num_commits + ' cambio(s))' +
+                    '</div>' +
+                    '<div><strong>Cambios en esta versión:</strong></div>' +
+                    htmlCommits +
+                    '<div style="font-size:11px; color:#66512c; margin-bottom:12px; background:rgba(255,255,255,0.7); padding:6px; border-radius:3px;">' +
+                    '<i class="fa fa-shield"></i> <b>Nota segura:</b> Tus configuraciones y conexión de base de datos se mantendrán intactas.' +
+                    '</div>' +
+                    '<button type="button" class="btn btn-success" id="btn_descargar_actualizacion_footer" onclick="ejecutar_actualizacion_git_footer()">' +
+                    '<i class="fa fa-download"></i> Descargar e Instalar Ahora' +
+                    '</button>' +
+                    '</div>'
+                );
+            } else {
+                $res.html(
+                    '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                    '<i class="fa fa-exclamation-triangle"></i> ' + (r.mensaje || 'Error al verificar actualizaciones.') +
+                    '</div>'
+                );
+            }
+        },
+        error: function (xhr, status, error) {
+            $res.html(
+                '<div class="alert alert-danger" style="margin-bottom:0;">' +
+                '<i class="fa fa-exclamation-triangle"></i> No se pudo comunicar con GitHub.<br><small class="text-muted">Error: ' + error + '</small>' +
+                '</div>'
+            );
+        }
+    });
+}
+
+function ejecutar_actualizacion_git_footer() {
+    if (!confirm("¿Desea descargar e instalar la actualización ahora?")) return;
+    var $res = $('#resultado_actualizacion_footer');
+    $res.html(
+        '<div style="text-align:center; padding:25px; color:#333;">' +
+        '<i class="fa fa-spinner fa-spin fa-2x" style="color:#0880C5;"></i><br><br>' +
+        '<b>Descargando archivos y aplicando actualización...</b><br>' +
+        '<small class="text-muted">Por favor espere unos segundos sin cerrar la ventana.</small>' +
+        '</div>'
+    );
+
+    $.ajax({
+        type: "POST",
+        url: "controladores/controlador_actualizacion.php?accion=actualizar",
+        dataType: "json",
+        timeout: 60000,
+        success: function (r) {
+            if (r.status === 'exito') {
+                $res.html(
+                    '<div class="alert alert-success" style="margin-bottom:0;">' +
+                    '<h4 style="margin-top:0;"><i class="fa fa-check-circle"></i> ¡Actualización Exitosa!</h4>' +
+                    '<p style="font-size:13px;">' + r.mensaje + '</p>' +
+                    '<button type="button" class="btn btn-primary" onclick="window.location.reload()">' +
+                    '<i class="fa fa-refresh"></i> Recargar Sistema' +
+                    '</button>' +
+                    '</div>'
+                );
+            } else {
+                $res.html('<div class="alert alert-danger"><i class="fa fa-times"></i> Error: ' + (r.mensaje || 'Fallo desconocido') + '</div>');
+            }
+        },
+        error: function (xhr, status, error) {
+            $res.html('<div class="alert alert-danger"><i class="fa fa-times"></i> Falló la solicitud: ' + error + '</div>');
+        }
+    });
+}

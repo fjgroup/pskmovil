@@ -5,7 +5,7 @@ header("Pragma: no-cache");
 header("Content-Type: application/json; charset=utf-8");
 clearstatcache();
 
-include("../modelos/modelo_crud.php");
+include_once dirname(__DIR__) . "/modelos/modelo_crud.php";
 
 $objeto = new crud();
 $bd_conexion = "cliente";
@@ -35,37 +35,57 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
     $mesa_clean = preg_replace('/^E/i', '', $mesa_input);
     $documento = "E" . $mesa_clean;
 
-    // 1. Conectar a base de datos satélite local mijar26273_sistema en puerto 3307
-    $host_db = $datos_conexion['host'] ?? '127.0.0.1';
-    $user_db = $datos_conexion['user'] ?? 'root';
-    $pass_db = $datos_conexion['pw'] ?? 'root';
-    $port_db = (int) ($datos_conexion['port'] ?? 3307);
+    // 1. Conexión dual automática (detecta 3307 root/root en Casa o 3306 root/1234 en Restaurante)
+    require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
 
-    $bd_satelite = $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema';
-    $mysqli_sistema = @new mysqli($host_db, $user_db, $pass_db, $bd_satelite, $port_db);
-    if ($mysqli_sistema->connect_error) {
-        $bd_alt = ($bd_satelite === 'mijar26273_sistema') ? 'mijar_sistema' : 'mijar26273_sistema';
-        $mysqli_sistema = @new mysqli($host_db, $user_db, $pass_db, $bd_alt, $port_db);
-    }
-    if ($mysqli_sistema->connect_error) {
-        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base local satélite (' . ($bd_satelite ?? 'mijar26273_sistema') . '): ' . $mysqli_sistema->connect_error]);
+    $mysqli_pos = conectar_bd_pos($datos_conexion);
+    if (!$mysqli_pos) {
+        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos de Premium Soft (adminbahiap). Verifique el servicio MySQL (puerto 3307 / 3306).']);
         exit;
     }
 
-    // 2. Obtener o generar PIN aleatorio de 6 dígitos en mijar26273_sistema (3307)
+    // Validar si la mesa ingresada es una mesa física real registrada en idconsumos
+    if (!es_mesa_oficial($mesa_input, $mysqli_pos)) {
+        $mysqli_pos->close();
+        echo json_encode([
+            'success' => false,
+            'error' => 'Los pedidos en caja (comida para llevar) son de uso interno y no utilizan código QR ni consulta en la nube.'
+        ]);
+        exit;
+    }
+    $mysqli_pos->close();
+
+    $mysqli_sistema = conectar_bd_sistema($datos_conexion);
+    if (!$mysqli_sistema) {
+        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base satélite local (mijar26273_sistema). Verifique el servicio MySQL (puerto 3307 / 3306).']);
+        exit;
+    }
+
+    // 2. Obtener o generar PIN de 6 dígitos
+    // Verificar si la mesa ya estaba CERRADA en z_mesas_activas para no heredar PIN de clientes previos
+    $q_mesa_act = $mysqli_sistema->query("SELECT estado FROM z_mesas_activas WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1");
+    $r_mesa_act = $q_mesa_act ? $q_mesa_act->fetch_assoc() : null;
+    $est_mesa = $r_mesa_act['estado'] ?? 'ACTIVA';
+
     $query = "SELECT token_pin, estado FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1";
     $res = $mysqli_sistema->query($query);
     $registro = $res ? $res->fetch_assoc() : null;
 
     $pin = '';
-    if (!empty($registro['token_pin'])) {
+    // Solo reutilizar PIN si la mesa está ACTIVA y su pago sigue pendiente (estado = '0')
+    if ($est_mesa === 'ACTIVA' && $registro && !empty($registro['token_pin']) && (string)$registro['estado'] === '0') {
         $pin = $registro['token_pin'];
     } else {
-        $pin = (string) rand(100000, 999999);
+        // Generar un PIN aleatorio de 6 dígitos que garantice unicidad entre mesas activas
+        do {
+            $pin = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            $check_pin = $mysqli_sistema->query("SELECT id FROM z_status_pago WHERE token_pin = '{$pin}' AND estado = '0' LIMIT 1");
+        } while ($check_pin && $check_pin->num_rows > 0);
+
         $fecha_ahora = date('Y-m-d H:i:s');
         $insert = "INSERT INTO z_status_pago (documento, token_pin, estado, created_at, updated_at) 
                    VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', '" . $pin . "', '0', '" . $fecha_ahora . "', '" . $fecha_ahora . "')
-                   ON DUPLICATE KEY UPDATE token_pin = '" . $pin . "', updated_at = '" . $fecha_ahora . "';";
+                   ON DUPLICATE KEY UPDATE token_pin = '" . $pin . "', estado = '0', metodo = NULL, banco_origen = NULL, referencia = NULL, monto = NULL, fecha_reporte = NULL, aprobado_por = NULL, fecha_confirmacion = NULL, updated_at = '" . $fecha_ahora . "';";
         $mysqli_sistema->query($insert);
     }
 

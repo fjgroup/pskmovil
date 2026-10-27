@@ -17,6 +17,7 @@ date_default_timezone_set('America/Caracas');
 
 // Cargar configuración centralizada desde la BD mijar26273_sistema
 require_once __DIR__ . '/funciones/config_helper.php';
+require_once __DIR__ . '/funciones/mesas_helper.php';
 $datos_conexion = obtener_config_sistema();
 
 // Entorno: 'desarrollo' o 'produccion' (gestionado en BD z_config_sistema)
@@ -40,7 +41,8 @@ if (!empty($datos_conexion['url_hosting'])) {
 } elseif ($modo_entorno === 'produccion') {
     $url_api_cloud = "https://mijardinrestaurant.com/api/sincronizar-mesas";
 } else {
-    $url_api_cloud = "https://mijardinrestaurant.test/api/sincronizar-mesas";
+    // La sincronización siempre va directamente al hosting web en producción
+    $url_api_cloud = "https://mijardinrestaurant.com/api/sincronizar-mesas";
 }
 
 $modo_once = in_array('--once', $argv);
@@ -221,16 +223,30 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
                   ORDER BY documento ASC";
     $res_mesas = $mysqli_pos->query($sql_mesas);
 
+    // Registro de mesas reales vs. pedidos en caja (001 para llevar, 099, nombres, etc.)
+    $registro_mesas = cargar_registro_mesas($mysqli_pos, $datos_conexion);
+
     $mesas_para_nube = [];
+    $mesas_cerradas_nube = [];
     $total_mesas_encontradas = 0;
     $documentos_abiertos = [];
 
     if ($res_mesas && $res_mesas->num_rows > 0) {
         while ($m = $res_mesas->fetch_assoc()) {
-            $total_mesas_encontradas++;
             $documento = trim($m['documento']);
+            // Pedidos en caja: no son mesas, no se sincronizan ni generan QR/PIN
+            if (es_pedido_caja($documento, $registro_mesas)) {
+                continue;
+            }
+            $total_mesas_encontradas++;
             $documentos_abiertos[] = $documento;
             $mesa_clean = preg_replace('/^E/i', '', $documento);
+
+            // Mesa reabierta: si estaba CERRADA en z_mesas_activas, reiniciar pago/PIN del cliente anterior
+            $q_prev = $mysqli_sistema->query("SELECT estado FROM z_mesas_activas WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1");
+            if ($q_prev && ($r_prev = $q_prev->fetch_assoc()) && $r_prev['estado'] === 'CERRADA') {
+                $mysqli_sistema->query("DELETE FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "'");
+            }
 
             // Buscar si ya tiene PIN en z_status_pago
             $sql_pin = "SELECT token_pin, estado, referencia, metodo, banco_origen, monto FROM z_status_pago WHERE documento = '" . $mysqli_sistema->real_escape_string($documento) . "' LIMIT 1";
@@ -238,14 +254,18 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
             $pin_row = $res_pin ? $res_pin->fetch_assoc() : null;
 
             $pin = '';
-            if ($pin_row && !empty($pin_row['token_pin'])) {
+            if ($pin_row && !empty($pin_row['token_pin']) && (string)$pin_row['estado'] === '0') {
                 $pin = $pin_row['token_pin'];
             } else {
-                $pin = (string) rand(100000, 999999);
+                do {
+                    $pin = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+                    $chk_pin = $mysqli_sistema->query("SELECT id FROM z_status_pago WHERE token_pin = '{$pin}' AND estado = '0' LIMIT 1");
+                } while ($chk_pin && $chk_pin->num_rows > 0);
+
                 $f_now = date('Y-m-d H:i:s');
                 $mysqli_sistema->query("INSERT INTO z_status_pago (documento, token_pin, estado, created_at, updated_at) 
                                         VALUES ('" . $mysqli_sistema->real_escape_string($documento) . "', '{$pin}', '0', '{$f_now}', '{$f_now}')
-                                        ON DUPLICATE KEY UPDATE token_pin = '{$pin}', updated_at = '{$f_now}';");
+                                        ON DUPLICATE KEY UPDATE token_pin = '{$pin}', estado = '0', metodo = NULL, banco_origen = NULL, referencia = NULL, monto = NULL, fecha_reporte = NULL, aprobado_por = NULL, fecha_confirmacion = NULL, updated_at = '{$f_now}';");
             }
 
             // Consultar ítems reales de la mesa en opermv (fuente de la verdad)
@@ -352,15 +372,30 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     $q_cerradas = $mysqli_sistema->query("SELECT documento, token_pin FROM z_mesas_activas {$where_cerradas}");
     if ($q_cerradas && $q_cerradas->num_rows > 0) {
         while ($mc = $q_cerradas->fetch_assoc()) {
-            $doc_c = $mc['documento'];
+            $doc_c = $mysqli_sistema->real_escape_string($mc['documento']);
             $mysqli_sistema->query("UPDATE z_mesas_activas SET estado = 'CERRADA', updated_at = NOW() WHERE documento = '{$doc_c}'");
 
-            // Si tenía un pago reportado (estado 2 o con referencia), confirmarlo automáticamente a estado 1 (Verde)
+            // Pago reportado por el cliente (estado 2 o con referencia): la caja cerro la mesa => confirmado (1, verde)
             $mysqli_sistema->query("UPDATE z_status_pago 
                 SET estado = '1', aprobado_por = 'Caja Premium', fecha_confirmacion = NOW(), updated_at = NOW() 
-                WHERE documento = '{$doc_c}' AND (estado = '2' OR (referencia != '' AND estado != '4'))");
-            
-            echo "[{$timestamp}] [FACTURADA] Mesa {$doc_c} fue procesada y liberada por Premium Soft. Pago aprobado automáticamente a estado 1." . PHP_EOL;
+                WHERE documento = '{$doc_c}' AND (estado = '2' OR (referencia != '' AND estado NOT IN ('1','3','4')))");
+
+            // Sin pago reportado en la app (0) o rechazado (4): el cliente pago en caja o se fue.
+            // NO es 'pago confirmado': estado 3 = MESA CERRADA.
+            $mysqli_sistema->query("UPDATE z_status_pago 
+                SET estado = '3', aprobado_por = 'Cierre en caja', fecha_confirmacion = NOW(), updated_at = NOW() 
+                WHERE documento = '{$doc_c}' AND estado IN ('0','4')");
+
+            $q_est = $mysqli_sistema->query("SELECT estado FROM z_status_pago WHERE documento = '{$doc_c}' LIMIT 1");
+            $est_final = ($q_est && ($r_est = $q_est->fetch_assoc())) ? $r_est['estado'] : '3';
+
+            $mesas_cerradas_nube[] = [
+                'documento' => $mc['documento'],
+                'token_pin' => $mc['token_pin'],
+                'estado_pago' => $est_final,
+            ];
+
+            echo "[{$timestamp}] [CERRADA] Mesa {$mc['documento']} cerrada en Premium Soft. Estado de pago final: {$est_final} (1=pago confirmado, 3=mesa cerrada)." . PHP_EOL;
         }
     }
 
@@ -371,13 +406,14 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     $mysqli_sistema->close();
 
     // 4. Enviar a la nube vía HTTPS POST Outbound
-    if (empty($mesas_para_nube) && empty($top_productos)) {
+    if (empty($mesas_para_nube) && empty($top_productos) && empty($mesas_cerradas_nube)) {
         echo "[{$timestamp}] Sin mesas activas ni productos destacados para sincronizar." . PHP_EOL;
         return true;
     }
 
     $payload_arr = [
         'mesas' => $mesas_para_nube,
+        'mesas_cerradas' => $mesas_cerradas_nube,
         'top_productos' => $top_productos,
     ];
     $payload = json_encode($payload_arr, JSON_UNESCAPED_UNICODE);

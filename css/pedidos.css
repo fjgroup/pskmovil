@@ -963,3 +963,8 @@ footer a:hover {
 	box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
 	margin: 2px !important;
 }
+
+/* Compatibilidad FontAwesome 5 para iconos heredados */
+.fa-refresh:before {
+	content: "\f2f1" !important;
+}

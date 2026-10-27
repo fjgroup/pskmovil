@@ -1040,8 +1040,33 @@ if ($_GET['accion'] == "ver_pedidos") {
 	";
 
 	$recargo = $datos_conexion['recargo'] / 100;
-	while ($pedido = mysqli_fetch_array($consulta)) {
 
+	// Registro de mesas reales (idconsumos y mapamesas de Premium + config) para separar pedidos en caja
+	require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+	$coditems_mesas = [];
+	// 1. Cuentas oficiales de Premium Soft
+	$consulta_idcons = $objeto_pedido->general_query($bd_conexion, "SELECT id_consumo, descripcion, nombre_corto FROM idconsumos WHERE id_consumo <> ''");
+	if ($consulta_idcons) {
+		while ($ri = mysqli_fetch_array($consulta_idcons)) {
+			if (!empty($ri['id_consumo'])) $coditems_mesas[] = $ri['id_consumo'];
+			if (!empty($ri['descripcion'])) $coditems_mesas[] = $ri['descripcion'];
+			if (!empty($ri['nombre_corto'])) $coditems_mesas[] = $ri['nombre_corto'];
+		}
+	}
+	// 2. Mapa 2D de mesas si existiera
+	$consulta_mapa = $objeto_pedido->general_query($bd_conexion, "SELECT DISTINCT coditem FROM mapamesas WHERE coditem <> ''");
+	if ($consulta_mapa) {
+		while ($rm = mysqli_fetch_array($consulta_mapa)) {
+			if (!empty($rm['coditem'])) $coditems_mesas[] = $rm['coditem'];
+		}
+	}
+	$registro_mesas = construir_registro_mesas($coditems_mesas, $datos_conexion);
+	$filas_mesas = '';
+	$filas_caja = '';
+
+	while ($pedido = mysqli_fetch_array($consulta)) {
+		ob_start();
+		$es_caja = es_pedido_caja($pedido['documento'], $registro_mesas);
 		$pedido['totalfinal'] = $pedido['totalfinal'] + ($pedido['totalfinal'] * $recargo);
 
 		$doc_original = $pedido['documento'];
@@ -1053,7 +1078,7 @@ if ($_GET['accion'] == "ver_pedidos") {
 		$pago = $pagos_mesas[$doc_full] ?? ($pagos_mesas[$doc_original] ?? null);
 		$estado_pago = $pago['estado'] ?? '0';
 
-		$btn_class = "btn-warning";
+		$btn_class = "btn-warning"; // Botón de editar siempre amarillo
 		$badge_pago = "";
 		$fila_style = "";
 
@@ -1074,15 +1099,22 @@ if ($_GET['accion'] == "ver_pedidos") {
 			$badge_pago = "<br><span class='label label-danger' style='background:#D9534F;font-size:10px;display:inline-block;margin-top:3px;'><i class='fa fa-times'></i> PAGO RECHAZADO</span>";
 		}
 
+		// Pedido en caja (comida para llevar): fondo verde suave y borde verde, botón editar amarillo
+		if ($es_caja && $estado_pago == '0') {
+			$fila_style = "background-color: #f0fdf4; border-left: 4px solid #5CB85C;";
+		}
+
 		echo "		
 			<tr style='{$fila_style}'>
 				<td style='text-align:center;'>
-					<div class='btn {$btn_class}' style='width:40px;padding:5px;font-size:13px;' onclick='seleccionar_mesa(" . json_encode($doc_clean) . "," . json_encode(trim($pedido['codcliente'])) . "," . json_encode($pedido['nombrecli']) . ",".'"'.$codigo_vendedor.'"'."," . json_encode($pedido['nrorif']) . ")'>
+					<div class='btn {$btn_class}' style='width:40px;padding:5px;font-size:13px;' onclick='seleccionar_mesa(" . json_encode($doc_clean) . "," . json_encode(trim($pedido['codcliente'])) . "," . json_encode($pedido['nombrecli']) . ",".'"'.$codigo_vendedor.'"'."," . json_encode($pedido['nrorif']) . ")' title='Editar pedido'>
 						<i class='fa fa-edit'></i>
 					</div>
 				</td>				
 				<td>
-					<strong>" . $doc_clean . "</strong>";
+					<strong>" . ($es_caja
+						? "<span class='label label-success' style='background:#5CB85C;font-size:10px;padding:2px 6px;'><i class='fa fa-shopping-bag'></i> CAJA</span><br><small class='text-muted' style='font-size:11px;'>Cuenta: " . $doc_clean . "</small>"
+						: $doc_clean) . "</strong>";
 
 		if ($pago && in_array($estado_pago, ['1', '2', '4'])) {
 			echo "<br><button type='button' class='btn btn-xs btn-primary' style='padding:1px 5px;font-size:10px;margin-top:3px;' onclick='toggle_detalle_pago(\"" . $doc_clean . "\")'><i class='fa fa-eye'></i> Ver Pago</button>";
@@ -1118,6 +1150,24 @@ if ($_GET['accion'] == "ver_pedidos") {
 				</td>
 			</tr>";
 		}
+
+		// Guardar la fila en su grupo: mesa registrada o pedido en caja
+		$fila_html = ob_get_clean();
+		if ($es_caja) {
+			$filas_caja .= $fila_html;
+		} else {
+			$filas_mesas .= $fila_html;
+		}
+	}
+
+	echo $filas_mesas;
+	if ($filas_caja !== '') {
+		echo "
+			<tr>
+				<td colspan='4' style='background:#5CB85C; color:#fff; font-weight:bold; padding:7px 12px; letter-spacing:.5px; font-size:12px;'>
+					<i class='fa fa-shopping-bag'></i> PEDIDOS EN CAJA (comida para llevar)
+				</td>
+			</tr>" . $filas_caja;
 	}
 
 	echo "

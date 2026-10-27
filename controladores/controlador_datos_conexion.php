@@ -349,6 +349,87 @@ if ($_GET['accion'] == "registrar_conexion") {
 }
 
 
+if (isset($_GET['accion']) && $_GET['accion'] == "sincronizar_bancos_rapido") {
+    header('Content-Type: application/json; charset=utf-8');
+    $config = obtener_config_sistema();
+    $host_loc = $config['host'] ?? '127.0.0.1';
+    $user_loc = $config['user'] ?? 'root';
+    $pw_loc   = $config['pw'] ?? 'root';
+    $port_loc = (int)($config['port'] ?? 3307);
+    $bd_pos   = $config['bd_pos'] ?? 'adminbahiap';
+    $bd_sist  = $config['bd_sistema'] ?? 'mijar26273_sistema';
+    $url_host = rtrim($config['url_hosting'] ?? 'https://mijardinrestaurant.com', '/');
+
+    $bancos_para_nube = [];
+    $mysqli_pos = @new mysqli($host_loc, $user_loc, $pw_loc, $bd_pos, $port_loc);
+    if ($mysqli_pos && !$mysqli_pos->connect_errno) {
+        $resBancos = $mysqli_pos->query("SELECT codigo, banco, titular, represent as contacto, telefonos as telefono, cuentaban as cuenta FROM listbanc WHERE inactiva = 0 OR inactiva IS NULL");
+        if ($resBancos && $resBancos->num_rows > 0) {
+            while ($b = $resBancos->fetch_assoc()) {
+                $nombreB = trim($b['banco'] ?? '');
+                $tipoB = 'PAGO_MOVIL';
+                if (stripos($nombreB, 'zelle') !== false) $tipoB = 'ZELLE';
+                elseif (stripos($nombreB, 'transferencia') !== false) $tipoB = 'TRANSFERENCIA';
+
+                $bancos_para_nube[] = [
+                    'codigo' => trim($b['codigo'] ?? ''),
+                    'banco' => $nombreB,
+                    'titular' => trim($b['titular'] ?? ''),
+                    'contacto' => trim($b['contacto'] ?? ''),
+                    'identificacion' => trim($b['contacto'] ?? ''),
+                    'telefono' => trim($b['telefono'] ?? ''),
+                    'cuenta' => trim($b['cuenta'] ?? ''),
+                    'numero_cuenta' => trim($b['cuenta'] ?? ''),
+                    'tipo' => $tipoB,
+                ];
+            }
+        }
+        $mysqli_pos->close();
+    }
+
+    $mysqli_sat = @new mysqli($host_loc, $user_loc, $pw_loc, $bd_sist, $port_loc);
+    if ($mysqli_sat && !$mysqli_sat->connect_errno) {
+        $mysqli_sat->query("TRUNCATE TABLE z_config_bancos");
+        foreach ($bancos_para_nube as $bn) {
+            $stmt = $mysqli_sat->prepare("INSERT INTO z_config_bancos (codigo_pos, banco, titular, identificacion, telefono, numero_cuenta, tipo, activo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
+            if ($stmt) {
+                $stmt->bind_param('sssssss', $bn['codigo'], $bn['banco'], $bn['titular'], $bn['identificacion'], $bn['telefono'], $bn['numero_cuenta'], $bn['tipo']);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+        $mysqli_sat->close();
+    }
+
+    $cantBancos = count($bancos_para_nube);
+    $url_api = $url_host . '/api/sincronizar-mesas';
+    $payload = json_encode([
+        'bancos' => $bancos_para_nube,
+        'empresa' => $config['nombre_empresa'] ?? 'Mi Jardín Restaurant',
+        'tasa_dia' => $config['monedafactor'] ?? 1,
+    ], JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init($url_api);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    echo json_encode([
+        'success' => true,
+        'cant_bancos' => $cantBancos,
+        'http_code' => $code,
+        'mensaje' => "¡{$cantBancos} cuenta(s) bancaria(s) sincronizada(s) con éxito en la BD local y en el hosting web ({$url_host})!"
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($_GET['accion'] == "mostrar_datos_conexion") {
 
     $file = json_encode(obtener_config_sistema());
