@@ -366,16 +366,16 @@ class SuiteDiagnostico {
         $detalles[] = "Generación de 1,000 PINs con random_int(100000, 999999): {$unicos} valores distintos generados (Rango estricto [100000, 999999] OK).";
 
         // Verificar regla de ciclo de vida de PIN en base de datos:
-        // Una mesa cerrada (estado = 'CERRADA' en z_mesas_activas) debe tener token_pin = NULL
+        // No deben existir PINs activos pendientes (estado = '0') en z_status_pago para mesas cerradas
         if ($this->mysqli_satelite) {
-            $res = @$this->mysqli_satelite->query("SELECT COUNT(*) AS reciclados FROM z_mesas_activas WHERE estado = 'CERRADA' AND token_pin IS NOT NULL AND token_pin <> ''");
+            $res = @$this->mysqli_satelite->query("SELECT COUNT(*) AS pendientes_huerfanos FROM z_status_pago WHERE estado = '0' AND documento IN (SELECT documento FROM z_mesas_activas WHERE estado = 'CERRADA')");
             if ($res) {
-                $reciclados = (int)$res->fetch_assoc()['reciclados'];
-                if ($reciclados > 0) {
+                $huerfanos = (int)$res->fetch_assoc()['pendientes_huerfanos'];
+                if ($huerfanos > 0) {
                     $fallos++;
-                    $detalles[] = "[ALERTA] Se encontraron {$reciclados} mesas cerradas con PIN residual activo (Riesgo de reciclado).";
+                    $detalles[] = "[ALERTA] Se encontraron {$huerfanos} mesas cerradas con pago pendiente activo en z_status_pago (Riesgo de reciclado).";
                 } else {
-                    $detalles[] = "[OK] 0 mesas cerradas con PIN residual. Los PINs se renuevan/anulan al cerrar la cuenta.";
+                    $detalles[] = "[OK] 0 PINs de pago activos para mesas cerradas. Los tokens se anulan y renuevan al reabrir.";
                 }
             }
         }
