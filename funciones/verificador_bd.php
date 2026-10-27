@@ -221,6 +221,9 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         // Depurar claves obsoletas de versiones anteriores
         $mysqli->query("DELETE FROM z_config_sistema WHERE clave IN ('mesas_caja', 'mesas_registradas')");
 
+        // Higienizar mesas cerradas para evitar reciclado de PIN residual
+        $mysqli->query("UPDATE z_mesas_activas SET token_pin = NULL WHERE estado = 'CERRADA'");
+
         $now = date('Y-m-d H:i:s');
         foreach ($config_defaults as $k => $def_v) {
             $k_esc = $mysqli->real_escape_string($k);

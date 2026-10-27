@@ -1,8 +1,22 @@
 <?php
+ob_start();
+ini_set('display_errors', '0');
+error_reporting(0);
+
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 header("Content-Type: application/json; charset=UTF-8");
+
+function responder_json($datos, $httpCode = 200) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code($httpCode);
+    header("Content-Type: application/json; charset=UTF-8");
+    echo json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 // Función para localizar el ejecutable de Git en el sistema
 function obtener_comando_git() {
@@ -34,11 +48,10 @@ function obtener_comando_git() {
 
 $git = obtener_comando_git();
 if (!$git) {
-    echo json_encode(array(
+    responder_json(array(
         'status' => 'error',
         'mensaje' => 'Git no está instalado o no se encuentra en el PATH del sistema. Por favor instale Git para Windows.'
-    ));
-    exit;
+    ), 500);
 }
 
 $rootDir = realpath(__DIR__ . '/..');
@@ -61,22 +74,20 @@ if ($accion == 'verificar') {
     $localDetalle = trim(shell_exec($cmdLocalDetalle));
 
     if (empty($localHash) || empty($remoteHash)) {
-        echo json_encode(array(
+        responder_json(array(
             'status' => 'error',
             'mensaje' => 'No se pudo conectar con el repositorio Git remoto. Verifique su conexión a Internet.',
             'debug' => $salidaFetch
-        ));
-        exit;
+        ), 500);
     }
 
     if ($localHash === $remoteHash) {
-        echo json_encode(array(
+        responder_json(array(
             'status' => 'al_dia',
             'commit_actual' => $localHash,
             'detalle_actual' => $localDetalle,
             'mensaje' => 'El sistema está actualizado a la última versión disponible.'
         ));
-        exit;
     } else {
         // Hay actualizaciones pendientes
         $cmdCount = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* rev-list --count HEAD..origin/main 2>&1";
@@ -103,7 +114,7 @@ if ($accion == 'verificar') {
         $filesRaw = trim(shell_exec($cmdFiles));
         $archivos = array_filter(explode("\n", str_replace("\r", "", $filesRaw)));
 
-        echo json_encode(array(
+        responder_json(array(
             'status' => 'actualizacion_disponible',
             'commit_local' => $localHash,
             'detalle_local' => $localDetalle,
@@ -112,7 +123,6 @@ if ($accion == 'verificar') {
             'commits' => $commits,
             'archivos_modificados' => array_values($archivos)
         ));
-        exit;
     }
 }
 
@@ -124,64 +134,63 @@ if ($accion == 'actualizar') {
     $conexionBakFile = $rootDir . '/datos_conexion.local.bak';
     $batBakFile = $rootDir . '/iniciar_sistema.local.bak';
 
-    $conexionBackup = file_exists($conexionFile) ? file_get_contents($conexionFile) : null;
-    $batBackup = file_exists($batFile) ? file_get_contents($batFile) : null;
+    $conexionBackup = file_exists($conexionFile) ? @file_get_contents($conexionFile) : null;
+    $batBackup = file_exists($batFile) ? @file_get_contents($batFile) : null;
 
     // Respaldo de seguridad físico en disco
     if ($conexionBackup !== null) {
-        file_put_contents($conexionBakFile, $conexionBackup);
+        @file_put_contents($conexionBakFile, $conexionBackup);
     }
     if ($batBackup !== null) {
-        file_put_contents($batBakFile, $batBackup);
+        @file_put_contents($batBakFile, $batBackup);
     }
 
     // Paso B: Asegurar fetch y sincronizar exactamente con origin/main
     $cmdFetch = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* fetch origin main 2>&1";
-    shell_exec($cmdFetch);
+    @shell_exec($cmdFetch);
 
     // Resetear a origin/main (garantiza cero conflictos de merge)
     $cmdReset = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* reset --hard origin/main 2>&1";
-    $salidaReset = shell_exec($cmdReset);
+    $salidaReset = @shell_exec($cmdReset);
 
     // Paso C: Restaurar configuración local intacta (usando memoria o archivo de respaldo físico)
     if ($conexionBackup === null && file_exists($conexionBakFile)) {
-        $conexionBackup = file_get_contents($conexionBakFile);
+        $conexionBackup = @file_get_contents($conexionBakFile);
     }
     if ($batBackup === null && file_exists($batBakFile)) {
-        $batBackup = file_get_contents($batBakFile);
+        $batBackup = @file_get_contents($batBakFile);
     }
 
     if ($conexionBackup !== null) {
         $localCfg = json_decode($conexionBackup, true);
-        $repoCfg = json_decode(file_get_contents($conexionFile), true);
+        $repoCfg = file_exists($conexionFile) ? json_decode(@file_get_contents($conexionFile), true) : null;
         if (is_array($localCfg) && is_array($repoCfg)) {
             // Preservar valores locales, pero agregando nuevas claves si el repo incorporó alguna
             $merged = array_merge($repoCfg, $localCfg);
-            file_put_contents($conexionFile, json_encode($merged));
+            @file_put_contents($conexionFile, json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         } else {
-            file_put_contents($conexionFile, $conexionBackup);
+            @file_put_contents($conexionFile, $conexionBackup);
         }
     }
 
     if ($batBackup !== null) {
-        file_put_contents($batFile, $batBackup);
+        @file_put_contents($batFile, $batBackup);
     }
 
     // Obtener nuevo commit instalado
     $cmdNuevoHash = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* rev-parse --short HEAD 2>&1";
-    $nuevoHash = trim(shell_exec($cmdNuevoHash));
+    $nuevoHash = trim((string)@shell_exec($cmdNuevoHash));
 
     $cmdNuevoDetalle = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* log -1 --format=\"%cd - %s\" --date=short 2>&1";
-    $nuevoDetalle = trim(shell_exec($cmdNuevoDetalle));
+    $nuevoDetalle = trim((string)@shell_exec($cmdNuevoDetalle));
 
-    echo json_encode(array(
+    responder_json(array(
         'status' => 'exito',
         'commit_instalado' => $nuevoHash,
         'detalle_instalado' => $nuevoDetalle,
         'mensaje' => 'Sistema actualizado con éxito a la versión ' . $nuevoHash . '. Su configuración local de base de datos e inicio fue preservada.',
         'debug' => $salidaReset
     ));
-    exit;
 }
 
-echo json_encode(array('status' => 'error', 'mensaje' => 'Acción no válida'));
+responder_json(array('status' => 'error', 'mensaje' => 'Acción no válida'), 400);

@@ -287,6 +287,28 @@ function ejecutar_actualizacion_git() {
             }
         },
         error: function (xhr, status, error) {
+            // Rescatar JSON embebido si PHP arrojó advertencias o HTML antes del payload
+            if (xhr.responseText) {
+                var jsonMatch = xhr.responseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        var r = JSON.parse(jsonMatch[0]);
+                        if (r && r.status === 'exito') {
+                            $res.html(
+                                '<div class="alert alert-success" style="margin-bottom:0;">' +
+                                '<h4 style="margin-top:0;"><i class="fa fa-check-circle"></i> ¡Actualización Exitosa!</h4>' +
+                                '<p style="font-size:13px;">' + r.mensaje + '</p>' +
+                                '<p style="font-size:12px; color:#2b542c;">Nueva versión activa: <code>' + (r.commit_instalado || '') + '</code> (' + (r.detalle_instalado || '') + ')</p>' +
+                                '<button type="button" class="btn btn-primary" onclick="window.location.reload()">' +
+                                '<i class="fa fa-refresh"></i> Recargar Sistema Ahora' +
+                                '</button>' +
+                                '</div>'
+                            );
+                            return;
+                        }
+                    } catch (e) {}
+                }
+            }
             $res.html(
                 '<div class="alert alert-danger" style="margin-bottom:0;">' +
                 '<i class="fa fa-exclamation-triangle"></i> Falló la solicitud de actualización.<br><small class="text-muted">Error: ' + error + '</small>' +
@@ -478,6 +500,27 @@ function ejecutar_actualizacion_git_footer() {
             }
         },
         error: function (xhr, status, error) {
+            // Rescatar JSON embebido si PHP arrojó advertencias o HTML antes del payload
+            if (xhr.responseText) {
+                var jsonMatch = xhr.responseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        var r = JSON.parse(jsonMatch[0]);
+                        if (r && r.status === 'exito') {
+                            $res.html(
+                                '<div class="alert alert-success" style="margin-bottom:0;">' +
+                                '<h4 style="margin-top:0;"><i class="fa fa-check-circle"></i> ¡Actualización Exitosa!</h4>' +
+                                '<p style="font-size:13px;">' + r.mensaje + '</p>' +
+                                '<button type="button" class="btn btn-primary" onclick="window.location.reload()">' +
+                                '<i class="fa fa-refresh"></i> Recargar Sistema' +
+                                '</button>' +
+                                '</div>'
+                            );
+                            return;
+                        }
+                    } catch (e) {}
+                }
+            }
             $res.html('<div class="alert alert-danger"><i class="fa fa-times"></i> Falló la solicitud: ' + error + '</div>');
         }
     });

@@ -64,6 +64,7 @@ echo ========================================================
 echo ACCESO PARA MESONEROS Y SUPERVISORES (WIFI RESTAURANTE):
 echo Desde celulares o tablets:  http://%LOCAL_IP%:%WEB_PORT%
 echo Desde esta computadora:    http://localhost:%WEB_PORT%
+echo Diagnostico y Tests:       http://localhost:%WEB_PORT%/tests/test_suite.php
 echo ========================================================
 echo.
 echo [INFO] Ambos servicios estan corriendo en segundo plano.
