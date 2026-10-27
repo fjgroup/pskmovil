@@ -24,32 +24,39 @@
 
 El sistema opera bajo un modelo de **alta seguridad y aislamiento perimetral** con 3 bases de datos bien diferenciadas entre dos entornos:
 
-### 2.1. Entorno Local (Restaurante Físico - MySQL Puerto 3307)
-Ambas bases de datos corren localmente en el servidor del restaurante en el **puerto 3307**:
+### 2.1. Entorno Local (Soporte Dual Automático 3307 / 3306)
+Ambas bases de datos corren localmente en el servidor del restaurante o en la estación de desarrollo con detección dual automática (`config_helper.php`):
+* **Desarrollo (Casa):** Puerto **3307** (`root` / `root`)
+* **Producción (Restaurante):** Puerto **3306** (`root` / `1234`)
 
 1. **`adminbahiap` (Software Administrativo Premium Soft):**
    - **MÁXIMA PRIORIDAD DE CUMPLIMIENTO:** Es la base de datos fiscal del sistema Premium Soft.
    - **ESTRUCTURA INTOCABLE:** **No se debe modificar su estructura, alterar tablas ni añadir campos bajo ningún motivo**.
    - **HOMOLOGACIÓN SENIAT:** Este sistema está homologado y fiscalizado por el **SENIAT** (Servicio Nacional Integrado de Administración Aduanera y Tributaria de Venezuela). Está sujeto a auditorías impositivas permanentes. Cualquier alteración a su esquema nativo invalida la certificación fiscal y genera sanciones legales graves.
-   - **Acceso:** `comandasmoviles` solo realiza lecturas y registros estrictamente necesarios en tablas estándar (`operti`, `opermv`, etc.).
+   - **Acceso:** `comandasmoviles` solo realiza lecturas y registros estrictamente necesarios en tablas estándar (`operti`, `opermv`, `idconsumos`, etc.).
 
-2. **`mijar26273_sistema` (Base de Datos Satélite Local - Puerto 3307):**
+2. **`mijar26273_sistema` (Base de Datos Satélite Local):**
    - Base de datos auxiliar creada específicamente para la innovación digital del restaurante sin tocar `adminbahiap`.
+   - Se auto-crea y auto-repara mediante `funciones/verificador_bd.php`.
    - Almacena:
      - Tabla `z_status_pago`: Registro de pagos notificados y seguimiento de PIN por mesa.
      - Tabla `z_mesas_activas`: Copia local de comandas para sincronización rápida.
      - Tabla `z_config_sistema`: Parámetros operativos, credenciales locales y endpoint del hosting (reemplaza archivos `.json` inseguros).
+     - Tabla `z_config_bancos`: Cuentas bancarias de Premium Soft para sincronizar a la nube.
+     - Tabla `z_top_productos`: Productos más vendidos según Kardex.
 
 ---
 
-### 2.2. Entorno Remoto (hosting web / VPS Cloud - MySQL Puerto 3306)
-Correrá en el hosting web de producción (en entorno de desarrollo local se prueba en el puerto 3306):
+### 2.2. Entorno Remoto (Hosting Web VPS Cloud en Internet)
+Corre en el servidor web de producción (`https://mijardinrestaurant.com`):
 
-3. **`mijar26273_sistema` (Base de Datos Cloud / Producción):**
-   - **Única conexión de Laravel:** `mijardinrestaurant` solo tiene configurada y solo se conecta a esta única base de datos (`mijar26273_sistema`). No tiene acceso directo ni conexiones secundarias al puerto 3307 ni a `adminbahiap`.
-   - Alimentada exclusivamente por peticiones salientes seguras (**Outbound HTTPS POST**) emitidas por el demonio local `sync_daemon.php` o por el botón manual "Actualizar BD remota" en `comandasmoviles` hacia la API de Laravel (`/api/sincronizar-mesas` y `/api/sincronizar/bancos`).
+3. **`mijar26273_sistema` (Base de Datos Cloud / Producción en Hosting):**
+   - **Única conexión de Laravel:** `mijardinrestaurant` solo tiene configurada y solo se conecta a esta única base de datos (`mijar26273_sistema` en el hosting). No tiene acceso directo ni conexiones secundarias al restaurante ni a `adminbahiap`.
+   - Alimentada exclusivamente por peticiones salientes seguras (**Outbound HTTPS POST**) emitidas por el demonio local `sync_daemon.php` o por el botón manual "Enviar Bancos" en `comandasmoviles` hacia la API de Laravel (`/api/sincronizar-mesas` y `/api/sincronizar/bancos`).
    - Sirve la información a los clientes del restaurant (`/mesa?t={PIN}`) y almacena en `z_config_bancos` las formas de pago oficiales.
-   - **Aislamiento Total:** El cliente y la aplicación web pública nunca tienen conexión con el puerto 3307 ni con la red física del restaurante.
+   - **Aislamiento Total:** El cliente y la aplicación web pública nunca tienen conexión con la red física del restaurante.
+
+> 📖 Para una guía técnica detallada de implementación, algoritmos de normalización de mesas y ciclo de vida de los tokens PIN, consulte: [manual_tecnico_arquitectura_y_sincronizacion.md](manual_tecnico_arquitectura_y_sincronizacion.md).
 
 ---
 
