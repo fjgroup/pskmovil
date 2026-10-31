@@ -369,33 +369,205 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         ? "WHERE estado = 'ACTIVA' AND documento NOT IN (" . implode(',', $docs_abiertos_escaped) . ")"
         : "WHERE estado = 'ACTIVA'";
 
-    $q_cerradas = $mysqli_sistema->query("SELECT documento, token_pin FROM z_mesas_activas {$where_cerradas}");
+    $q_cerradas = $mysqli_sistema->query("SELECT documento, mesa, token_pin, total_bs, created_at FROM z_mesas_activas {$where_cerradas}");
     if ($q_cerradas && $q_cerradas->num_rows > 0) {
+        // Consultar los ultimos 50 documentos tipo FAC emitidos en Premium Soft (aprovecha indice tipodoc+documento en <1ms)
+        $res_facs = $mysqli_pos->query("
+            SELECT documento, ordentrab, totalfinal, totpagos, fechayhora, estatusdoc 
+            FROM operti 
+            WHERE tipodoc = 'FAC' AND ordentrab != '' 
+            ORDER BY documento DESC 
+            LIMIT 50
+        ");
+        $ultimas_facs = [];
+        if ($res_facs) {
+            while ($rf = $res_facs->fetch_assoc()) {
+                $ultimas_facs[] = $rf;
+            }
+        }
+
         while ($mc = $q_cerradas->fetch_assoc()) {
-            $doc_c = $mysqli_sistema->real_escape_string($mc['documento']);
-            $mysqli_sistema->query("UPDATE z_mesas_activas SET estado = 'CERRADA', updated_at = NOW() WHERE documento = '{$doc_c}'");
+            $doc_c = $mc['documento'];
+            $doc_c_esc = $mysqli_sistema->real_escape_string($doc_c);
+            $pin_c = $mc['token_pin'] ?? '';
+            $total_c = (float)($mc['total_bs'] ?? 0);
+            $f_crea = !empty($mc['created_at']) ? strtotime($mc['created_at']) : (time() - 7200);
+            $mesa_norm = normalizar_codigo_mesa($doc_c);
 
-            // Pago reportado por el cliente (estado 2 o con referencia): la caja cerro la mesa => confirmado (1, verde)
-            $mysqli_sistema->query("UPDATE z_status_pago 
-                SET estado = '1', aprobado_por = 'Caja Premium', fecha_confirmacion = NOW(), updated_at = NOW() 
-                WHERE documento = '{$doc_c}' AND (estado = '2' OR (referencia != '' AND estado NOT IN ('1','3','4')))");
+            // Consultar estado previo de pago en z_status_pago
+            $q_prev_pago = $mysqli_sistema->query("SELECT estado, referencia, metodo, banco_origen FROM z_status_pago WHERE documento = '{$doc_c_esc}' LIMIT 1");
+            $prev_pago = $q_prev_pago ? $q_prev_pago->fetch_assoc() : null;
+            $tenia_reporte_movil = ($prev_pago && ($prev_pago['estado'] === '2' || (!empty($prev_pago['referencia']) && !in_array($prev_pago['estado'], ['1', '3', '4']))));
 
-            // Sin pago reportado en la app (0) o rechazado (4): el cliente pago en caja o se fue.
-            // NO es 'pago confirmado': estado 3 = MESA CERRADA.
-            $mysqli_sistema->query("UPDATE z_status_pago 
-                SET estado = '3', aprobado_por = 'Cierre en caja', fecha_confirmacion = NOW(), updated_at = NOW() 
-                WHERE documento = '{$doc_c}' AND estado IN ('0','4')");
+            // Buscar si esta comanda tiene una Factura (FAC) correspondiente en Premium Soft
+            $factura_encontrada = null;
+            foreach ($ultimas_facs as $fac) {
+                // 1. Coincidencia de mesa normalizada (ej. 'E*099' == '099', 'EJARD 1' == 'JARD01')
+                $fac_ordentrab_norm = normalizar_codigo_mesa($fac['ordentrab']);
+                if ($fac_ordentrab_norm !== $mesa_norm) {
+                    continue;
+                }
 
-            $q_est = $mysqli_sistema->query("SELECT estado FROM z_status_pago WHERE documento = '{$doc_c}' LIMIT 1");
-            $est_final = ($q_est && ($r_est = $q_est->fetch_assoc())) ? $r_est['estado'] : '3';
+                // 2. Coincidencia exacta de monto (el monto total en Premium Soft es identico al centavo)
+                $monto_fac = round((float)$fac['totalfinal'], 2);
+                $monto_mesa = round($total_c, 2);
+                if ($monto_mesa > 0 && $monto_fac !== $monto_mesa) {
+                    continue;
+                }
 
-            $mesas_cerradas_nube[] = [
-                'documento' => $mc['documento'],
-                'token_pin' => $mc['token_pin'],
-                'estado_pago' => $est_final,
-            ];
+                // 3. Coincidencia temporal: la factura debe haberse emitido despues de abrir la mesa
+                $f_fac = strtotime($fac['fechayhora']);
+                if ($f_fac < $f_crea) {
+                    continue;
+                }
 
-            echo "[{$timestamp}] [CERRADA] Mesa {$mc['documento']} cerrada en Premium Soft. Estado de pago final: {$est_final} (1=pago confirmado, 3=mesa cerrada)." . PHP_EOL;
+                // 4. PASO CRUCIAL ANTI-REUTILIZACION: verificar si este numero de factura ya fue asociado a otro PIN
+                $num_fac_candidata = trim($fac['documento']);
+                $chk_usada = $mysqli_sistema->query("SELECT id FROM z_facturas_mesas WHERE num_factura = '" . $mysqli_sistema->real_escape_string($num_fac_candidata) . "' LIMIT 1");
+                if ($chk_usada && $chk_usada->num_rows > 0) {
+                    // Esta factura ya pertenece a una venta previa. No puede ser reutilizada!
+                    continue;
+                }
+
+                // Factura legitima, virgen y no usada encontrada
+                $factura_encontrada = $fac;
+                break;
+            }
+
+            if ($factura_encontrada !== null) {
+                $num_fac = trim($factura_encontrada['documento']);
+                $num_fac_esc = $mysqli_sistema->real_escape_string($num_fac);
+                $monto_fac = (float)$factura_encontrada['totalfinal'];
+                $fch_fac = $factura_encontrada['fechayhora'];
+                $ref_fac = 'FAC-' . $num_fac;
+
+                // Determinar el metodo de pago registrado en Premium Soft consultando operclit
+                $metodo_pago = 'TARJETA DE DÉBITO (PUNTO)';
+                $banco_pago = 'Punto de Venta';
+
+                $q_clit = $mysqli_pos->query("
+                    SELECT efectivo, tardebmto, tardebnom, tardebnum, mtotarjeta, bancotar, otrotipo 
+                    FROM operclit 
+                    WHERE tipodoc = 'FAC' AND documento = '" . $mysqli_pos->real_escape_string($num_fac) . "' 
+                    LIMIT 1
+                ");
+
+                if ($q_clit && ($rclit = $q_clit->fetch_assoc())) {
+                    $t_deb = (float)$rclit['tardebmto'];
+                    $t_efe = (float)$rclit['efectivo'];
+                    $t_tar = (float)$rclit['mtotarjeta'];
+                    $t_otr = (float)$rclit['otrotipo'];
+
+                    if ($t_deb > 0 && $t_efe <= 0 && $t_tar <= 0) {
+                        $metodo_pago = 'TARJETA DE DÉBITO (PUNTO)';
+                        $banco_pago = !empty($rclit['tardebnom']) ? trim($rclit['tardebnom']) : 'Punto de Venta';
+                    } elseif ($t_efe > 0 && $t_deb <= 0 && $t_tar <= 0) {
+                        $metodo_pago = 'EFECTIVO (CAJA)';
+                        $banco_pago = 'Caja Restaurante';
+                    } elseif ($t_tar > 0 && $t_deb <= 0 && $t_efe <= 0) {
+                        $metodo_pago = 'TARJETA DE CRÉDITO';
+                        $banco_pago = !empty($rclit['bancotar']) ? trim($rclit['bancotar']) : 'Punto de Venta';
+                    } elseif ($t_deb > 0 && $t_efe > 0) {
+                        $metodo_pago = 'MIXTO (DÉBITO + EFECTIVO)';
+                        $banco_pago = 'Caja y Punto';
+                    } elseif ($t_otr > 0) {
+                        $metodo_pago = 'PAGO MÓVIL EN CAJA';
+                        $banco_pago = 'Caja Restaurante';
+                    }
+                }
+
+                // Si el cliente habia reportado pago movil por la app, conservar su referencia bancaria
+                if ($tenia_reporte_movil && !empty($prev_pago['metodo'])) {
+                    $metodo_pago = $prev_pago['metodo'];
+                    if (!empty($prev_pago['banco_origen'])) {
+                        $banco_pago = $prev_pago['banco_origen'];
+                    }
+                }
+
+                // 1. Blindar factura en z_facturas_mesas para que ningun otro PIN pueda reclamarla
+                $mysqli_sistema->query("
+                    INSERT INTO z_facturas_mesas (num_factura, documento_mesa, token_pin, monto, metodo, banco, fechayhora_factura, created_at)
+                    VALUES (
+                        '{$num_fac_esc}',
+                        '{$doc_c_esc}',
+                        '" . $mysqli_sistema->real_escape_string($pin_c) . "',
+                        {$monto_fac},
+                        '" . $mysqli_sistema->real_escape_string($metodo_pago) . "',
+                        '" . $mysqli_sistema->real_escape_string($banco_pago) . "',
+                        '{$fch_fac}',
+                        NOW()
+                    )
+                    ON DUPLICATE KEY UPDATE token_pin = VALUES(token_pin);
+                ");
+
+                // 2. Actualizar z_status_pago como CONFIRMADO (estado 1 - Pantalla Verde)
+                $mysqli_sistema->query("
+                    UPDATE z_status_pago 
+                    SET estado = '1',
+                        metodo = '" . $mysqli_sistema->real_escape_string($metodo_pago) . "',
+                        banco_origen = '" . $mysqli_sistema->real_escape_string($banco_pago) . "',
+                        referencia = '{$ref_fac}',
+                        num_factura = '{$num_fac_esc}',
+                        monto = {$monto_fac},
+                        aprobado_por = 'Caja Premium Soft (Facturado)',
+                        fecha_confirmacion = '{$fch_fac}',
+                        updated_at = NOW() 
+                    WHERE documento = '{$doc_c_esc}'
+                ");
+
+                // 3. Actualizar z_mesas_activas
+                $mysqli_sistema->query("
+                    UPDATE z_mesas_activas 
+                    SET estado = 'CERRADA',
+                        num_factura = '{$num_fac_esc}',
+                        updated_at = NOW() 
+                    WHERE documento = '{$doc_c_esc}'
+                ");
+
+                $mesas_cerradas_nube[] = [
+                    'documento' => $mc['documento'],
+                    'token_pin' => $mc['token_pin'],
+                    'estado_pago' => '1',
+                    'metodo' => $metodo_pago,
+                    'banco_origen' => $banco_pago,
+                    'referencia' => $ref_fac,
+                    'num_factura' => $num_fac,
+                    'monto' => $monto_fac,
+                    'fecha_confirmacion' => $fch_fac,
+                ];
+
+                echo "[{$timestamp}] [FACTURADA] Mesa {$mc['documento']} pagada en Premium Soft (FAC #{$num_fac}, {$metodo_pago}, Bs. " . number_format($monto_fac, 2, ',', '.') . "). Estado: 1 (VERDE)." . PHP_EOL;
+
+            } else {
+                // NO se encontro factura valida para este PIN
+                // Si el cliente tenia reporte movil previo, se aprueba si caja la cerro; si no, pasa a cerrada (3)
+                $mysqli_sistema->query("UPDATE z_mesas_activas SET estado = 'CERRADA', updated_at = NOW() WHERE documento = '{$doc_c_esc}'");
+
+                if ($tenia_reporte_movil) {
+                    $mysqli_sistema->query("
+                        UPDATE z_status_pago 
+                        SET estado = '1', aprobado_por = 'Caja Premium', fecha_confirmacion = NOW(), updated_at = NOW() 
+                        WHERE documento = '{$doc_c_esc}'
+                    ");
+                    $est_final = '1';
+                } else {
+                    // Sin factura y sin pago reportado: el cliente no compro o se fue -> MESA CERRADA (3 - Pantalla Blanca)
+                    $mysqli_sistema->query("
+                        UPDATE z_status_pago 
+                        SET estado = '3', aprobado_por = 'Cierre sin facturar', fecha_confirmacion = NOW(), updated_at = NOW() 
+                        WHERE documento = '{$doc_c_esc}' AND estado IN ('0','4')
+                    ");
+                    $est_final = '3';
+                }
+
+                $mesas_cerradas_nube[] = [
+                    'documento' => $mc['documento'],
+                    'token_pin' => $mc['token_pin'],
+                    'estado_pago' => $est_final,
+                ];
+
+                echo "[{$timestamp}] [CERRADA] Mesa {$mc['documento']} cerrada sin factura nueva. Estado final: {$est_final} (3=mesa cerrada sin compra)." . PHP_EOL;
+            }
         }
     }
 

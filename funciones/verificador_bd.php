@@ -153,6 +153,22 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
                 `updated_at` datetime NULL,
                 PRIMARY KEY (`id`),
                 UNIQUE KEY `idx_posicion` (`posicion`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
+            'z_facturas_mesas' => "CREATE TABLE IF NOT EXISTS `z_facturas_mesas` (
+                `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                `num_factura` varchar(20) NOT NULL COMMENT 'Documento FAC de Premium',
+                `documento_mesa` varchar(20) NOT NULL COMMENT 'Mesa en operti (ej. 099, E01, JARD01)',
+                `token_pin` varchar(10) NOT NULL COMMENT 'PIN asignado al cliente',
+                `monto` decimal(14,2) NOT NULL DEFAULT 0.00,
+                `metodo` varchar(60) DEFAULT NULL COMMENT 'Tarjeta Débito, Efectivo, etc.',
+                `banco` varchar(60) DEFAULT NULL,
+                `fechayhora_factura` datetime DEFAULT NULL,
+                `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uk_num_factura` (`num_factura`),
+                KEY `idx_token_pin` (`token_pin`),
+                KEY `idx_documento_mesa` (`documento_mesa`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
         ];
 
@@ -167,6 +183,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         // 4. Verificación de columnas específicas por si alguna tabla existía de una versión anterior
         $columnas_necesarias = [
             'z_mesas_activas' => [
+                'num_factura' => "varchar(20) NULL",
                 'subtotal_bs' => "decimal(18,2) DEFAULT 0.00",
                 'impuesto_bs' => "decimal(18,2) DEFAULT 0.00",
                 'total_bs'    => "decimal(18,2) DEFAULT 0.00",
@@ -178,6 +195,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
                 'estado'      => "enum('ACTIVA','CERRADA') DEFAULT 'ACTIVA'"
             ],
             'z_status_pago' => [
+                'num_factura'        => "varchar(20) NULL",
                 'aprobado_por'       => "varchar(50) NULL",
                 'fecha_confirmacion' => "datetime NULL",
                 'fecha_reporte'      => "datetime NULL",
