@@ -173,8 +173,13 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         ];
 
         foreach ($tablas_schema as $tbl => $sql) {
+            $chk = $mysqli->query("SHOW TABLES LIKE '{$tbl}'");
+            $ya_existia = ($chk && $chk->num_rows > 0);
+
             if ($mysqli->query($sql)) {
-                $reporte['tablas_creadas'][] = $tbl;
+                if (!$ya_existia) {
+                    $reporte['tablas_creadas'][] = $tbl;
+                }
             } else {
                 $reporte['errores'][] = "Error al verificar/crear tabla {$tbl}: " . $mysqli->error;
             }
@@ -253,9 +258,30 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         }
 
         $reporte['success'] = empty($reporte['errores']);
-        $reporte['detalles'][] = "Estructura de las 5 tablas satélite y parámetros clave verificados al 100%.";
+        $reporte['detalles'][] = "Estructura de las tablas satélite y parámetros clave verificados al 100%.";
 
         $mysqli->close();
         return $reporte;
+    }
+}
+
+// Ejecución directa desde línea de comandos (CLI), ej: php funciones/verificador_bd.php
+if (php_sapi_name() === 'cli' && isset($argv[0]) && realpath($argv[0]) === realpath(__FILE__)) {
+    $res = verificar_y_reparar_base_datos_satelite();
+    if ($res['success']) {
+        echo "[OK BD] Verificación de Base de Datos Satélite completada con éxito." . PHP_EOL;
+        if (!empty($res['tablas_creadas'])) {
+            echo "        Tablas creadas/reparadas: " . implode(', ', $res['tablas_creadas']) . PHP_EOL;
+        }
+        if (!empty($res['columnas_agregadas'])) {
+            echo "        Columnas agregadas: " . implode(', ', $res['columnas_agregadas']) . PHP_EOL;
+        }
+        exit(0);
+    } else {
+        echo "[ERROR BD] Falló la verificación de la base de datos:" . PHP_EOL;
+        foreach ($res['errores'] as $err) {
+            echo "        - " . $err . PHP_EOL;
+        }
+        exit(1);
     }
 }

@@ -52,11 +52,19 @@ if "%DB_PORT%"=="3307" (
 )
 echo        Destino Cloud: DIRECTO al Hosting (https://mijardinrestaurant.com)
 echo.
-echo [1/2] Iniciando Sincronizador Cloud en segundo plano...
+echo [1/3] Verificando y auto-reparando Base de Datos Satelite...
+"%PHP_CMD%" funciones\verificador_bd.php
+if errorlevel 1 (
+    echo       [AVISO] Hubo observaciones al verificar la base de datos.
+) else (
+    echo       Estructura canonica de tablas e indices verificada al 100%%.
+)
+echo.
+echo [2/3] Iniciando Sincronizador Cloud en segundo plano...
 start "Sincronizador Cloud - Mi Jardin" /min "%PHP_CMD%" sync_daemon.php
 echo       Sincronizador activo (Premium Soft -^> Nube HTTPS mijardinrestaurant.com).
 echo.
-echo [2/2] Iniciando Servidor Web Local para Mesoneros (Puerto %WEB_PORT%)...
+echo [3/3] Iniciando Servidor Web Local para Mesoneros (Puerto %WEB_PORT%)...
 start "Servidor Web Mesoneros - Mi Jardin" /min "%PHP_CMD%" -S 0.0.0.0:%WEB_PORT%
 echo       Servidor web local activo en puerto %WEB_PORT%.
 echo.

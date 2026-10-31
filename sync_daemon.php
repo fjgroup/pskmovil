@@ -18,6 +18,11 @@ date_default_timezone_set('America/Caracas');
 // Cargar configuración centralizada desde la BD mijar26273_sistema
 require_once __DIR__ . '/funciones/config_helper.php';
 require_once __DIR__ . '/funciones/mesas_helper.php';
+require_once __DIR__ . '/funciones/verificador_bd.php';
+
+// Auto-verificar y auto-reparar tablas satélite al iniciar el servicio
+verificar_y_reparar_base_datos_satelite();
+
 $datos_conexion = obtener_config_sistema();
 
 // Entorno: 'desarrollo' o 'produccion' (gestionado en BD z_config_sistema)
