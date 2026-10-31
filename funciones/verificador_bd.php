@@ -147,6 +147,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
                 `nombre` varchar(150) NOT NULL,
                 `precio_bs` decimal(18,2) NOT NULL DEFAULT 0.00,
                 `precio_usd` decimal(18,2) NOT NULL DEFAULT 0.00,
+                `imagen` varchar(255) NULL,
                 `total_vendido` decimal(18,2) NOT NULL DEFAULT 0.00,
                 `foto_base64` longtext NULL,
                 `created_at` datetime NULL,
@@ -209,6 +210,11 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
             ],
             'z_config_bancos' => [
                 'codigo_pos' => "varchar(20) NULL"
+            ],
+            'z_top_productos' => [
+                'imagen'     => "varchar(255) NULL",
+                'precio_bs'  => "decimal(18,2) DEFAULT 0.00",
+                'precio_usd' => "decimal(18,2) DEFAULT 0.00"
             ]
         ];
 
