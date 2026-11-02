@@ -606,6 +606,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     }
 
     $payload_arr = [
+        'monedafactor' => round($tasa, 4),
         'mesas' => $mesas_para_nube,
         'mesas_cerradas' => $mesas_cerradas_nube,
     ];
