@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * ============================================================================
  * SINCRONIZADOR LOCAL A LA NUBE - MI JARDIN RESTAURANT
@@ -89,7 +89,7 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = f
 
     $minutos_transcurridos = ($ultimo_tiempo_top > 0) ? round($segundos_transcurridos / 60) : 0;
     $motivo = ($ultimo_tiempo_top === 0) ? "Inicio de servicio" : "1 hora transcurrida ({$minutos_transcurridos} min)";
-    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (últimos 100 movimientos de venta en Kardex, excl. grupos 009-017)..." . PHP_EOL;
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (últimos 100 movimientos de venta en Kardex, excl. grupos 10-17)..." . PHP_EOL;
 
     // Grupos de inventario que NO deben aparecer en la web (009 descorche/delivery, 010-017 especiales)
     $grupos_excluidos = [9, 10, 11, 12, 13, 14, 15, 16, 17];
