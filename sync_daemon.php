@@ -15,6 +15,11 @@
 
 date_default_timezone_set('America/Caracas');
 
+// Desactivar excepciones estrictas de mysqli en PHP 8.1+ para un manejo resiliente y continuo
+if (function_exists('mysqli_report')) {
+    mysqli_report(MYSQLI_REPORT_OFF);
+}
+
 // Cargar configuración centralizada desde la BD mijar26273_sistema
 require_once __DIR__ . '/funciones/config_helper.php';
 require_once __DIR__ . '/funciones/mesas_helper.php';
@@ -65,19 +70,26 @@ echo " Modo:           " . ($modo_once ? "Ejecución única (--once)" : "Continu
 echo "========================================================" . PHP_EOL . PHP_EOL;
 
 /**
- * Calcula los 3 productos más vendidos de las últimas 100 ventas en kardex.
+ * Calcula los 5 productos más vendidos de las últimas 200 ventas en kardex.
  * Se ejecuta automáticamente cada 1 hora (3600 segundos) o al iniciar el servicio.
+ * Retorna el array del Top 5 ÚNICAMENTE cuando se realiza el cálculo horario
+ * para no sobrecargar el ancho de banda en los ciclos intermedios de 12 segundos.
  */
-function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
+function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = false)
 {
-    static $cache_top = [];
     static $ultimo_tiempo_top = 0;
 
     $ahora = time();
-    // Ejecutar cada 1 hora (3600 segundos) o al iniciar
-    if (!empty($cache_top) && ($ahora - $ultimo_tiempo_top < 3600)) {
-        return $cache_top;
+    $segundos_transcurridos = ($ultimo_tiempo_top > 0) ? ($ahora - $ultimo_tiempo_top) : 999999;
+
+    // Solo recalcular si es la primera vez (inicio), si pasaron >= 3600s (1 hora), o si se fuerza
+    if (!$forzar && $ultimo_tiempo_top > 0 && $segundos_transcurridos < 3600) {
+        return null;
     }
+
+    $minutos_transcurridos = ($ultimo_tiempo_top > 0) ? round($segundos_transcurridos / 60) : 0;
+    $motivo = ($ultimo_tiempo_top === 0) ? "Inicio de servicio" : "1 hora transcurrida ({$minutos_transcurridos} min)";
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (200 ult. ventas, excl. grupos 10-17)..." . PHP_EOL;
 
     $sql = "
         SELECT 
@@ -108,7 +120,8 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
 
     $res = $mysqli_pos->query($sql);
     if (!$res || $res->num_rows === 0) {
-        return $cache_top;
+        echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] No se obtuvieron resultados de kardex (" . ($mysqli_pos->error ?: '0 registros') . ")." . PHP_EOL;
+        return null;
     }
 
     $top = [];
@@ -132,6 +145,8 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
         $posibles_rutas = [
             $rutafoto,
             'C:\\Premium\\Imagenes\\' . $img_name,
+            'C:\\Premium\\Imagenes\\' . strtoupper($img_name),
+            'C:\\Premium\\Imagenes\\' . strtolower($img_name),
             __DIR__ . '/imagenes/' . $img_name,
         ];
 
@@ -165,6 +180,7 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
             'total_vendido' => $total_vendido,
             'imagen_nombre' => $img_name,
             'imagen_base64' => $img_base64,
+            'updated_at' => $now,
         ];
 
         $pos++;
@@ -172,14 +188,13 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa)
 
     $mysqli_sistema->query("DELETE FROM z_top_productos WHERE posicion > 5");
 
-    $cache_top = $top;
     $ultimo_tiempo_top = $ahora;
-    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] Calculados 5 artículos más vendidos (200 ult. ventas, excl. grupos 10-17) y guardados en satélite local." . PHP_EOL;
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] 5 artículos calculados y guardados en satélite local con fecha {$now}." . PHP_EOL;
 
     return $top;
 }
 
-function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion)
+function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion, $forzar_top = false)
 {
     $timestamp = date('H:i:s');
 
@@ -576,23 +591,24 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         }
     }
 
-    // 3. Procesar Top 3 artículos más vendidos de las últimas 100 ventas en Kardex
-    $top_productos = procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa);
+    // 3. Procesar Top 5 artículos más vendidos (recalcula cada 1 hora / 3600s estrictamente o en arranque)
+    $top_productos = procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar_top);
 
     $mysqli_pos->close();
     $mysqli_sistema->close();
 
     // 4. Enviar a la nube vía HTTPS POST Outbound
     if (empty($mesas_para_nube) && empty($top_productos) && empty($mesas_cerradas_nube)) {
-        echo "[{$timestamp}] Sin mesas activas ni productos destacados para sincronizar." . PHP_EOL;
         return true;
     }
 
     $payload_arr = [
         'mesas' => $mesas_para_nube,
         'mesas_cerradas' => $mesas_cerradas_nube,
-        'top_productos' => $top_productos,
     ];
+    if (!empty($top_productos)) {
+        $payload_arr['top_productos'] = $top_productos;
+    }
     $payload = json_encode($payload_arr, JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($url_api_cloud);
@@ -603,7 +619,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         'Content-Type: application/json',
         'Accept: application/json',
     ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_TIMEOUT, !empty($top_productos) ? 20 : 8);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
@@ -619,7 +635,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         foreach ($mesas_para_nube as $m) {
             $resumen[] = "{$m['mesa']} (PIN: {$m['token_pin']}, Bs. " . number_format($m['total_bs'], 2, ',', '.') . " / $" . number_format($m['total_usd'], 2) . ")";
         }
-        $info_top = !empty($top_productos) ? " + Top 5 Productos" : "";
+        $info_top = !empty($top_productos) ? " + [TOP 5 NUBE ACTUALIZADO]" : "";
         echo "[{$timestamp}] [OK NUBE 200] Sincronizada(s) {$cant_mesas} mesa(s){$info_top}: " . (empty($resumen) ? "Sin mesas abiertas" : implode(' | ', $resumen)) . PHP_EOL;
 
         // Si la nube envió pagos pendientes reportados, registrarlos en local (mijar26273_sistema:3307)
@@ -665,12 +681,24 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
     return true;
 }
 
+// Flags CLI
+$forzar_top_cli = in_array('--force-top', $argv);
+
 // Bucle principal del sincronizador
 if ($modo_once) {
-    sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion);
+    sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion, $forzar_top_cli);
 } else {
+    $primer_ciclo = true;
     while (true) {
-        sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion);
+        try {
+            sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $bd_pos, $bd_sistema, $url_api_cloud, $datos_conexion, ($primer_ciclo || $forzar_top_cli));
+            $primer_ciclo = false;
+            $forzar_top_cli = false;
+        } catch (\Throwable $e) {
+            $ts = date('H:i:s');
+            echo "[{$ts}] [AVISO] Ocurrió una observación temporal: " . $e->getMessage() . " (Reintentando en {$intervalo_segundos}s)..." . PHP_EOL;
+            @file_put_contents(__DIR__ . '/sync_daemon_error.log', "[" . date('Y-m-d H:i:s') . "] " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+        }
         sleep($intervalo_segundos);
     }
 }

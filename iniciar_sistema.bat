@@ -60,9 +60,9 @@ if errorlevel 1 (
     echo       Estructura canonica de tablas e indices verificada al 100%%.
 )
 echo.
-echo [2/3] Iniciando Sincronizador Cloud en segundo plano...
-start "Sincronizador Cloud - Mi Jardin" /min "%PHP_CMD%" sync_daemon.php
-echo       Sincronizador activo (Premium Soft -^> Nube HTTPS mijardinrestaurant.com).
+echo [2/3] Iniciando Sincronizador Cloud con Auto-Reinicio en segundo plano...
+start "Sincronizador Cloud - Mi Jardin" /min cmd /c "iniciar_daemon.bat"
+echo       Sincronizador activo y blindado (Premium Soft -^> Nube HTTPS mijardinrestaurant.com).
 echo.
 echo [3/3] Iniciando Servidor Web Local para Mesoneros (Puerto %WEB_PORT%)...
 start "Servidor Web Mesoneros - Mi Jardin" /min "%PHP_CMD%" -S 0.0.0.0:%WEB_PORT%
