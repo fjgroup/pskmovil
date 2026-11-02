@@ -89,7 +89,7 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = f
 
     $minutos_transcurridos = ($ultimo_tiempo_top > 0) ? round($segundos_transcurridos / 60) : 0;
     $motivo = ($ultimo_tiempo_top === 0) ? "Inicio de servicio" : "1 hora transcurrida ({$minutos_transcurridos} min)";
-    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (200 ult. ventas, excl. grupos 10-17)..." . PHP_EOL;
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (últimas 20 ventas, excl. grupos 10-17)..." . PHP_EOL;
 
     $sql = "
         SELECT 
@@ -110,7 +110,7 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = f
                   FROM kardex
                   WHERE origen = 'FAC'
                   ORDER BY documento DESC
-                  LIMIT 200
+                  LIMIT 20
               ) ultimas_ventas
           )
         GROUP BY k.codigo, a.nombre, a.precio1, a.impuesto1, a.preciofin1, a.rutafoto
