@@ -89,31 +89,30 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = f
 
     $minutos_transcurridos = ($ultimo_tiempo_top > 0) ? round($segundos_transcurridos / 60) : 0;
     $motivo = ($ultimo_tiempo_top === 0) ? "Inicio de servicio" : "1 hora transcurrida ({$minutos_transcurridos} min)";
-    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (últimas 20 ventas, excl. grupos 10-17)..." . PHP_EOL;
+    echo "[" . date('H:i:s') . "] [TOP 5 KARDEX] [{$motivo}] Recalculando 5 artículos más vendidos (últimos 100 movimientos de venta en Kardex, excl. grupos 10-17)..." . PHP_EOL;
 
+    // El Kardex registra movimientos por artículo (no ventas completas): se toman los
+    // últimos 100 movimientos de facturación (FAC) de artículos del menú y se suman por producto.
     $sql = "
         SELECT 
-            k.codigo,
+            m.codigo,
             a.nombre,
             a.precio1,
             a.impuesto1,
             a.preciofin1,
             a.rutafoto,
-            SUM(k.cantidad) AS total_vendido
-        FROM kardex k
-        INNER JOIN articulo a ON a.codigo = k.codigo
-        WHERE k.origen = 'FAC'
-          AND CAST(a.grupo AS UNSIGNED) NOT BETWEEN 10 AND 17
-          AND k.documento IN (
-              SELECT doc FROM (
-                  SELECT DISTINCT documento AS doc
-                  FROM kardex
-                  WHERE origen = 'FAC'
-                  ORDER BY documento DESC
-                  LIMIT 20
-              ) ultimas_ventas
-          )
-        GROUP BY k.codigo, a.nombre, a.precio1, a.impuesto1, a.preciofin1, a.rutafoto
+            SUM(m.cantidad) AS total_vendido
+        FROM (
+            SELECT k.codigo, k.cantidad
+            FROM kardex k
+            INNER JOIN articulo ar ON ar.codigo = k.codigo
+            WHERE k.origen = 'FAC'
+              AND CAST(ar.grupo AS UNSIGNED) NOT BETWEEN 10 AND 17
+            ORDER BY k.documento DESC, k.hora DESC
+            LIMIT 100
+        ) m
+        INNER JOIN articulo a ON a.codigo = m.codigo
+        GROUP BY m.codigo, a.nombre, a.precio1, a.impuesto1, a.preciofin1, a.rutafoto
         ORDER BY total_vendido DESC
         LIMIT 5
     ";
