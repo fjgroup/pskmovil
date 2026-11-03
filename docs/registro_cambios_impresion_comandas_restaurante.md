@@ -51,37 +51,44 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 8. Establecer como **Impresora predeterminada**.
 9. Desactivar la opción de Windows: *"Permitir que Windows administre mi impresora predeterminada"*.
 
-### 2.3 Evitar el Papel Blanco y Activar Corte Automático (Crucial)
+### 2.3 Tamaño de Papel y Corte Automático (Crucial)
+
+> [!IMPORTANT]
+> **¿Por qué no aparece "Ticket" en Windows?**  
+> El controlador `Generic / Text Only` es universal y sólo lista formatos de oficina (`A4`, `Carta`, `Sobres`...). **NO contiene la opción "Ticket" ni "80mm"**. Esto es completamente normal.  
+> **NO seleccionar formatos pequeños como "Sobre B6"**: Si se elige un sobre (ej. 125 mm), FoxPro creerá que se acabó la hoja tras imprimir el encabezado, provocando un corte de papel a la mitad y separando el encabezado de los platos.
+
 1. Abrir **Propiedades de la impresora** `cocina`:
 2. Pestaña **`Configuración del dispositivo`**:
-   * En `Asignación de formulario a bandeja` > `Alimentación continua:`:
-   * Cambiar de `A4` a: **`Alimentación continua: Sin salto de página`** *(Cont. Feed - No Break)*.
-   * *Propósito:* Evita que Windows expulse una página A4 (29.7 cm) completa al terminar de imprimir.
+   * En `Formato a asignación de bandeja` > `Alimentación continua:`: Dejarlo en **`A4`** (o `Carta`).
 3. Pestaña **`Comandos de impresora`**:
-   * En el campo **`Final del trabajo de impresión`**, escribir:  
+   * En el campo **`Empezar trabajo de impresión`**, escribir:  
+     `<1B>@`  
+     *(Inicializa y limpia la memoria de la impresora antes de cada ticket).*
+   * En el campo **`Finalizar trabajo de impresión`**, escribir exactamente:  
      `<1B>d<03><1D>V<01>`  
-     *(Avanza 3 líneas de papel para librar la cuchilla y ejecuta el corte automático ESC/POS).*
-   * En el campo **`Salto de página`**: Dejarlo **totalmente vacío** (borrar `<0C>` si existiera).
+     *(Avanza 3 líneas de papel para librar la cuchilla y ejecuta el corte de papel ESC/POS).*  
+     *Ojo con la sintaxis: debe llevar corchetes dobles `<03><1D>`.*
 4. Clic en **Aplicar** y **Aceptar**.
 
 ---
 
 ## 3. Reportes de FoxPro (`cocina.frx`, `bebidas.frx`, `barra.frx`)
 
-### 3.1 Dónde se guardan los cambios de `PAPERLENGTH` y `PAPERWIDTH`
-* Estos valores **NO son de Windows**: están codificados directamente en la cabecera binaria del reporte FoxPro (`.frx` y `.frt`).
-* Ya fueron configurados para rollo de 80 mm (`PAPERLENGTH=1000` = 10 cm, `PAPERWIDTH=800` = 80 mm).
-* En el restaurante **NO es necesario editar el reporte a mano**. Al hacer `git pull` y ejecutar `iniciar_sistema.bat`, los archivos corregidos se copian solos a:
-  * `C:\PREMIUM\Administrativo9x\bahiap\reports\`
-  * `C:\PREMIUM\Administrativo9x\Matrices\reports\`
+### 3.1 Configuración de Hoja Continua (`PAPERSIZE=9`)
+* En FoxPro, al imprimir comandas en rollo continuo, el reporte debe estar configurado como **`PAPERSIZE=9` (A4)**.  
+* **¿Por qué A4 en el reporte?** Porque le indica a FoxPro que la hoja tiene 29,7 cm de largo disponible. FoxPro nunca cortará la comanda en dos páginas; colocará el encabezado y todos los platos juntos en un solo ticket continuo. El corte físico lo da el comando ESC/POS al final del ticket.
 
 ### 3.2 Corrección del Error `cocina.dbf no existe`
 * Se extrajo el DataEnvironment dañado y se reconstruyó el bytecode binario FoxPro (`TAG2`) con `InitSet()`, depuración de ítems y sin referencias a tablas externas.
 
-### 3.3 Diseño Ancho de los Artículos
+### 3.3 Corrección del Campo Cantidad (Salía en 0)
+* En el archivo binario `cocina.frx` (Registro 9), el campo `cantidad` venía de fábrica configurado con `TOTALTYPE = 2` (Suma acumulada) apuntando a un grupo inexistente.
+* Se reescribió binariamente el registro con `TOTALTYPE = 0` (Ninguno), permitiendo que imprima directamente el valor real del cursor (`1`, `2`, `3`...).
+
+### 3.4 Diseño Ancho de los Artículos
 * Se colocaron `cantidad` y `alltrim(MvNombre)+chr(10)+ alltrim(NOTASMV)` dentro de la **Banda Detalle** (altura 4.000 unidades).
-* Se aplicó el ancho expandido `Width = 29.479` para aprovechar el ancho completo del papel de 80 mm.
-* Se eliminaron los encabezados y pies de grupo vacíos que generaban separaciones en blanco.
+* Se aplicó el ancho expandido `Width = 29.479` para aprovechar el ancho completo del papel de 80 mm y evitar que nombres largos se corten a la mitad.
 
 ---
 
