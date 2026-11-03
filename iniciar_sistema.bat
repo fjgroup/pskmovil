@@ -52,6 +52,17 @@ if "%DB_PORT%"=="3307" (
 )
 echo        Destino Cloud: DIRECTO al Hosting (https://mijardinrestaurant.com)
 echo.
+:: Aplicar parches de reportes y configuraciones de Premium Soft si existen
+if exist "fix_premium\reports" (
+    if exist "C:\PREMIUM\ADMINISTRATIVO9X\bahiap\reports" (
+        copy /y "fix_premium\reports\*.*" "C:\PREMIUM\ADMINISTRATIVO9X\bahiap\reports\" >nul 2>&1
+    )
+    if exist "C:\PREMIUM\ADMINISTRATIVO9X\Matrices\reports" (
+        copy /y "fix_premium\reports\*.*" "C:\PREMIUM\ADMINISTRATIVO9X\Matrices\reports\" >nul 2>&1
+    )
+    echo [OK] Parches de reportes y comandas aplicados a Premium Soft desde fix_premium.
+    echo.
+)
 echo [1/3] Verificando y auto-reparando Base de Datos Satelite...
 "%PHP_CMD%" funciones\verificador_bd.php
 if errorlevel 1 (
