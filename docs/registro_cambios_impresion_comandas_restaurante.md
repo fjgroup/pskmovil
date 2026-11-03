@@ -31,91 +31,71 @@
 
 ---
 
-## 2. Configuración de Red e Impresora en Windows
+## 2. Configuración de Windows en el Restaurante (Paso a Paso)
 
-### 2.1 Datos de la Impresora de Comandas
+Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
+
+### 2.1 Datos de Red de la Ticketera
 * **Hardware:** Impresora térmica ESC/POS VCEST Modelo VOE-6120 / POS-80.
-* **Velocidad de red:** 100 Mbps (el LED de la tarjeta de red de la PC enciende en **amarillo/ámbar**, lo cual es 100% normal por ser enlace 100M y no Gigabit).
 * **IP en el Restaurante:** `192.168.1.100` (Gateway `192.168.1.1`).
-* **IP adaptada en Desarrollo:** `192.168.0.150` (misma subred que el router Wi-Fi `192.168.0.x`).
-* **Puerto de comunicación:** TCP **9100** (puerto estándar RAW para impresoras térmicas ESC/POS).
+* **Puerto de comunicación:** TCP **9100** (puerto RAW estándar).
 
-### 2.2 Impresora en Windows (`cocina`)
-* **Nombre de impresora:** `cocina`
-* **Controlador:** `Generic / Text Only`
-* **Puerto:** Puerto TCP/IP estándar `192.168.0.150` (en producción en el restaurante debe ser `192.168.1.100`).
-* **Configuración crítica de Windows:**
-  * En `Configuración > Bluetooth y dispositivos > Impresoras y escáneres`:
-  * **"Permitir que Windows administre mi impresora predeterminada"** debe estar en **DESACTIVADO**.
-  * La impresora **`cocina`** debe estar configurada como **PREDETERMINADA**.
-  * Se eliminó de Windows la impresora virtual **`OneNote (Desktop)`** para evitar que intercepte reportes.
+### 2.2 Agregar la Impresora en Windows
+1. Ir a `Panel de Control > Dispositivos e Impresoras` (o `Configuración > Bluetooth y dispositivos > Impresoras y escáneres`).
+2. Agregar impresora manualmente > **Agregar una impresora por medio de una dirección IP o un nombre de host**.
+3. Tipo de dispositivo: **Dispositivo TCP/IP**.
+4. Dirección IP: `192.168.1.100` (en Desarrollo usamos `192.168.0.150`). Puerto: `9100`.
+5. Controlador: Seleccionar fabricante **Generic** y modelo **Generic / Text Only**.
+6. Nombre de impresora: **`cocina`** (en minúsculas).
+7. Compartir impresora: Compartir con el nombre de recurso compartido: **`cocina`**.
+8. Establecer como **Impresora predeterminada**.
+9. Desactivar la opción de Windows: *"Permitir que Windows administre mi impresora predeterminada"*.
 
----
-
-## 3. Diagnóstico Profundo y Corrección de Reportes FoxPro (`FRX` / `FRT`)
-
-### 3.1 Causa Raíz del Error `El archivo bebidas.dbf / cocina.dbf no existe`
-1. Los reportes de Visual FoxPro (`.FRX` y `.FRT`) almacenan en su Registro 29 / Registro 28 (DataEnvironment, `ObjType=25`):
-   * El memo `TAG`: contiene el código fuente en texto claro.
-   * El memo `TAG2`: contiene el **código binario compilado (p-code/bytecode)**.
-2. Al ejecutar un reporte (`REPORT FORM ...`), Visual FoxPro ejecuta directamente el **código binario compilado en `TAG2`**, ignorando cualquier edición de texto si no se recompila el bytecode.
-3. En el reporte `cocina.FRT`, un desarrollador anterior había insertado la instrucción:
-   `SELECT * FROM BEBIDAS INTO CURSOR BEBIDAS ORDER BY CODIGO READWRITE`
-   Cuando Touch Screen imprime una comanda, los datos del pedido ya están en la memoria RAM en el cursor activo (`qgridcta`). Al encontrar `FROM BEBIDAS` (o `FROM COCINA`), FoxPro buscaba un archivo físico de tabla `.dbf` en el disco que no existía, arrojando el error de inmediato en la línea 1.
-4. En contraste, en el reporte hermano `barra.frx` y en el reporte base `bebidas.frx`, `PROCEDURE Init` no busca tablas externas; únicamente invoca `InitSet()` y procesa el cursor activo en memoria.
-
-### 3.2 Problema de Impresoras Fantasma (`OneNote`, `PDF24`, `POS-80C`)
-* En FoxPro, si un reporte se edita en un equipo donde estaba configurado `OneNote`, `PDF24` o `POS-80C`, los campos binarios `TAG` y `TAG2` del Registro 1 quedan bloqueados a los metadatos de ese controlador específico de Windows.
-* **Solución Estándar Microsoft (Clearing Report Printer Environment):**
-  * Se limpiaron a longitud 0 los bloques binarios `TAG` y `TAG2` del Registro 1.
-  * Se normalizó el campo `EXPR` para definir `DEVICE=cocina` sobre el spooler estándar de Windows (`winspool`).
-  * Con esto, el reporte se envía a la impresora `cocina` o a la impresora predeterminada sin abrir ventanas de diálogo ni OneNote.
-
-### 3.3 Reparación Binaria Aplicada
-Se reescribieron los bloques binarios de los tres formatos de comanda:
-1. **`cocina.frx` / `cocina.FRT`:**
-   * Se sustituyó el DataEnvironment dañado por el DataEnvironment limpio y compilado de FoxPro (`InitSet()`, depuración de componentes hijos `codhijo`, sin consultas SQL a archivos DBF).
-   * Se configuró el dispositivo hacia `DEVICE=cocina`.
-2. **`bebidas.frx` / `bebidas.FRT`:**
-   * Se eliminó el amarre a `DEVICE=PDF24` y se configuró hacia `DEVICE=cocina`.
-3. **`barra.frx` / `barra.FRT`:**
-   * Se eliminó el amarre a `DEVICE=POS-80C` y se configuró hacia `DEVICE=cocina`.
+### 2.3 Evitar el Papel Blanco y Activar Corte Automático (Crucial)
+1. Abrir **Propiedades de la impresora** `cocina`:
+2. Pestaña **`Configuración del dispositivo`**:
+   * En `Asignación de formulario a bandeja` > `Alimentación continua:`:
+   * Cambiar de `A4` a: **`Alimentación continua: Sin salto de página`** *(Cont. Feed - No Break)*.
+   * *Propósito:* Evita que Windows expulse una página A4 (29.7 cm) completa al terminar de imprimir.
+3. Pestaña **`Comandos de impresora`**:
+   * En el campo **`Final del trabajo de impresión`**, escribir:  
+     `<1B>d<03><1D>V<01>`  
+     *(Avanza 3 líneas de papel para librar la cuchilla y ejecuta el corte automático ESC/POS).*
+   * En el campo **`Salto de página`**: Dejarlo **totalmente vacío** (borrar `<0C>` si existiera).
+4. Clic en **Aplicar** y **Aceptar**.
 
 ---
 
-## 4. Respuestas a Preguntas Clave del Diagnóstico
+## 3. Reportes de FoxPro (`cocina.frx`, `bebidas.frx`, `barra.frx`)
 
-### 4.1 ¿Por qué apareció el error `Código de excepción OLE IDispatch 0 de msxml3.dll`?
-* `msxml3.dll` es el componente de Windows que gestiona peticiones HTTP y lectura de archivos XML (ej. consulta del dólar en línea, actualización automática de tasas, validación web de licencias PSKloud).
-* Al estar trabajando en desarrollo en una red WiFi **sin conexión a internet**, las peticiones HTTP remotas de `msxml3.dll` devuelven el error normal: *"El sistema no puede encontrar el recurso especificado"*. Esto es totalmente inofensivo y desaparece cuando hay internet.
+### 3.1 Dónde se guardan los cambios de `PAPERLENGTH` y `PAPERWIDTH`
+* Estos valores **NO son de Windows**: están codificados directamente en la cabecera binaria del reporte FoxPro (`.frx` y `.frt`).
+* Ya fueron configurados para rollo de 80 mm (`PAPERLENGTH=1000` = 10 cm, `PAPERWIDTH=800` = 80 mm).
+* En el restaurante **NO es necesario editar el reporte a mano**. Al hacer `git pull` y ejecutar `iniciar_sistema.bat`, los archivos corregidos se copian solos a:
+  * `C:\PREMIUM\Administrativo9x\bahiap\reports\`
+  * `C:\PREMIUM\Administrativo9x\Matrices\reports\`
 
-### 4.2 ¿Para qué sirve `cmonitor.exe` y por qué decía `adminadminbahiap`?
-* **¿Es obligatorio `cmonitor.exe`?**
-  * **Para la Pantalla Táctil de Premium Soft:** **NO es obligatorio**. La pantalla táctil imprime directamente mediante el reporte `cocina.frx`.
-  * **Para Comandas Móviles (Mesoneros en celulares):** **SÍ es obligatorio**. Comandas Móviles inserta los pedidos en la tabla MySQL `comandasmv`. `cmonitor.exe` vigila esa tabla cada 3.000 ms (3 segundos), detecta las comandas entrantes y las envía a imprimir físicamente.
-* **¿Por qué decía `adminadminbahiap`?**
-  * En `configMC.cfg`, `cmonitor.exe` le agrega automáticamente el prefijo `admin` al nombre ingresado (ej: si escribes `bahiap`, el programa conecta a `admin` + `bahiap` = `adminbahiap`).
-  * Si en la casilla se escribió `adminbahiap`, el monitor intentó conectar a `adminadminbahiap`, haciendo saltar la ventana de configuración del conector ODBC de MySQL. La base de datos en el monitor debe ser simplemente: `bahiap`.
+### 3.2 Corrección del Error `cocina.dbf no existe`
+* Se extrajo el DataEnvironment dañado y se reconstruyó el bytecode binario FoxPro (`TAG2`) con `InitSet()`, depuración de ítems y sin referencias a tablas externas.
+
+### 3.3 Diseño Ancho de los Artículos
+* Se colocaron `cantidad` y `alltrim(MvNombre)+chr(10)+ alltrim(NOTASMV)` dentro de la **Banda Detalle** (altura 4.000 unidades).
+* Se aplicó el ancho expandido `Width = 29.479` para aprovechar el ancho completo del papel de 80 mm.
+* Se eliminaron los encabezados y pies de grupo vacíos que generaban separaciones en blanco.
 
 ---
 
-## 5. Despliegue Automático hacia Producción (`fix_premium/`)
+## 4. Despliegue en Producción (Checklist Rápido)
 
-Para evitar tener que aplicar estas correcciones manualmente en el restaurante:
-1. Se resguardaron los archivos reparados en el repositorio:
-   `e:\herd\comandasmoviles\fix_premium\reports\`
-   * `cocina.frx` / `cocina.FRT`
-   * `bebidas.frx` / `bebidas.frt`
-   * `barra.frx` / `barra.FRT`
-2. El script maestro **`iniciar_sistema.bat`** ya tiene incorporada la rutina de copia automática:
+1. En la PC de Desarrollo:
    ```cmd
-   if exist "fix_premium\reports" (
-       copy /y "fix_premium\reports\*.*" "C:\PREMIUM\ADMINISTRATIVO9X\bahiap\reports\" >nul 2>&1
-       copy /y "fix_premium\reports\*.*" "C:\PREMIUM\ADMINISTRATIVO9X\Matrices\reports\" >nul 2>&1
-   )
+   git push origin main
    ```
-   
-**Flujo seguro hacia el restaurante:**  
-1. Subir cambios aquí: `git add .`, `git commit -m "fix(comandas): repair frx/frt bytecode and printer environment"`, `git push`.
-2. En la PC del restaurante: `git pull`.
-3. Ejecutar `iniciar_sistema.bat`: Aplicará automáticamente los parches a Premium Soft sin tocar nada a mano.
+2. En la PC del Restaurante:
+   ```cmd
+   git pull origin main
+   iniciar_sistema.bat
+   ```
+   *(El script copia automáticamente los parches desde `fix_premium/reports/`).*
+3. Configurar la impresora Windows `cocina` con las opciones de la Sección 2.3.
+4. Probar desde la pantalla táctil de ventas con F12 (Comandas).
