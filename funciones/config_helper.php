@@ -61,7 +61,7 @@ if (!function_exists("credenciales_mysql_candidatas")) {
                     'port' => 3306,
                     'user' => 'root',
                     'pw'   => 'root',
-                    'entorno' => 'produccion'
+                    'entorno' => 'desarrollo'
                 ],
                 [
                     'port' => 3307,

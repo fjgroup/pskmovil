@@ -1,0 +1,70 @@
+<?php
+/**
+ * Servidor de Impresora Termica Virtual para Comandas Moviles y Premium Soft
+ * Escucha en el puerto TCP 9100 (RAW ESC/POS).
+ * Permite realizar pruebas completas sin tener una impresora fisica conectada.
+ */
+
+$port = 9100;
+$address = '0.0.0.0';
+
+$log_dir = __DIR__ . '/storage';
+if (!is_dir($log_dir)) {
+    @mkdir($log_dir, 0777, true);
+}
+$log_file = $log_dir . '/tickets_virtuales.txt';
+$last_ticket_file = $log_dir . '/ultimo_ticket.txt';
+
+$server = @stream_socket_server("tcp://{$address}:{$port}", $errno, $errstr);
+if (!$server) {
+    echo "[ERROR] No se pudo iniciar la impresora virtual en {$address}:{$port} - {$errstr} ({$errno})\n";
+    exit(1);
+}
+
+echo "========================================================\n";
+echo "   IMPRESORA TERMICA VIRTUAL (Puerto {$port})\n";
+echo "========================================================\n";
+echo " Escuchando en tcp://{$address}:{$port}...\n";
+echo " Los tickets se guardan en: storage/tickets_virtuales.txt\n";
+echo " Presione Ctrl + C para detener.\n";
+echo "========================================================\n\n";
+
+while ($client = @stream_socket_accept($server, -1)) {
+    $raw = '';
+    while (!feof($client)) {
+        $chunk = fread($client, 4096);
+        if ($chunk === false || $chunk === '') break;
+        $raw .= $chunk;
+    }
+    @fclose($client);
+
+    if (empty($raw)) continue;
+
+    // Decodificar ESC/POS a texto limpio legible
+    $clean = $raw;
+    // Remover cortes ESC/POS: ESC d <n> GS V <m>, etc.
+    $clean = preg_replace('/\x1b@/s', '', $clean);
+    $clean = preg_replace('/\x1ba\x01/s', '', $clean);
+    $clean = preg_replace('/\x1ba\x00/s', '', $clean);
+    $clean = preg_replace('/\x1bE\x01/s', '', $clean);
+    $clean = preg_replace('/\x1bE\x00/s', '', $clean);
+    $clean = preg_replace('/\x1b!\x20/s', '', $clean);
+    $clean = preg_replace('/\x1b!\x00/s', '', $clean);
+    $clean = preg_replace('/\x1bd[\x00-\x09]/s', '', $clean);
+    $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
+    // Remover otros bytes de control binarios
+    $clean = preg_replace('/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/s', '', $clean);
+    $clean = trim($clean);
+
+    $fecha_actual = date('Y-m-d H:i:s');
+    $separador = str_repeat('=', 46);
+    $banner = "\n{$separador}\n[TICKET RECIBIDO] - {$fecha_actual}\n{$separador}\n";
+
+    echo $banner . $clean . "\n\n";
+
+    @file_put_contents($log_file, $banner . $clean . "\n", FILE_APPEND);
+    @file_put_contents($last_ticket_file, $clean);
+}
+
+@fclose($server);
+
