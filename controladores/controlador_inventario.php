@@ -458,6 +458,8 @@ if ($_GET['accion'] == "mostrar_mesas") {
 		operti.nombrecli,
 		operti.rif as nrorif,
 		operti.horadocum,
+		operti.comanda_kmonitor,
+		operti.comanda_movil,
 		operti.vendedor as codigo_vendedor,
 		listvend.nombre as vendedor,
 		idconsumos.capacidad,
@@ -514,10 +516,17 @@ if ($_GET['accion'] == "mostrar_mesas") {
 		}
 
 
+		$icono_comanda = "";
+		if (!empty($mesa['documento'])) {
+			if (($mesa['comanda_kmonitor'] ?? '') == '2' || ($mesa['comanda_movil'] ?? '') == '2') {
+				$icono_comanda = " <i class='fa fa-cutlery' style='color:#fff;' title='Comanda enviada'></i>";
+			}
+		}
+
 		if ($mesa['rutafoto'] != "") {
 			echo "
 			<li onclick='seleccionar_mesa(" . json_encode($mesa['id_consumo']) . "," . json_encode($mesa['codcliente']) . "," . json_encode($mesa['nombrecli']) . "," . json_encode($mesa['codigo_vendedor']) . "," . json_encode($mesa['nrorif']) . ")'><img src='" . $ruta_img . "'/>
-			<div " . $ocupado . "><b>" . $nombre_mesa . "</b><br>
+			<div " . $ocupado . "><b>" . $nombre_mesa . $icono_comanda . "</b><br>
 			";
 
 			if (!empty($mesa['vendedor'])) {
@@ -549,7 +558,7 @@ if ($_GET['accion'] == "mostrar_mesas") {
 
 			echo "
 			</small>
-			<div " . $ocupado . ">" . $nombre_mesa . "</div>
+			<div " . $ocupado . ">" . $nombre_mesa . $icono_comanda . "</div>
 			</li>";
 		}
 

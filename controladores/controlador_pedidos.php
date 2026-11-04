@@ -127,6 +127,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 		$registro_opmvimpumv = true;
 		$registro_comandasmv = true;
 		$consecutivo_comandasmv_generado = false;
+		$items_para_comanda = array();
 
 		foreach ($_POST['productos_array'] as $p) {
 
@@ -658,6 +659,15 @@ if ($_GET['accion'] == "procesar_pedido") {
 				$pid_codhijo = $pid . $codigo;
 				if (!in_array($pid, $comandasmv_ya_registrados)) {
 
+					$items_para_comanda[] = [
+						'codigo'   => $codigo,
+						'nombre'   => $nombre,
+						'cantidad' => $cantidad,
+						'notas'    => $notas,
+						'codgrupo' => $codgrupo ?? '',
+						'pid'      => $pid
+					];
+
 					if (!$consecutivo_comandasmv_generado) {
 						$query_agencia = " SELECT despacho FROM adminmatriz.agencias WHERE agencia = '" . $datos_conexion['cod_agencia'] . "' AND id_empresa = '" . $datos_conexion['cod_empresa'] . "' LIMIT 1";
 						$resultado_agencia = $objeto_pedido->general_query($bd_conexion, $query_agencia);
@@ -957,8 +967,33 @@ if ($_GET['accion'] == "procesar_pedido") {
 						}
 
 						if ($registro_optiimpumv) {
+							$mensaje_comanda = '';
+							if ($_POST['imprimir'] == 2) {
+								require_once dirname(__DIR__) . '/funciones/impresion_comandas_helper.php';
+								if (!empty($items_para_comanda)) {
+									$vendedor_nombre = $_POST['vendedor'];
+									$query_vend = "SELECT nombre FROM listvend WHERE codigo = '" . addslashes($_POST['vendedor']) . "' LIMIT 1";
+									$res_vend = $objeto_pedido->general_query($bd_conexion, $query_vend);
+									if ($res_vend && $row_vend = mysqli_fetch_assoc($res_vend)) {
+										$vendedor_nombre = $row_vend['nombre'];
+									}
+									$nro_consec = !empty($consecutivo_comandasmv) ? $consecutivo_comandasmv : '00000001';
+									$imp_res = imprimir_comandas_pedido($mesa, $nro_consec, $vendedor_nombre, $items_para_comanda, $bd_conexion);
+									$tickets_txt = [];
+									if (!empty($imp_res['tickets_enviados'])) {
+										foreach ($imp_res['tickets_enviados'] as $t) {
+											$tickets_txt[] = $t['tipo'];
+										}
+									}
+									$tickets_str = !empty($tickets_txt) ? implode(' y ', $tickets_txt) : 'Cocina/Barra';
+									$mensaje_comanda = "<br><span style='color:#5cb85c;font-weight:bold;font-size:12px;'><i class='fa fa-print'></i> Comanda impresa en {$tickets_str} (#{$nro_consec})</span>";
+								} else {
+									$mensaje_comanda = "<br><span style='color:#5cb85c;font-size:12px;'><i class='fa fa-check-circle'></i> Comanda ya registrada previamente</span>";
+								}
+							}
+
 							echo "
-									<i class='fa fa-check'></i><br>Pedido procesado
+									<i class='fa fa-check'></i><br>Pedido procesado{$mensaje_comanda}
 									<script>
 										limpiar_productos_agregados();
 										$('#input_cliente').val('');
@@ -1024,6 +1059,46 @@ if ($_GET['accion'] == "ver_pedidos") {
 			}
 		}
 		$mysqli_sist->close();
+	}
+
+	// Consultar estado de comanda por mesa (cant_comandas vs cant_platos)
+	$comandas_mesas = [];
+	$sql_comandas_mesas = "
+		SELECT 
+			o.documento,
+			o.comanda_movil,
+			o.comanda_kmonitor,
+			(SELECT COUNT(*) FROM comandasmv cm WHERE cm.documento = o.documento) as cant_comandas,
+			(SELECT COUNT(*) FROM opermv mv WHERE mv.documento = o.documento AND (mv.codhijo = '' OR mv.codhijo IS NULL)) as cant_platos
+		FROM operti o
+		WHERE o.tipodoc = '" . $datos_conexion['tipo_doc'] . "'
+	";
+	$res_comandas_info = $objeto_pedido->general_query($bd_conexion, $sql_comandas_mesas);
+	if ($res_comandas_info) {
+		while ($rc = mysqli_fetch_array($res_comandas_info)) {
+			$cant_c = (int)($rc['cant_comandas'] ?? 0);
+			$cant_p = (int)($rc['cant_platos'] ?? 0);
+			$kmon = trim($rc['comanda_kmonitor'] ?? '');
+			$cmov = trim($rc['comanda_movil'] ?? '');
+
+			if ($cant_c > 0) {
+				if ($cant_p > $cant_c) {
+					$est = 'parcial';
+				} else {
+					$est = 'enviada';
+				}
+			} elseif ($kmon == '2' || $cmov == '2') {
+				$est = 'enviada';
+			} else {
+				$est = 'sin_comanda';
+			}
+
+			$comandas_mesas[$rc['documento']] = [
+				'estado'        => $est,
+				'cant_comandas' => $cant_c,
+				'cant_platos'   => $cant_p
+			];
+		}
 	}
 
 	echo "
@@ -1099,9 +1174,33 @@ if ($_GET['accion'] == "ver_pedidos") {
 			$badge_pago = "<br><span class='label label-danger' style='background:#D9534F;font-size:10px;display:inline-block;margin-top:3px;'><i class='fa fa-times'></i> PAGO RECHAZADO</span>";
 		}
 
-		// Pedido en caja (comida para llevar): fondo verde suave y borde verde, botón editar amarillo
-		if ($es_caja && $estado_pago == '0') {
-			$fila_style = "background-color: #f0fdf4; border-left: 4px solid #5CB85C;";
+		// Verificar información de comanda
+		$info_comanda = $comandas_mesas[$doc_full] ?? ($comandas_mesas[$doc_original] ?? ['estado' => 'sin_comanda']);
+		$estado_comanda = $info_comanda['estado'];
+
+		$badge_comanda = "";
+		if ($estado_comanda === 'enviada') {
+			$badge_comanda = "<br><span class='label' style='background:#28a745;color:#fff;font-size:10px;padding:2px 6px;display:inline-block;margin-top:3px;' title='Comanda enviada a Cocina/Barra'><i class='fa fa-cutlery'></i> COMANDA ENVIADA</span>";
+		} elseif ($estado_comanda === 'parcial') {
+			$badge_comanda = "<br><span class='label' style='background:#e67e22;color:#fff;font-size:10px;padding:2px 6px;display:inline-block;margin-top:3px;' title='Platos nuevos pendientes por mandar a comanda'><i class='fa fa-plus-circle'></i> ÍTEMS PENDIENTES</span>";
+		} else {
+			$badge_comanda = "<br><span class='label' style='background:#f39c12;color:#fff;font-size:10px;padding:2px 6px;display:inline-block;margin-top:3px;' title='Pedido en borrador sin mandar a comanda'><i class='fa fa-clock-o'></i> SIN COMANDA</span>";
+		}
+
+		// Pedido en caja o estilo según estado de comanda (si no hay pago pendiente reportado)
+		if ($estado_pago == '0') {
+			if ($es_caja) {
+				$fila_style = "background-color: #f0fdf4; border-left: 5px solid #5CB85C;";
+			} elseif ($estado_comanda === 'enviada') {
+				// Verde suave: Comanda ya impresa y enviada a cocina/barra
+				$fila_style = "background-color: #f6fdf8; border-left: 5px solid #28a745;";
+			} elseif ($estado_comanda === 'parcial') {
+				// Ámbar suave: Platos nuevos pendientes por comanda
+				$fila_style = "background-color: #fef9e7; border-left: 5px solid #e67e22;";
+			} else {
+				// Naranja/Amarillo suave: Mesa en tránsito pero sin comanda enviada aún
+				$fila_style = "background-color: #fffdf5; border-left: 5px solid #f39c12;";
+			}
 		}
 
 		echo "		
@@ -1114,7 +1213,7 @@ if ($_GET['accion'] == "ver_pedidos") {
 				<td>
 					<strong>" . ($es_caja
 						? "<span class='label label-success' style='background:#5CB85C;font-size:10px;padding:2px 6px;'><i class='fa fa-shopping-bag'></i> CAJA</span><br><small class='text-muted' style='font-size:11px;'>Cuenta: " . $doc_clean . "</small>"
-						: $doc_clean) . "</strong>";
+						: $doc_clean) . "</strong>" . $badge_comanda;
 
 		if ($pago && in_array($estado_pago, ['1', '2', '4'])) {
 			echo "<br><button type='button' class='btn btn-xs btn-primary' style='padding:1px 5px;font-size:10px;margin-top:3px;' onclick='toggle_detalle_pago(\"" . $doc_clean . "\")'><i class='fa fa-eye'></i> Ver Pago</button>";

@@ -166,8 +166,44 @@ Anteriormente, al pedir múltiples platos o combos idénticos (ej. 4 Combos Espe
 2. En la PC del Restaurante:
    ```cmd
    git pull origin main
-   iniciar_sistema.bat
+   iniciar_sistema_segundo_plano.vbs
    ```
-   *(El script copia automáticamente los parches desde `fix_premium/reports/`).*
+   *(O ejecutar `iniciar_sistema.bat` para ver el diagnóstico con consola).*
 3. Configurar la impresora Windows `cocina` con las opciones de la Sección 2.3.
-4. Probar desde la pantalla táctil de ventas con F12 (Comandas).
+4. Probar desde celulares, tablets y desde la pantalla táctil de ventas con F12 (Comandas).
+
+---
+
+## 5. Impresión Directa desde Móvil/Tablet y Eliminación de `cmonitor.exe`
+
+### 5.1 Diagnóstico de Sobrecarga en Caja
+Anteriormente, la PC de caja debía mantener abiertas múltiples ventanas que saturaban la pantalla:
+1. `cmonitor.exe` (Monitor de comandas de FoxPro que sondeaba `comandasmv`).
+2. Múltiples ventanas de consola de `iniciar_sistema.bat`, `sync_daemon.php` y el servidor web PHP.
+3. Ventanas de Cashea, calculadora y Premium Soft POS.
+
+### 5.2 Arquitectura de Impresión Directa Implementada
+Se implementó el módulo [`funciones/impresion_comandas_helper.php`](file:///e:/herd/comandasmoviles/funciones/impresion_comandas_helper.php):
+* **Cero dependencia de `cmonitor.exe`:** Cuando un mesonero o usuario presiona **"Comanda"** en el móvil o tablet:
+  1. `controladores/controlador_pedidos.php` registra la orden en `operti`, `opermv` y `comandasmv` para que Premium Soft POS mantenga su auditoría intacta.
+  2. Determina el destino de cada plato consultando `grupos.formato` (`COCINA` vs `BARRA`).
+  3. Totaliza y consolida cantidades de platos idénticos (ej. 4 COMBO ESPECIAL BRASA, 2 CERVEZA ZULIA).
+  4. Genera los bytes ESC/POS de 80 mm e imprime de forma instantánea mediante **Socket TCP directo al puerto 9100** de la impresora térmica en red (`192.168.1.100` en producción, `127.0.0.1` en desarrollo).
+  5. Si el socket estuviese ocupado o fuera de línea, conmuta automáticamente a la cola de Windows `cocina`.
+  6. Envía el corte de papel al ras (`\x1bd\x03\x1dV\x01`) tras cada ticket.
+  7. Marca `comandasmv.impresion = 2`.
+
+### 5.3 Indicadores Visuales y Colores en "En Tránsito"
+En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion=ver_pedidos`), cada mesa ahora refleja visualmente su estado de comanda en tiempo real:
+* **`[COMANDA ENVIADA]` (Borde y fondo verde suave `#28a745`):**  
+  Todos los platos de la mesa ya fueron impresos y enviados a la cocina/barra.
+* **`[SIN COMANDA]` (Borde y fondo ámbar suave `#f39c12`):**  
+  Mesa guardada en borrador; aún no se ha enviado comanda.
+* **`[ÍTEMS PENDIENTES]` (Borde y fondo naranja suave `#e67e22`):**  
+  Mesa existente a la que se le agregaron platos nuevos que aún no se han enviado a comanda.
+* **Mapa de Mesas (`mostrar_mesas`):** Las mesas ocupadas con comanda enviada muestran el icono de cubiertos `fa-cutlery`.
+
+### 5.4 Limpieza de Pantalla en Caja
+* Se creó el iniciador silencioso [`iniciar_sistema_segundo_plano.vbs`](file:///e:/herd/comandasmoviles/iniciar_sistema_segundo_plano.vbs). Al hacer doble clic, inicia el sincronizador y el servidor web con ventana oculta (`style 0`), eliminando por completo las ventanas negras de la barra de tareas.
+* Se creó [`detener_sistema.bat`](file:///e:/herd/comandasmoviles/detener_sistema.bat) para detener los procesos de forma limpia cuando sea requerido.
+* `cmonitor.exe` **ya no necesita ejecutarse**, liberando memoria y espacio en pantalla.
