@@ -980,7 +980,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 										}
 									} catch (\Throwable $e_v) {}
 									$nro_consec = !empty($consecutivo_comandasmv) ? $consecutivo_comandasmv : '00000001';
-									$imp_res = imprimir_comandas_pedido($mesa, $nro_consec, $vendedor_nombre, $items_para_comanda, $bd_conexion);
+									$cliente_nombre_comanda = !empty($_POST['nombre_cliente']) ? trim($_POST['nombre_cliente']) : '';
+									$imp_res = imprimir_comandas_pedido($mesa, $nro_consec, $vendedor_nombre, $items_para_comanda, $bd_conexion, $cliente_nombre_comanda);
 									$tickets_txt = [];
 									if (!empty($imp_res['tickets_enviados'])) {
 										foreach ($imp_res['tickets_enviados'] as $t) {

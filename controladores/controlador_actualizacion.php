@@ -128,37 +128,28 @@ if ($accion == 'verificar') {
 
 // 2. EJECUTAR ACTUALIZACIÓN
 if ($accion == 'actualizar') {
-    // Paso A: Respaldar configuración local y archivo .bat para no perderlos
+    // Paso A: Respaldar configuración local de datos_conexion.json si existiera
     $conexionFile = $rootDir . '/datos_conexion.json';
-    $batFile = $rootDir . '/iniciar_sistema.bat';
     $conexionBakFile = $rootDir . '/datos_conexion.local.bak';
-    $batBakFile = $rootDir . '/iniciar_sistema.local.bak';
 
     $conexionBackup = file_exists($conexionFile) ? @file_get_contents($conexionFile) : null;
-    $batBackup = file_exists($batFile) ? @file_get_contents($batFile) : null;
 
     // Respaldo de seguridad físico en disco
     if ($conexionBackup !== null) {
         @file_put_contents($conexionBakFile, $conexionBackup);
-    }
-    if ($batBackup !== null) {
-        @file_put_contents($batBakFile, $batBackup);
     }
 
     // Paso B: Asegurar fetch y sincronizar exactamente con origin/main
     $cmdFetch = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* fetch origin main 2>&1";
     @shell_exec($cmdFetch);
 
-    // Resetear a origin/main (garantiza cero conflictos de merge)
+    // Resetear a origin/main (garantiza cero conflictos de merge y actualiza todos los archivos del repo)
     $cmdReset = "cd /d \"{$rootDir}\" && {$git} -c safe.directory=* reset --hard origin/main 2>&1";
     $salidaReset = @shell_exec($cmdReset);
 
-    // Paso C: Restaurar configuración local intacta (usando memoria o archivo de respaldo físico)
+    // Paso C: Restaurar configuración de datos_conexion.json intacta
     if ($conexionBackup === null && file_exists($conexionBakFile)) {
         $conexionBackup = @file_get_contents($conexionBakFile);
-    }
-    if ($batBackup === null && file_exists($batBakFile)) {
-        $batBackup = @file_get_contents($batBakFile);
     }
 
     if ($conexionBackup !== null) {
@@ -173,8 +164,17 @@ if ($accion == 'actualizar') {
         }
     }
 
-    if ($batBackup !== null) {
-        @file_put_contents($batFile, $batBackup);
+    // Paso D: Sincronizar automáticamente los reportes limpios a Premium Soft (bahiap y matrices)
+    $fixReports = $rootDir . '/fix_premium/reports';
+    $destBahia = 'C:/PREMIUM/ADMINISTRATIVO9X/bahiap/reports';
+    $destMatriz = 'C:/PREMIUM/ADMINISTRATIVO9X/Matrices/reports';
+    if (is_dir($fixReports)) {
+        if (is_dir($destBahia)) {
+            @shell_exec('cmd /c copy /y "' . str_replace('/', '\\', $fixReports) . '\*.*" "' . str_replace('/', '\\', $destBahia) . '\"');
+        }
+        if (is_dir($destMatriz)) {
+            @shell_exec('cmd /c copy /y "' . str_replace('/', '\\', $fixReports) . '\*.*" "' . str_replace('/', '\\', $destMatriz) . '\"');
+        }
     }
 
     // Obtener nuevo commit instalado

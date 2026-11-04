@@ -213,7 +213,7 @@ if (!function_exists('obtener_config_impresoras')) {
         $ip_windows = $info_win['ip'] ?? null;
 
         // Si Windows o la detección tiene una IP asignada a la impresora, esa tiene la máxima prioridad
-        $ip_defecto = $ip_windows ?: (($entorno === 'produccion') ? '192.168.1.150' : '192.168.0.150');
+        $ip_defecto = $ip_windows ?: '192.168.1.150';
 
         $cocina_ip = $cfg['impresora_cocina_ip'] ?? $ip_defecto;
         $cocina_port = (int)($cfg['impresora_cocina_port'] ?? 9100);
@@ -237,7 +237,7 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
     /**
      * Construye los bytes ESC/POS exactos para la ticketera de 80 mm
      */
-    function formatear_ticket_comanda_espos($tipo, $nro_ticket, $mesa, $vendedor, array $items_consolidados, $fecha = null) {
+    function formatear_ticket_comanda_espos($tipo, $nro_ticket, $mesa, $vendedor, array $items_consolidados, $fecha = null, $cliente = null) {
         if (!$fecha) {
             $fecha = date('d/m/Y h:i:s A');
         }
@@ -270,6 +270,9 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
         $out .= $ALIGN_LEFT;
         $out .= "Fecha:    " . $fecha . "\n";
         $out .= "Mesa:     " . strtoupper(trim($mesa)) . "\n";
+        if (!empty($cliente) && strtoupper(trim($cliente)) !== 'CLIENTE CONTADO') {
+            $out .= "Cliente:  " . strtoupper(trim($cliente)) . "\n";
+        }
         $out .= "Mesonero: " . strtoupper(trim($vendedor)) . "\n";
         $out .= $ALIGN_CENTER . "Documento Sin Credito Fiscal\n" . $ALIGN_LEFT;
         $out .= $sep . "\n";
@@ -322,7 +325,7 @@ if (!function_exists('enviar_bytes_impresora')) {
         $ips_candidatas = array_filter(array_unique([
             $ip_win,
             $ip,
-            '192.168.0.150',
+            '127.0.0.1',
             '192.168.1.150',
             '192.168.1.100'
         ]));
@@ -370,7 +373,7 @@ if (!function_exists('imprimir_comandas_pedido')) {
      * Procesa la lista de ítems de una comanda, clasifica por formato (COCINA vs BARRA),
      * totaliza cantidades idénticas y envía los tickets de forma directa e independiente.
      */
-    function imprimir_comandas_pedido($mesa_doc, $consecutivo, $vendedor_nombre, array $items_nuevos, $bd_conexion = 'cliente') {
+    function imprimir_comandas_pedido($mesa_doc, $consecutivo, $vendedor_nombre, array $items_nuevos, $bd_conexion = 'cliente', $cliente_nombre = '') {
         try {
             if (empty($items_nuevos)) {
                 return [
@@ -434,11 +437,24 @@ if (!function_exists('imprimir_comandas_pedido')) {
 
             $tickets_enviados = [];
             $mesa_limpia = ltrim(trim($mesa_doc), 'E');
+            $mesa_etiqueta = $mesa_limpia;
+            if ($conn) {
+                $mesa_esc = $conn->real_escape_string($mesa_limpia);
+                $res_m = @$conn->query("SELECT descripcion FROM idconsumos WHERE id_consumo = '{$mesa_esc}' OR nombre_corto = '{$mesa_esc}' LIMIT 1");
+                if ($res_m && ($row_m = $res_m->fetch_assoc())) {
+                    $desc = trim($row_m['descripcion']);
+                    if (!empty($desc) && strtoupper($desc) !== strtoupper($mesa_limpia)) {
+                        $mesa_etiqueta = $mesa_limpia . " - " . $desc;
+                    }
+                } elseif (strtoupper($mesa_limpia) === '001' || strtoupper($mesa_limpia) === 'M00' || strtoupper($mesa_limpia) === 'LLEVAR') {
+                    $mesa_etiqueta = $mesa_limpia . " - LLEVAR";
+                }
+            }
 
             // 3. Imprimir ticket de COCINA si tiene ítems
             if (!empty($grupos_tickets['COCINA'])) {
                 $items_cocina = array_values($grupos_tickets['COCINA']);
-                $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_cocina);
+                $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_cocina, null, $cliente_nombre);
                 $env_cocina = enviar_bytes_impresora($raw_cocina, $config_imp['cocina_ip'], $config_imp['cocina_port'], $config_imp['windows_printer']);
                 $tickets_enviados[] = [
                     'tipo'      => 'COCINA',
@@ -450,7 +466,7 @@ if (!function_exists('imprimir_comandas_pedido')) {
             // 4. Imprimir ticket de BARRA si tiene ítems
             if (!empty($grupos_tickets['BARRA'])) {
                 $items_barra = array_values($grupos_tickets['BARRA']);
-                $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_barra);
+                $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_barra, null, $cliente_nombre);
                 $env_barra = enviar_bytes_impresora($raw_barra, $config_imp['barra_ip'], $config_imp['barra_port'], $config_imp['windows_printer']);
                 $tickets_enviados[] = [
                     'tipo'      => 'BARRA',

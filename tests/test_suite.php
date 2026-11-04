@@ -5,7 +5,7 @@
  * 
  * Modos de ejecución:
  * 1. Desde consola CLI: `php tests/test_suite.php`
- * 2. Desde navegador web: `http://localhost:2010/tests/test_suite.php` o `http://192.168.0.102:2010/tests/test_suite.php`
+ * 2. Desde navegador web: `http://localhost:2010/tests/test_suite.php` o `http://192.168.1.102:2010/tests/test_suite.php`
  * 3. En formato JSON para APIs/CI: `http://localhost:2010/tests/test_suite.php?format=json`
  */
 
