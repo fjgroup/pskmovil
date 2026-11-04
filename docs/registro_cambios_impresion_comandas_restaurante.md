@@ -207,3 +207,40 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
 * Se creó el iniciador silencioso [`iniciar_sistema_segundo_plano.vbs`](file:///e:/herd/comandasmoviles/iniciar_sistema_segundo_plano.vbs). Al hacer doble clic, inicia el sincronizador y el servidor web con ventana oculta (`style 0`), eliminando por completo las ventanas negras de la barra de tareas.
 * Se creó [`detener_sistema.bat`](file:///e:/herd/comandasmoviles/detener_sistema.bat) para detener los procesos de forma limpia cuando sea requerido.
 * `cmonitor.exe` **ya no necesita ejecutarse**, liberando memoria y espacio en pantalla.
+
+
+---
+
+## 6. Mejoras de Accesibilidad Móvil y Resolución de Error en Premium Soft
+
+### 6.1 Corrección del Error FoxPro `BARRA.FRT no existe o no es válido`
+* **Causa del Error:** Al presionar "Comanda" en el Touch Screen de Premium Soft para productos asignados a la barra (`grupos.formato = 'BARRA'`), FoxPro buscaba `C:\PREMIUM\ADMINISTRATIVO9X\BAHIAP\REPORTS\BARRA.FRT` y `BARRA.QRY`.
+* **Solución Aplicada:**
+  1. Se generaron las duplas completas `barra.frx` y `barra.FRT` sincronizadas con `cocina.*` tanto en `bahiap\reports` como en `Matrices\reports`.
+  2. Se duplicó la consulta FoxPro `cocina.qry` a `barra.qry` en `bahiap\querys` y `Matrices\querys`.
+  3. Resultado: Tanto comandas de Cocina como de Barra imprimen perfectamente desde Premium Soft y desde Comandas Móviles.
+
+### 6.2 Rediseño de Encabezado y Campos de Identificación
+* **Orden de Campos:** Se unificaron `Cédula / RIF` y `Mesa / Tasca` en una sola fila horizontal tipo flex (`[ Cédula / RIF ] [ Mesa / Tasca ]`) debajo de `Cliente` y `Código Cliente`.
+* **Agrupación Predeterminada:** Se ocultó visualmente el checkbox *"Agrupar cantidades por productos"* manteniéndolo marcado por defecto (`checked`), asegurando que todos los ítems idénticos se consoliden automáticamente sin intervención del mesonero.
+
+### 6.3 Capacidad de 6 a 7 Ítems en Pantalla
+* Se ajustó `#productos_agregados` a una altura cómoda de `330px` (min 260px, max 380px) con `overflow-y: auto`.
+* Se compactó el padding de celdas (`4px 6px`) y el tamaño de fuentes (`13px`), permitiendo que el mesonero visualice de 6 a 8 ítems en pantalla simultáneamente sin desplazamiento vertical excesivo.
+
+### 6.4 Total Flotante Sticky con Referencia en Tiempo Real
+* Se incorporó `#barra_total_flotante` fijo en la parte superior (`position: fixed; top: 0; z-index: 99999;`).
+* Cuando el usuario se desplaza hacia abajo para explorar productos en grupos o inventario, la barra flotante aparece automáticamente mostrando:
+  * **Total Cuenta en Bs** (verde destacado, ej. `62.270,76 Bs`).
+  * **Referencia en USD** (etiqueta oscura con borde, ej. `REF 12,50`).
+  * Botón **[ 🛒 Ver Pedido ]** que realiza scroll suave de retorno al tope.
+* Se implementó un hook global sobre jQuery `.val()` que sincroniza instantáneamente el monto flotante en cuanto se agrega o modifica cualquier producto.
+
+### 6.5 Ícono de Edición de Notas Compacto y Elegante
+* Se sustituyó el ícono grande por un lápiz minimalista de 13px (`fa fa-pencil fa-edit`) idéntico al estilo gráfico de Premium Soft.
+
+### 6.6 Componentes de Combos Plegables con Botón `[ℹ Incluye]`
+* Los componentes internos de los combos (papas, arepitas, ensalada) ahora permanecen ocultos por defecto (`display: none`), evitando llenar la pantalla móvil con 5 o 6 líneas por combo.
+* Cada combo padre cuenta con el botón interactivo **`[ ℹ Incluye ]`**:
+  * Al hacer clic, despliega suavemente los componentes con sangría y flecha (`↳ Arepitas Fritas (4 un)`).
+  * El botón conmuta a **`[ ▲ Ocultar ]`** para volver a compactar la vista cuando se desee.
