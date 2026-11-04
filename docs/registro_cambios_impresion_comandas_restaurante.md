@@ -95,10 +95,11 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
   * `SUPEXPR = 0` (Sin expresiones de supresión que oculten la cantidad).
 * Esto garantiza que los números (`1`, `2`, `3`...) se impriman siempre debajo de la columna `Cant.` al igual que en bebidas y barra.
 
-### 3.4 Reducción del Margen Superior y Diseño Compacto
-* Se redujo el espacio en blanco superior desplazando todos los elementos de la cabecera hacia arriba en 2.300 unidades.
-* La etiqueta `"COCINA "` ahora comienza inmediatamente en la parte superior (`VPos = 304`), reduciendo la altura del encabezado de 18.500 a 16.200 unidades para un ticket más compacto.
-* Se aplicó el ancho expandido `Width = 29.479` para aprovechar el ancho completo del papel de 80 mm y evitar que nombres largos se corten a la mitad.
+### 3.4 Reducción del Margen Superior y Eliminación de Espacios entre Platos
+* **Cabecera compacta:** Se redujo el espacio en blanco superior desplazando todos los elementos de la cabecera hacia arriba en 2.300 unidades. La etiqueta `"COCINA "` ahora comienza inmediatamente en la parte superior (`VPos = 304`), reduciendo la altura del encabezado de 18.500 a 16.200 unidades.
+* **Eliminación de saltos entre platos:** Se redujo la altura de la **Banda Detalle** de 4.000 a **2.000 unidades**. Esto elimina el espacio en blanco que quedaba entre cada plato del pedido (como se veía entre la Guasacaca y el Combo), haciéndolos salir pegados y ordenados.
+* **Espacio al final:** El único avance de papel es al final del pedido, controlado por `<1B>d<031D>V<01>` (3 líneas antes de la cuchilla).
+* Se mantuvo el ancho expandido `Width = 29.479` para que nombres largos de platos quepan sin cortarse.
 
 ---
 
