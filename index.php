@@ -451,10 +451,10 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 					<input type="text" class="form-control" id="recargo_total" readonly />
 					<label for="" id="texto_total">Total <span class="simbolo_moneda_nacional">Bs.</span></label>
 					<input type="text" class="form-control precio_total" id="precio_total" readonly value="0,00" />
-					<div id="div_total_moneda_extranjera" style="display: none;">
-						<input type="hidden" id="dividemultiplica" />
-						<input type="hidden" id="monedafactor" />
-						Total <span class="simbolo_moneda_extranjera"></span>
+					<div id="div_total_moneda_extranjera" style="<?php echo (!empty($file['monedafactor']) && (float)$file['monedafactor'] > 0) ? '' : 'display: none;'; ?>">
+						<input type="hidden" id="dividemultiplica" value="<?php echo $file['dividemultiplica'] ?? 1; ?>" />
+						<input type="hidden" id="monedafactor" value="<?php echo $file['monedafactor'] ?? 0; ?>" />
+						Total <span class="simbolo_moneda_extranjera"><?php echo !empty($file['monedasimb']) ? htmlspecialchars($file['monedasimb']) : '$'; ?></span>
 						<input type="text" class="form-control precio_total_moneda_extranjera"
 							id="precio_total_moneda_extranjera" readonly value="0,00" />
 					</div>
@@ -536,9 +536,9 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 	</form>
 
 	<!-- BARRA FLOTANTE STICKY DE TOTAL (PARA MOVIL AL HACER SCROLL) -->
-	<div id="barra_total_flotante" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #232b38; color: #FFF; padding: 6px 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border-bottom: 2px solid #0880C5;">
+	<div id="barra_total_flotante" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #232b38; color: #FFF; padding: 6px 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border-bottom: 2px solid #0880C5;">
 		<div style="display: flex; align-items: center; justify-content: space-between; max-width: 900px; margin: 0 auto; gap: 8px;">
-			<div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+			<div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer;" onclick="mostrar_detalle_cuenta()" title="Ver desglose de la cuenta">
 				<div style="line-height: 1.1;">
 					<span style="font-size: 10px; color: #a0aec0; text-transform: uppercase; font-weight: bold; display: block;">Total Cuenta</span>
 					<span style="font-size: 16px; font-weight: 800; color: #2ecc71;" class="precio_total_texto">0,00 Bs</span>
@@ -546,6 +546,9 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 				<div style="background: #11141a; padding: 2px 8px; border-radius: 4px; border: 1px solid #3a4556; line-height: 1.1;">
 					<span style="font-size: 9px; color: #ffb703; font-weight: bold; display: block;">REFERENCIA</span>
 					<span style="font-size: 13px; font-weight: 700; color: #FFF;" class="precio_total_ref_texto">REF 0,00</span>
+				</div>
+				<div style="color: #a0aec0; font-size: 14px; margin-left: 2px;" title="Ver desglose">
+					<i class="fa fa-ellipsis-h"></i>
 				</div>
 			</div>
 			<div style="display: flex; gap: 4px;">
@@ -561,18 +564,18 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 			<div id="logo" class="logo-hero">
 				<img src="imagenes/mi jardin.webp" alt="Mi Jardín" />
 			</div>
+
+			<!-- TASA DEL DIA ENTRE HEADER Y MONTO (CON FUENTE MAS PEQUEÑA) -->
+			<div id="contenedor_tasa_del_dia" style="display: flex; justify-content: flex-end; align-items: center; padding: 2px 4px 6px; color: #555; font-size: 13px;">
+				<span>Tasa del día:&nbsp;<strong id="tasa_del_dia" style="color: #222; font-size: 14px; font-weight: 700;"><?php echo $file['monedafactor']; ?></strong></span>
+			</div>
+
 			<div class="col-md-12 detalles_cuenta">
-				<div class="input-group">
+				<div class="input-group" style="margin: 0;">
 					<input type="text" class="form-control precio_total precio_total_principal" id="precio_total" readonly value="0,00" />
-					<input style="float:right;background-color:#000;color:#FFF;text-align:right;font-size:18px;"
-						type="text" class="form-control precio_total_ref" id="precio_total_ref" readonly value="0,00" />
-					<div class="input-group-addon" onclick="mostrar_detalle_cuenta()"><i class="fa fa-ellipsis-h"></i>
+					<input type="hidden" class="precio_total_ref" id="precio_total_ref" value="0,00" />
+					<div class="input-group-addon" onclick="mostrar_detalle_cuenta()" title="Ver desglose de la cuenta"><i class="fa fa-ellipsis-h"></i>
 					</div>
-				</div>
-				<div class="text-end" style="position: relative; margin-bottom:19.5px">
-					<small class="form-text text-muted" style="font-size: 1.3em; position:absolute; right:0; ">
-						TASA DEL DIA: <strong id="tasa_del_dia"><?php echo $file['monedafactor']; ?></strong>
-					</small>
 				</div>
 			</div>
 			<div>

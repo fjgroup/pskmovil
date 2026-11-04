@@ -686,8 +686,9 @@ function mostrar_detalle_cuenta() {
 	if ($('#resumir_lineas').prop('checked')) {
 		resumir_lineas = 1;
 	}
-	$('#detalle_cuenta').show();
+	$('#barra_total_flotante').hide();
 	$('#bloqueo').show();
+	$('#detalle_cuenta').show();
 	$('.simbolo_moneda_nacional').html('Bs.');
 
 	if (mesa) {
@@ -712,6 +713,7 @@ function mostrar_detalle_cuenta() {
 function ocultar_detalle_cuenta() {
 	$('#detalle_cuenta').hide();
 	$('#bloqueo').hide();
+	$(window).trigger('scroll');
 }
 
 
@@ -936,13 +938,39 @@ function ejecutar_agregar_con_cantidad(productos, compuesto, fraccionado, existe
 }
 
 function AmpliarImagen(posicion, nombre) {
-	var li = $('#inventario li').eq(posicion);
-	var rutafoto = li.find('img').attr('src');
-	$('#imagen_amplia img').attr('src', rutafoto);
+	var li;
+	if (posicion && (posicion.nodeType || posicion instanceof jQuery)) {
+		li = $(posicion);
+	} else if (typeof posicion === 'number' || (!isNaN(posicion) && typeof posicion === 'string')) {
+		li = $('#inventario li').eq(parseInt(posicion, 10));
+	} else {
+		li = $(posicion);
+	}
+
+	if (!nombre && li.length) {
+		nombre = li.attr('data-nombre') || li.find('div').text() || 'Detalle del Artículo';
+	}
+
+	var imgEl = li.find('img');
+	var rutafoto = imgEl.length ? imgEl.attr('src') : '';
+	if (rutafoto && rutafoto != '') {
+		$('#imagen_amplia #img img').attr('src', rutafoto).show();
+		$('#imagen_amplia #img').show();
+	} else {
+		$('#imagen_amplia #img img').attr('src', '').hide();
+		$('#imagen_amplia #img').hide();
+	}
 	$('#imagen_amplia .modal-title').html(nombre);
 
 	// Extraer y mostrar precios formateados
 	var precioTexto = li.find('div b').map(function () { return $(this).text(); }).get().join(' | ');
+	if (!precioTexto && li.length) {
+		var d = li.attr('data-datos');
+		if (d) {
+			var dp = d.split('|');
+			if (dp[4]) precioTexto = dp[4];
+		}
+	}
 	$('#modal_producto_precio').html(precioTexto);
 
 	// Reiniciar cantidad a 1

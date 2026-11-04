@@ -349,8 +349,8 @@ a:hover {
 }
 
 .ventanas {
-	box-shadow: 0px 0px 8px #666;
-	z-index: 3;
+	box-shadow: 0px 0px 14px rgba(0,0,0,0.45);
+	z-index: 100000;
 	position: fixed;
 	margin: auto;
 	left: 0px;
@@ -390,8 +390,8 @@ a:hover {
 	height: 100%;
 	min-height: 100%;
 	background-color: #000;
-	opacity: 0.1;
-	z-index: 2;
+	opacity: 0.45;
+	z-index: 99999;
 }
 
 #login {
@@ -581,14 +581,11 @@ footer a:hover {
 }
 
 .detalles_cuenta {
-	position: -webkit-sticky;
-	position: sticky;
-	top: 0;
-	z-index: 1000;
+	position: relative;
+	z-index: 10;
 	background-color: #fff;
-	padding-top: 6px;
-	padding-bottom: 6px;
-	box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+	padding-top: 2px;
+	padding-bottom: 2px;
 }
 
 #productos_agregados {
@@ -725,24 +722,7 @@ footer a:hover {
 }
 
 .btn-lupa-ampliar {
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	background: rgba(0, 0, 0, 0.45);
-	color: #fff;
-	width: 26px;
-	height: 26px;
-	line-height: 26px;
-	border-radius: 50%;
-	font-size: 13px;
-	text-align: center;
-	z-index: 5;
-	transition: background 0.2s;
-}
-
-.btn-lupa-ampliar:hover {
-	background: rgba(0, 0, 0, 0.85);
-	color: #FFD700;
+	display: none !important;
 }
 
 @media screen and (min-width:0px) {

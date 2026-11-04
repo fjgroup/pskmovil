@@ -285,8 +285,7 @@ if ($_GET['accion'] == "mostrar_articulos") {
 
 		if ($articulo['rutafoto'] != "") {
 			echo "
-					<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>
-						<span class='btn-lupa-ampliar' onclick='event.stopPropagation(); AmpliarImagen(" . $x . "," . json_encode($articulo['nombre']) . ")' title='Ver imagen'><i class='fa fa-search-plus'></i></span>
+					<li " . $data_attrs . " onclick='AmpliarImagen(this, " . json_encode($articulo['nombre']) . ")'>
 						<img src='" . $ruta_img . "'/>
 					<div>";
 			if (!empty($articulo['nombrecorto'])) {
@@ -310,9 +309,9 @@ if ($_GET['accion'] == "mostrar_articulos") {
 				} else {
 					$precio_ext = $articulo['precio1'] * $datos_conexion['monedafactor'];
 				}
-				echo "<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b><br><b>REF: " . number_format($precio_ext, 2, ',', '.') . "</b></div></li>";
+				echo "<li " . $data_attrs . " onclick='AmpliarImagen(this, " . json_encode($articulo['nombre']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b><br><b>REF: " . number_format($precio_ext, 2, ',', '.') . "</b></div></li>";
 			} else {
-				echo "<li " . $data_attrs . " onclick='seleccionar_producto(" . json_encode($datos) . "," . json_encode($articulo['empaque']) . "," . json_encode($datos_agrupados) . "," . json_encode($articulo['compuesto']) . "," . json_encode($articulo['decimales']) . "," . json_encode($articulo['existencia']) . "," . json_encode($articulo['usaexist']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b></div></li>";
+				echo "<li " . $data_attrs . " onclick='AmpliarImagen(this, " . json_encode($articulo['nombre']) . ")'>" . $articulo['nombrecorto'] . "<div><b>" . $moneda . "" . number_format($articulo['precio1'], 2, ',', '.') . "</b></div></li>";
 			}
 		}
 		$x++;
