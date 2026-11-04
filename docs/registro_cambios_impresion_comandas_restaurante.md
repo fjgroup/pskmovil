@@ -97,7 +97,28 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 
 ### 3.4 Reducción del Margen Superior y Eliminación de Espacios entre Platos
 * **Cabecera compacta:** Se redujo el espacio en blanco superior desplazando todos los elementos de la cabecera hacia arriba en 2.300 unidades. La etiqueta `"COCINA "` ahora comienza inmediatamente en la parte superior (`VPos = 304`), reduciendo la altura del encabezado de 18.500 a 16.200 unidades.
-* **Eliminación de saltos entre platos:** Se redujo la altura de la **Banda Detalle** de 4.000 a **2.000 unidades**. Esto elimina el espacio en blanco que quedaba entre cada plato del pedido (como se veía entre la Guasacaca y el Combo), haciéndolos salir pegados y ordenados.
+* **Eliminación de saltos entre platos:** Se ajustó la altura de la **Banda Detalle** a **1.771 unidades** (idéntica a `bebidas.frx`). Esto elimina cualquier espacio en blanco innecesario entre platos del pedido.
+
+### 3.5 Comparativa Definitiva: ¿Por qué Bebidas ("Licores") imprimía perfecto y Cocina omitía productos?
+
+Al analizar minuciosamente los reportes originales de fábrica (`C:\Users\cjmfi\Downloads\DescargaExpressAdm_2026_09_03\DescargaExpresAdm\Matrices\reports`):
+
+| Característica | `bebidas.frx` (Licores / Bebidas) | `cocina.frx` (Cocina Original / Modificada) |
+| :--- | :--- | :--- |
+| **Estructura de Bandas** | **4 Bandas Directas:** Encabezado (1), Detalle (4), Pie (7), Resumen (8). | **6 Bandas con Agrupación:** Encabezado (1), Encabezado de Grupo (3: `CODIGO`), Detalle (4), Pie de Grupo (5), Pie (7), Resumen (8). |
+| **Ubicación de Ítems** | **Banda Detalle (4):** Itera fila por fila sobre cada ítem pedido. | **Pie de Grupo (5):** Dependiente del cambio de `CODIGO` y totalización. |
+| **Filtrado de Sub-ítems** | `SUPEXPR = empty(codhijo)` en la propia banda detalle (imprime platos/combos directos, oculta guarniciones hijas). | En el `Init` original ejecutaba: `SELECT * FROM BEBIDAS INTO CURSOR BEBIDAS` y `delete FOR !EMPTY(codhijo)`, generando el error de `cocina.dbf no existe` y corrompiendo cursores. |
+| **Causa de la Pérdida de Platos** | **Ninguna:** Todo el archivo `.FRT` estaba intacto (9.728 bytes). | **Desincronización binaria:** El archivo `cocina.FRT` en el sistema medía solo 4.158 bytes (truncado), por lo que los punteros de memo del FRX apuntaban fuera de rango a bloques corruptos. Al evaluar el Grupo por `CODIGO`, FoxPro abortaba tras el primer ítem e ignoraba los demás. |
+
+#### Solución Implementada:
+Se reconstruyó `cocina.frx` y `cocina.FRT` adoptando la arquitectura probada y robusta de `bebidas.frx`:
+1. **Misma estructura de 4 bandas directas:** La impresión corre sobre la **Banda Detalle** (altura 1.771), iterando sobre todos y cada uno de los productos sin saltos prematuros.
+2. **Título `COCINA` destacado:** En tamaño 18pt negrita centrado en el inicio del ticket (`VPOS = 304.2`).
+3. **Ancho de descripción ampliado:** De 19.375 a **29.479 unidades**, permitiendo que platos largos o nombres de combos quepan holgadamente.
+4. **Soporte de Combos e Ítems Directos:** Expresión `SUPEXPR = empty(codhijo)` idéntica a bebidas, permitiendo imprimir todos los combos (`Combo Familiar`, `Combo Jardinero Broaster`, `Combo Jardinero Brasa`, `Combo Duo Muslo`, `1 Pollo Brasa`, etc.).
+5. **Integridad Binaria Garantizada:** FRX (9.338 bytes) y FRT (10.176 bytes) con punteros 100% verificados y cero referencias externas a tablas DBF temporales.
+
+---
 * **Espacio al final:** El único avance de papel es al final del pedido, controlado por `<1B>d<031D>V<01>` (3 líneas antes de la cuchilla).
 * Se mantuvo el ancho expandido `Width = 29.479` para que nombres largos de platos quepan sin cortarse.
 
