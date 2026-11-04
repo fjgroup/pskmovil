@@ -51,7 +51,7 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 8. Establecer como **Impresora predeterminada**.
 9. Desactivar la opción de Windows: *"Permitir que Windows administre mi impresora predeterminada"*.
 
-### 2.3 Tamaño de Papel y Corte Automático (Crucial)
+### 2.3 Tamaño de Papel, Supresión de Papel Blanco y Corte Automático (Crucial)
 
 > [!IMPORTANT]
 > **¿Por qué no aparece "Ticket" en Windows?**  
@@ -59,16 +59,22 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 > **NO seleccionar formatos pequeños como "Sobre B6"**: Si se elige un sobre (ej. 125 mm), FoxPro creerá que se acabó la hoja tras imprimir el encabezado, provocando un corte de papel a la mitad y separando el encabezado de los platos.
 
 1. Abrir **Propiedades de la impresora** `cocina`:
-2. Pestaña **`Configuración del dispositivo`**:
-   * En `Formato a asignación de bandeja` > `Alimentación continua:`: Dejarlo en **`A4`** (o `Carta`).
+2. Pestaña **`Configuración del dispositivo`** *(Formato a asignación de bandeja)*:
+   * **Primera línea** (`Alimentación continua:` con salto): Seleccionar **`No disponible`**.
+   * **Segunda línea** (`Hojas sueltas`): Dejar en **`A4`**.
+   * **Tercera línea** (`Alimentación continua:` sin salto): Seleccionar **`A4`**.
+   > *(Este orden es fundamental: al poner la primera en `No disponible` y la tercera en `A4`, Windows trata el rollo térmico como continuo infinito y **evita que expulse los 20 cm de papel blanco** al terminar los platos).*
+
 3. Pestaña **`Comandos de impresora`**:
    * En el campo **`Empezar trabajo de impresión`**, escribir:  
      `<1B>@`  
-     *(Inicializa y limpia la memoria de la impresora antes de cada ticket).*
-   * En el campo **`Finalizar trabajo de impresión`**, escribir exactamente:  
+     *(Inicializa y limpia la memoria interna de la ticketera antes de cada comanda).*
+   * En el campo **`Finalizar trabajo de impresión`**, escribir:  
      `<1B>d<03><1D>V<01>`  
-     *(Avanza 3 líneas de papel para librar la cuchilla y ejecuta el corte de papel ESC/POS).*  
-     *Ojo con la sintaxis: debe llevar corchetes dobles `<03><1D>`.*
+     *(Avanza 3 líneas de papel para librar la cuchilla y ejecuta el corte ESC/POS).*  
+     > [!NOTE]  
+     > **Comportamiento normal de Windows:** Al presionar **Aplicar**, Windows automáticamente fusionará `<03><1D>` transformándolo visualmente en **`<1B>d<031D>V<01>`**. Esto es totalmente normal y esperado: Windows agrupa bytes hexadecimales contiguos dentro de los mismos corchetes y los interpreta exactamente como los bytes `03` y `1D`.
+
 4. Clic en **Aplicar** y **Aceptar**.
 
 ---
