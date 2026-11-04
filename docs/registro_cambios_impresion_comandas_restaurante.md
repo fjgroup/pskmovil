@@ -168,7 +168,7 @@ Anteriormente, al pedir múltiples platos o combos idénticos (ej. 4 Combos Espe
    git pull origin main
    iniciar_sistema_segundo_plano.vbs
    ```
-   *(O ejecutar `iniciar_sistema.bat` para ver el diagnóstico con consola).*
+   *(Aparecerá la ventana indicando la IP exacta `http://192.168.1.102:2010` para los mesoneros y los servicios quedarán corriendo en segundo plano).*
 3. Configurar la impresora Windows `cocina` con las opciones de la Sección 2.3.
 4. Probar desde celulares, tablets y desde la pantalla táctil de ventas con F12 (Comandas).
 
@@ -203,10 +203,37 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
   Mesa existente a la que se le agregaron platos nuevos que aún no se han enviado a comanda.
 * **Mapa de Mesas (`mostrar_mesas`):** Las mesas ocupadas con comanda enviada muestran el icono de cubiertos `fa-cutlery`.
 
-### 5.4 Limpieza de Pantalla en Caja
-* Se creó el iniciador silencioso [`iniciar_sistema_segundo_plano.vbs`](file:///e:/herd/comandasmoviles/iniciar_sistema_segundo_plano.vbs). Al hacer doble clic, inicia el sincronizador y el servidor web con ventana oculta (`style 0`), eliminando por completo las ventanas negras de la barra de tareas.
+### 5.4 Limpieza de Pantalla en Caja y Detección Automática de IP para Mesoneros
+* Se creó el iniciador silencioso [`iniciar_sistema_segundo_plano.vbs`](file:///e:/herd/comandasmoviles/iniciar_sistema_segundo_plano.vbs). Al hacer doble clic:
+  1. Detecta automáticamente mediante WMI la **dirección IPv4 activa** de la PC en la red local (`192.168.1.102` en el restaurante con gateway `192.168.1.1`).
+  2. Inicia el servidor web local en el puerto **2010** y el sincronizador Cloud en segundo plano sin mostrar ninguna ventana de consola negra (`style 0`).
+  3. Muestra una ventana emergente informativa para guiar al cajero y mesoneros:
+     ```text
+     =========================================
+        MI JARDIN - COMANDAS MOVILES ACTIVAS   
+     =========================================
+     DIRECCION PARA LOS MESONEROS (CELULARES Y TABLETS):
+       >>>   http://192.168.1.102:2010   <<<
+     -----------------------------------------
+       * IP detectada de esta PC: 192.168.1.102
+       * Puerto Web: 2010
+       * Impresora Termica: 192.168.1.100 (Puerto 9100)
+     -----------------------------------------
+     Estado del Sistema:
+       [OK] Servidor Web Comandas: ACTIVO
+       [OK] Sincronizador Nube Cloud: ACTIVO
+       [OK] Pantalla de caja: 100% LIMPIA (Sin ventanas negras)
+     Al presionar [Aceptar], ambos servicios continuaran corriendo
+     en segundo plano sin ocupar espacio en la pantalla de caja.
+     ```
+* **Sustitución de `iniciar_sistema.bat`:** El archivo `.bat` fue redirigido internamente para ejecutar de forma silenciosa el iniciador `.vbs`. Así, si alguien hace doble clic por costumbre en el archivo `.bat` o en un acceso directo anterior del escritorio, jamás quedará una ventana negra abierta en la pantalla de caja.
 * Se creó [`detener_sistema.bat`](file:///e:/herd/comandasmoviles/detener_sistema.bat) para detener los procesos de forma limpia cuando sea requerido.
 * `cmonitor.exe` **ya no necesita ejecutarse**, liberando memoria y espacio en pantalla.
+
+### 5.5 Supresión de Línea de Transacción Innecesaria (`Nro.:`) en Tickets
+Para maximizar la legibilidad y evitar datos confusos para el personal de cocina y barra:
+* **En Comandas Móviles (PHP):** En [`funciones/impresion_comandas_helper.php`](file:///e:/herd/comandasmoviles/funciones/impresion_comandas_helper.php) se removió la línea `$out .= "Nro.:     " . str_pad($nro_ticket, 8, '0', STR_PAD_LEFT) . "\n";`.
+* **En Premium Soft (Visual FoxPro):** En `cocina.frx` y `barra.frx` se marcaron como eliminados (`0x2A`) los registros binarios 19 y 20 (`Nro.:` y `numerodespacho`), logrando que ambos sistemas impriman tickets limpios sin esa línea.
 
 
 ---
@@ -239,8 +266,10 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
 ### 6.5 Ícono de Edición de Notas Compacto y Elegante
 * Se sustituyó el ícono grande por un lápiz minimalista de 13px (`fa fa-pencil fa-edit`) idéntico al estilo gráfico de Premium Soft.
 
-### 6.6 Componentes de Combos Plegables con Botón `[ℹ Incluye]`
-* Los componentes internos de los combos (papas, arepitas, ensalada) ahora permanecen ocultos por defecto (`display: none`), evitando llenar la pantalla móvil con 5 o 6 líneas por combo.
-* Cada combo padre cuenta con el botón interactivo **`[ ℹ Incluye ]`**:
-  * Al hacer clic, despliega suavemente los componentes con sangría y flecha (`↳ Arepitas Fritas (4 un)`).
-  * El botón conmuta a **`[ ▲ Ocultar ]`** para volver a compactar la vista cuando se desee.
+### 6.6 Visualización de Combos Unificada en una Sola Oración (Azul Claro)
+* **Problema Resuelto:** Anteriormente, en modo borrador (sin procesar), al hacer clic en el botón `[ ℹ Incluye ]` se desplegaba tanto la oración resumen como las 5 filas individuales de componentes, duplicando la información y ocupando excesiva altura vertical en móviles. Además, algunos nombres presentaban secuencias unicode sin decodificar (`RAC\u00d3N` en vez de `RACIÓN`).
+* **Solución Implementada:**
+  1. **Filas de componentes permanentemente suprimidas:** En `css/pedidos.css` se definió `#productos_agregados tr.es_componente { display: none !important; }`, garantizando que las líneas hijas individuales no saturen la pantalla ni antes ni después de procesar.
+  2. **Oración resumen en azul claro (`tr.fila_info_combo`):** Al tocar **`[ ℹ Incluye ]`**, se despliega exclusivamente un contenedor estilizado (`background-color: #f0f7fb; border-left: 3px solid #0880C5; color: #2c3e50;`) que resume todos los ítems incluidos en una sola línea elegante separada por viñetas (`2.5 RACION AREPITAS FRITAS • 1 RACIÓN ENSALADA RALLADA • 2 GUASACACA • 1 REFRESCO 1,5 LITROS • 1 POLLO POR UNIDAD`).
+  3. **Corrección de acentos UTF-8:** Se aplicó reemplazo y decodificación UTF-8 tanto en la respuesta JSON (`JSON_UNESCAPED_UNICODE`) como en el renderizador de vistas, visualizando `Ó`, `ó`, `á`, `é`, `í`, `ú`, `ñ` con total nitidez.
+  4. **Comportamiento idéntico:** Ahora la experiencia visual es 100% coherente y compacta tanto en la orden preliminar como cuando la comanda ya está en tránsito.
