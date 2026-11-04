@@ -140,6 +140,27 @@ if (isset($_POST['productos_array'])) {
 			}
 		}
 	}
+	// Fallback para complementar combos_info si los componentes vienen en el pedido
+	foreach ($array_productos as $chk_val) {
+		$d_chk = explode('|', $chk_val['datos']);
+		$c_padre = trim($d_chk[14] ?? '');
+		if (!empty($c_padre)) {
+			if (!isset($combos_info[$c_padre])) {
+				$combos_info[$c_padre] = [];
+			}
+			$c_nom = trim($d_chk[3] ?? '');
+			$c_nom = str_replace(
+				['\u00d3', '\u00f3', '\u00e1', '\u00e9', '\u00ed', '\u00fa', '\u00f1'],
+				['Ó', 'ó', 'á', 'é', 'í', 'ú', 'ñ'],
+				$c_nom
+			);
+			$c_cant = (float)($d_chk[12] ?? 1);
+			$item_str = $c_cant . " " . $c_nom;
+			if (!in_array($item_str, $combos_info[$c_padre])) {
+				$combos_info[$c_padre][] = $item_str;
+			}
+		}
+	}
 	
 	//print_r($array_productos);
 	foreach ($array_productos as $value) {
@@ -292,7 +313,7 @@ if (isset($_POST['productos_array'])) {
 
 			if (empty($codpadre) && !empty($combos_info[trim($codigo)])) {
 				$txt_inc = implode(" &bull; ", $combos_info[trim($codigo)]);
-				echo "<tr class='fila_info_combo' pid='" . $pid . "' style='display:none; background-color:#f0f7fb;'>
+				echo "<tr class='fila_info_combo' pid='" . $pid . "' codart='" . trim($codigo) . "' style='display:none; background-color:#f0f7fb;'>
 						<td colspan='" . ($permitir_descuentos != 'no' ? '6' : '5') . "' style='padding: 6px 12px; font-size: 12px; color: #2c3e50; border-left: 3px solid #0880C5;'>
 							<i class='fa fa-cutlery' style='color:#0880C5; margin-right:5px;'></i><strong>Incluye:</strong> " . $txt_inc . "
 						</td>
@@ -313,18 +334,17 @@ if (isset($_POST['productos_array'])) {
 		window.toggle_combo_info = function(pid, btn) {
 			var row = $(btn).closest('tr');
 			var codart = row.attr('codart') || '';
-			var comp = $('#productos_agregados tr.es_componente[pid=\"' + pid + '\"]');
-			if (!comp.length && codart) {
-				comp = $('#productos_agregados tr.es_componente[codpadre=\"' + codart + '\"]');
-			}
 			var info = $('#productos_agregados tr.fila_info_combo[pid=\"' + pid + '\"]');
-			if (comp.length) { comp.toggle(); }
-			if (info.length) { info.toggle(); }
-			var vis = (comp.length && comp.is(':visible')) || (info.length && info.is(':visible'));
-			if (vis) {
-				$(btn).css('background-color', '#28a745').html('<i class=\"fa fa-chevron-up\"></i> Ocultar');
-			} else {
-				$(btn).css('background-color', '#0880C5').html('<i class=\"fa fa-info-circle\"></i> Incluye');
+			if (!info.length && codart) {
+				info = $('#productos_agregados tr.fila_info_combo[codart=\"' + codart + '\"]');
+			}
+			if (info.length) {
+				info.toggle();
+				if (info.is(':visible')) {
+					$(btn).css('background-color', '#28a745').html('<i class=\"fa fa-chevron-up\"></i> Ocultar');
+				} else {
+					$(btn).css('background-color', '#0880C5').html('<i class=\"fa fa-info-circle\"></i> Incluye');
+				}
 			}
 		};
 	";
