@@ -110,10 +110,34 @@ if (isset($_POST['productos_array'])) {
 	$monto_recargo = 0;
 	$total_descuento = 0;
 	$pids_con_componentes = [];
+	$codigos_para_combos = [];
 	foreach ($array_productos as $chk_val) {
 		$d_chk = explode('|', $chk_val['datos']);
 		if (!empty($d_chk[14])) {
 			$pids_con_componentes[trim($d_chk[13])] = true;
+			if (!empty($d_chk[7])) {
+				$pids_con_componentes[trim($d_chk[7])] = true;
+			}
+		} else {
+			$c_clean = trim($d_chk[0]);
+			if (!empty($c_clean)) {
+				$codigos_para_combos[] = "'" . addslashes($c_clean) . "'";
+			}
+		}
+	}
+
+	$combos_info = [];
+	if (!empty($codigos_para_combos)) {
+		$q_comb = "SELECT compuesto, nombre, cantidad FROM articomp WHERE compuesto IN (" . implode(',', array_unique($codigos_para_combos)) . ") ORDER BY compuesto, codigo";
+		$res_comb = $objeto_pedido->general_query($bd_conexion_cliente, $q_comb);
+		if ($res_comb) {
+			while ($rc = mysqli_fetch_array($res_comb)) {
+				$c_code = trim($rc['compuesto']);
+				if (!isset($combos_info[$c_code])) {
+					$combos_info[$c_code] = [];
+				}
+				$combos_info[$c_code][] = (float)$rc['cantidad'] . " " . trim($rc['nombre']);
+			}
 		}
 	}
 	
@@ -250,15 +274,26 @@ if (isset($_POST['productos_array'])) {
 				echo "<span style='color: #666; font-size: 12px; padding-left: 6px;'>↳ " . $nombre . "</span>";
 			} else {
 				echo "<span>" . $nombre . "</span>";
-				if (!empty($pids_con_componentes[$pid])) {
-					echo " <button type='button' class='btn btn-xs' onclick='toggle_combo_info(\"" . $pid . "\", this)' style='padding: 1px 6px; font-size: 11px; margin-left: 4px; border-radius: 8px; background-color: #0880C5; color: #fff; border: none; cursor:pointer;'><i class='fa fa-info-circle'></i> Incluye</button>";
+				$tiene_info = !empty($combos_info[trim($codigo)]) || !empty($pids_con_componentes[$pid]);
+				if ($tiene_info) {
+					echo " <button type='button' class='btn btn-xs btn-combo-incluye' onclick='toggle_combo_info(\"" . $pid . "\", this)' style='padding: 2px 7px; font-size: 11px; margin-left: 6px; border-radius: 8px; background-color: #0880C5; color: #fff; border: none; cursor:pointer; font-weight: bold;' title='Ver lo que incluye este combo'><i class='fa fa-info-circle'></i> Incluye</button>";
 				}
 			}
 			echo "</td>
 						<td style='font-size: 13px; text-align: right; font-weight: 600;'>" . (empty($codpadre) ? number_format($precioneto, 2, ',', '.') : '') . "</td>
 						" . (($se_comando == 1 || $se_guardo == 1) ? "<td class='text-center' title='Producto guardado/comandado. Para anularlo debe solicitarlo en Caja.'><i class='fa fa-lock' style='color: #9E9E9E; font-size: 13px;'></i></td>" : "<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='0' se_guardo='0' pid='" . $pid . "' pidhijo='" . $pidhijo . "' style='font-size:13px; color:#d9534f; cursor:pointer;' title='Eliminar'></i></td>") . "
-					</tr>		
-				";
+					</tr>";
+
+			if (empty($codpadre) && !empty($combos_info[trim($codigo)])) {
+				$txt_inc = implode(" &bull; ", $combos_info[trim($codigo)]);
+				echo "<tr class='fila_info_combo' pid='" . $pid . "' style='display:none; background-color:#f0f7fb;'>
+						<td colspan='" . ($permitir_descuentos != 'no' ? '6' : '5') . "' style='padding: 6px 12px; font-size: 12px; color: #2c3e50; border-left: 3px solid #0880C5;'>
+							<i class='fa fa-cutlery' style='color:#0880C5; margin-right:5px;'></i><strong>Incluye:</strong> " . $txt_inc . "
+						</td>
+					</tr>";
+			}
+			echo "
+";
 		}
 	}
 

@@ -59,9 +59,9 @@ if (!function_exists('obtener_config_impresoras')) {
         $entorno = $cfg['modo_entorno'] ?? 'desarrollo';
 
         // Valores por defecto según entorno
-        // En desarrollo usamos el simulador virtual 127.0.0.1:9100 o la física 192.168.0.150:9100
+        // En desarrollo usamos la ticketera física en red local 192.168.0.150:9100
         // En producción (restaurante) la ticketera tiene IP 192.168.1.100:9100
-        $ip_defecto = ($entorno === 'produccion') ? '192.168.1.100' : '127.0.0.1';
+        $ip_defecto = ($entorno === 'produccion') ? '192.168.1.100' : '192.168.0.150';
 
         $cocina_ip = $cfg['impresora_cocina_ip'] ?? $ip_defecto;
         $cocina_port = (int)($cfg['impresora_cocina_port'] ?? 9100);
@@ -115,9 +115,8 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
         $out .= strtoupper(trim($tipo)) . "\n";
         $out .= $DOUBLE_OFF . $BOLD_OFF;
 
-        // 2. Metadatos de la orden
+        // 2. Metadatos de la orden (sin línea de ID/Nro de transacción)
         $out .= $ALIGN_LEFT;
-        $out .= "Nro.:     " . str_pad($nro_ticket, 8, '0', STR_PAD_LEFT) . "\n";
         $out .= "Fecha:    " . $fecha . "\n";
         $out .= "Mesa:     " . strtoupper(trim($mesa)) . "\n";
         $out .= "Mesonero: " . strtoupper(trim($vendedor)) . "\n";
@@ -167,18 +166,17 @@ if (!function_exists('enviar_bytes_impresora')) {
             'detalle' => ''
         ];
 
-        // 1. Intento por Socket TCP directo (RAW 9100 con tolerancia y auto-deteccion de IP candidatas)
+        // 1. Intento por Socket TCP directo a la impresora física en red (RAW 9100)
         $ips_candidatas = array_filter(array_unique([
             $ip,
             '192.168.0.150',
             '192.168.1.150',
-            '192.168.1.100',
-            '127.0.0.1'
+            '192.168.1.100'
         ]));
 
         $t0 = microtime(true);
         foreach ($ips_candidatas as $ip_try) {
-            $fp = @fsockopen($ip_try, (int)$port, $errno, $errstr, 0.5);
+            $fp = @fsockopen($ip_try, (int)$port, $errno, $errstr, 0.8);
             if ($fp) {
                 @stream_set_timeout($fp, 3);
                 @fwrite($fp, $raw_data);
