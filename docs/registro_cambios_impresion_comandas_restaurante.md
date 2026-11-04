@@ -88,12 +88,16 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 ### 3.2 Corrección del Error `cocina.dbf no existe`
 * Se extrajo el DataEnvironment dañado y se reconstruyó el bytecode binario FoxPro (`TAG2`) con `InitSet()`, depuración de ítems y sin referencias a tablas externas.
 
-### 3.3 Corrección del Campo Cantidad (Salía en 0)
-* En el archivo binario `cocina.frx` (Registro 9), el campo `cantidad` venía de fábrica configurado con `TOTALTYPE = 2` (Suma acumulada) apuntando a un grupo inexistente.
-* Se reescribió binariamente el registro con `TOTALTYPE = 0` (Ninguno), permitiendo que imprima directamente el valor real del cursor (`1`, `2`, `3`...).
+### 3.3 Corrección del Campo Cantidad (Impresión Garantizada)
+* Se configuró el campo `cantidad` con:
+  * `TOTALTYPE = 0` (Ninguno, imprime directamente el valor real de la comanda).
+  * `SUPALWAYS = T` (Imprimir siempre de forma incondicional).
+  * `SUPEXPR = 0` (Sin expresiones de supresión que oculten la cantidad).
+* Esto garantiza que los números (`1`, `2`, `3`...) se impriman siempre debajo de la columna `Cant.` al igual que en bebidas y barra.
 
-### 3.4 Diseño Ancho de los Artículos
-* Se colocaron `cantidad` y `alltrim(MvNombre)+chr(10)+ alltrim(NOTASMV)` dentro de la **Banda Detalle** (altura 4.000 unidades).
+### 3.4 Reducción del Margen Superior y Diseño Compacto
+* Se redujo el espacio en blanco superior desplazando todos los elementos de la cabecera hacia arriba en 2.300 unidades.
+* La etiqueta `"COCINA "` ahora comienza inmediatamente en la parte superior (`VPos = 304`), reduciendo la altura del encabezado de 18.500 a 16.200 unidades para un ticket más compacto.
 * Se aplicó el ancho expandido `Width = 29.479` para aprovechar el ancho completo del papel de 80 mm y evitar que nombres largos se corten a la mitad.
 
 ---
