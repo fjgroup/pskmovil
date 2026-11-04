@@ -379,3 +379,4 @@ Cuando estés en tu casa en tu computadora habitual:
 2. Si copias estos archivos o haces merge:
    * Todo funcionará en tu casa exactamente igual que en el restaurante.
 3. El archivo `datos_conexion.json` ya no se usa ni en casa ni en el restaurante: todo se lee de la BD satélite `mijar26273_sistema`.
+
