@@ -119,6 +119,39 @@ Se reconstruyó `cocina.frx` y `cocina.FRT` adoptando la arquitectura probada y 
 5. **Integridad Binaria Garantizada:** FRX (9.338 bytes) y FRT (10.176 bytes) con punteros 100% verificados y cero referencias externas a tablas DBF temporales.
 
 ---
+
+### 3.6 Consolidación y Totalización Definitiva (Platos, Bebidas y Combos Múltiples)
+
+**Problema Resuelto:**  
+Anteriormente, al pedir múltiples platos o combos idénticos (ej. 4 Combos Especial Brasa, 2 Combos Duo o varias maltas/refrescos), el sistema generaba registros unitarios separados e imprimía múltiples líneas de cantidad `1`. Si se agrupaba ingenuamente por código, las guarniciones intermedias rompían el grupo o sumaban cantidades erróneas.
+
+**Arquitectura Técnica Implementada:**
+1. **Agrupación Limpia por Código:**  
+   * Encabezado de Grupo (Banda 3): `ALLTRIM(codigo)` con altura `0`.
+   * Detalle (Banda 4): Altura `0`.
+   * Pie de Grupo (Banda 5): Altura `1.771`.
+2. **Variable de Reporte Nativa (`OBJTYPE = 18: cPlatoNombre`):**  
+   * Almacena y preserva el nombre del plato principal evaluando:  
+     `IIF(EMPTY(codhijo), alltrim(MvNombre)+chr(10)+ alltrim(notas), cPlatoNombre)`  
+     con reseteo al quiebre de grupo (`RESETTOTAL = 6`). Esto blinda al combo de ser sobreescrito por el nombre de sus guarniciones.
+3. **Suma Exclusiva de Platos Principales (`TOTALTYPE = 2`):**  
+   * El campo cantidad evalúa: `IIF(EMPTY(codhijo), cantidad, 00000.00)`.  
+   * Las guarniciones suman 0 y los combos suman su cantidad exacta (ej. 1 + 1 + 1 = 3).
+4. **Homologación de Formatos:**  
+   * Se reconstruyó con esta misma arquitectura binaria robusta (`block size: 64`) tanto `cocina.frx/FRT`, `barra.frx/FRT` y `bebidas.frx/FRT`.
+
+**Pruebas Confirmadas en Tiempo Real:**
+* **Ticket 00000256 (BARRA):**  
+  `2 YUKY PAK` consolidado en una sola línea.
+* **Ticket 00000257 (COCINA):**  
+  * `4 COMBO ESPECIAL BRASA`  
+  * `2 COMBO DUO MUSLO BRASA`  
+  * `2 COMBO JARDINERO BRASA`  
+  * `2 COMBO FAMILIAR BROASTER`  
+  * `2 CERVEZA ZULIA`  
+  Consolidados al 100% en líneas únicas con su respectiva cantidad. Cero Error 2005 y cero Error 41.
+
+---
 * **Espacio al final:** El único avance de papel es al final del pedido, controlado por `<1B>d<031D>V<01>` (3 líneas antes de la cuchilla).
 * Se mantuvo el ancho expandido `Width = 29.479` para que nombres largos de platos quepan sin cortarse.
 
