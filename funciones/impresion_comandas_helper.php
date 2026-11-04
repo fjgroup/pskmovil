@@ -53,31 +53,110 @@ if (!function_exists('obtener_conexion_impresion')) {
     }
 }
 
-if (!function_exists('detectar_ip_impresora_windows')) {
+if (!function_exists('detectar_info_impresora_windows')) {
     /**
-     * Consulta el registro de Windows para detectar automáticamente
-     * la IP a la que apunta el puerto de la impresora térmica (ej. 'cocina').
+     * Detecta dinámicamente la impresora térmica instalada en Windows y su IP real de red.
+     * Busca candidatos prioritarios (POS-80C, POS-80, cocina, etc.) y lee la IP real desde
+     * el monitor de puertos Standard TCP/IP (HostName), evitando confusiones con el nombre del puerto.
      */
-    function detectar_ip_impresora_windows($nombre_impresora = 'cocina') {
+    function detectar_info_impresora_windows($nombre_impresora = null) {
         static $cache = [];
-        if (isset($cache[$nombre_impresora])) {
-            return $cache[$nombre_impresora];
+        $clave = (string)$nombre_impresora;
+        if (isset($cache[$clave])) {
+            return $cache[$clave];
         }
 
-        $ip_detectada = null;
+        $info = [
+            'nombre'  => null,
+            'puerto'  => null,
+            'ip'      => null
+        ];
+
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $salida = [];
-            @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $nombre_impresora . '" /v "Port"', $salida);
-            foreach ($salida as $linea) {
-                if (preg_match('/Port\s+REG_SZ\s+(?:IP_)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $linea, $m)) {
-                    $ip_detectada = $m[1];
-                    break;
+            $candidatos = array_unique(array_filter([$nombre_impresora, 'POS-80C', 'POS-80', 'cocina', 'POS80', 'Ticketera', 'Comandas']));
+            $printer_encontrada = null;
+            $puerto = null;
+
+            // 1. Probar nombres prioritarios
+            foreach ($candidatos as $cand) {
+                $salida = [];
+                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $cand . '" /v "Port" 2>nul', $salida);
+                foreach ($salida as $l) {
+                    if (preg_match('/Port\s+REG_SZ\s+(.+)$/i', trim($l), $m)) {
+                        $printer_encontrada = $cand;
+                        $puerto = trim($m[1]);
+                        break 2;
+                    }
+                }
+            }
+
+            // 2. Si no se encontró, escanear impresoras en el Registro que contengan POS, COCINA o TICKET
+            if (!$printer_encontrada) {
+                $salida_all = [];
+                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers" 2>nul', $salida_all);
+                foreach ($salida_all as $l) {
+                    if (preg_match('/Printers\\\\([^\\\\]*(?:POS|COCINA|TICKET|RECEIPT)[^\\\\]*)$/i', trim($l), $m)) {
+                        $cand = trim($m[1]);
+                        $salida_p = [];
+                        @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $cand . '" /v "Port" 2>nul', $salida_p);
+                        foreach ($salida_p as $lp) {
+                            if (preg_match('/Port\s+REG_SZ\s+(.+)$/i', trim($lp), $mp)) {
+                                $printer_encontrada = $cand;
+                                $puerto = trim($mp[1]);
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($printer_encontrada && $puerto) {
+                $info['nombre'] = $printer_encontrada;
+                $info['puerto'] = $puerto;
+
+                // 3. Consultar la IP real en Standard TCP/IP Port\Ports\<puerto>\HostName
+                $salida_host = [];
+                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\' . $puerto . '" /v "HostName" 2>nul', $salida_host);
+                foreach ($salida_host as $lh) {
+                    if (preg_match('/HostName\s+REG_SZ\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $lh, $mh)) {
+                        $info['ip'] = $mh[1];
+                        break;
+                    }
+                }
+
+                // Si no se obtuvo de HostName, intentar con el valor IPAddress
+                if (!$info['ip']) {
+                    $salida_ip = [];
+                    @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\' . $puerto . '" /v "IPAddress" 2>nul', $salida_ip);
+                    foreach ($salida_ip as $lip) {
+                        if (preg_match('/IPAddress\s+REG_SZ\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $lip, $mip)) {
+                            $info['ip'] = $mip[1];
+                            break;
+                        }
+                    }
+                }
+
+                // Si aún no, extraer del nombre del puerto si tiene formato IP
+                if (!$info['ip']) {
+                    if (preg_match('/(?:IP_)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $puerto, $mpu)) {
+                        $info['ip'] = $mpu[1];
+                    }
                 }
             }
         }
 
-        $cache[$nombre_impresora] = $ip_detectada;
-        return $ip_detectada;
+        $cache[$clave] = $info;
+        return $info;
+    }
+}
+
+if (!function_exists('detectar_ip_impresora_windows')) {
+    /**
+     * Mantiene compatibilidad hacia atrás: retorna la IP detectada
+     */
+    function detectar_ip_impresora_windows($nombre_impresora = null) {
+        $info = detectar_info_impresora_windows($nombre_impresora);
+        return $info['ip'] ?? null;
     }
 }
 
@@ -85,13 +164,16 @@ if (!function_exists('validar_conexion_impresora')) {
     /**
      * Valida si la impresora configurada en Windows está encendida y accesible por red.
      */
-    function validar_conexion_impresora($nombre_impresora = 'cocina', $port = 9100) {
-        $ip = detectar_ip_impresora_windows($nombre_impresora);
+    function validar_conexion_impresora($nombre_impresora = null, $port = 9100) {
+        $info = detectar_info_impresora_windows($nombre_impresora);
+        $nombre_real = $info['nombre'] ?: ($nombre_impresora ?: 'Impresora');
+        $ip = $info['ip'];
+
         if (!$ip) {
             return [
                 'success' => false,
                 'ip'      => null,
-                'mensaje' => "No se detectó un puerto IP asignado a la impresora '$nombre_impresora' en Windows."
+                'mensaje' => "No se detectó un puerto IP asignado a la impresora '$nombre_real' en Windows."
             ];
         }
 
@@ -104,8 +186,9 @@ if (!function_exists('validar_conexion_impresora')) {
                 'success' => true,
                 'ip'      => $ip,
                 'port'    => $port,
+                'nombre'  => $nombre_real,
                 'ms'      => $ms,
-                'mensaje' => "Impresora '$nombre_impresora' ($ip:$port) respondiendo y en línea ({$ms} ms)."
+                'mensaje' => "Impresora '$nombre_real' ($ip:$port) respondiendo y en línea ({$ms} ms)."
             ];
         }
 
@@ -113,8 +196,9 @@ if (!function_exists('validar_conexion_impresora')) {
             'success' => false,
             'ip'      => $ip,
             'port'    => $port,
+            'nombre'  => $nombre_real,
             'error'   => $errstr,
-            'mensaje' => "La impresora '$nombre_impresora' apunta a $ip en Windows, pero no responde. Verifique que esté encendida o que su IP coincida."
+            'mensaje' => "La impresora '$nombre_real' apunta a $ip en Windows, pero no responde. Verifique que esté encendida o que su IP coincida."
         ];
     }
 }
@@ -124,11 +208,12 @@ if (!function_exists('obtener_config_impresoras')) {
         $cfg = obtener_config_sistema();
         $entorno = $cfg['modo_entorno'] ?? 'desarrollo';
 
-        $windows_printer = $cfg['impresora_windows'] ?? 'cocina';
-        $ip_windows = detectar_ip_impresora_windows($windows_printer);
+        $info_win = detectar_info_impresora_windows($cfg['impresora_windows'] ?? null);
+        $windows_printer = $cfg['impresora_windows'] ?? ($info_win['nombre'] ?: 'POS-80C');
+        $ip_windows = $info_win['ip'] ?? null;
 
-        // Si Windows tiene una IP asignada a la impresora, esa tiene la máxima prioridad
-        $ip_defecto = $ip_windows ?: (($entorno === 'produccion') ? '192.168.1.100' : '192.168.0.150');
+        // Si Windows o la detección tiene una IP asignada a la impresora, esa tiene la máxima prioridad
+        $ip_defecto = $ip_windows ?: (($entorno === 'produccion') ? '192.168.1.150' : '192.168.0.150');
 
         $cocina_ip = $cfg['impresora_cocina_ip'] ?? $ip_defecto;
         $cocina_port = (int)($cfg['impresora_cocina_port'] ?? 9100);
@@ -146,6 +231,7 @@ if (!function_exists('obtener_config_impresoras')) {
         ];
     }
 }
+
 
 if (!function_exists('formatear_ticket_comanda_espos')) {
     /**

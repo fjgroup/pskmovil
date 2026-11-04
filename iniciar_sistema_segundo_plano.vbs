@@ -45,10 +45,34 @@ End If
 ' 3. Ejecutar verificador silencioso de Base de Datos Satelite
 WshShell.Run """" & phpCmd & """ """ & strCurrentDir & "\funciones\verificador_bd.php""", 0, True
 
-' 4. Iniciar Sincronizador Cloud en segundo plano (Ventana Oculta = 0)
+' 4. Limpiar instancias previas para liberar memoria RAM y evitar duplicados
+Dim colOldProcs, objProc
+On Error Resume Next
+Set colOldProcs = objWMI.ExecQuery("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name = 'php.exe'")
+For Each objProc In colOldProcs
+    If Not IsNull(objProc.CommandLine) Then
+        If InStr(objProc.CommandLine, "sync_daemon.php") > 0 Or InStr(objProc.CommandLine, ":2010") > 0 Then
+            objProc.Terminate()
+        End If
+    End If
+Next
+Set colOldProcs = objWMI.ExecQuery("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name = 'cmd.exe'")
+For Each objProc In colOldProcs
+    If Not IsNull(objProc.CommandLine) Then
+        If InStr(objProc.CommandLine, "iniciar_daemon.bat") > 0 Then
+            objProc.Terminate()
+        End If
+    End If
+Next
+On Error GoTo 0
+
+' 5. Habilitar modo multi-worker (8 procesos en paralelo) para atender multiples meseros sin demoras
+WshShell.Environment("PROCESS")("PHP_CLI_SERVER_WORKERS") = "8"
+
+' 6. Iniciar Sincronizador Cloud en segundo plano (Ventana Oculta = 0)
 WshShell.Run "cmd /c """ & strCurrentDir & "\iniciar_daemon.bat""", 0, False
 
-' 5. Iniciar Servidor Web de Comandas Moviles (Puerto 2010, Ventana Oculta = 0)
+' 7. Iniciar Servidor Web de Comandas Moviles (Puerto 2010, Multi-hilo, Ventana Oculta = 0)
 WshShell.Run """" & phpCmd & """ -S 0.0.0.0:2010 -t """ & strCurrentDir & """", 0, False
 
 ' 6. Detectar dinamicamente la IP activa de la PC en la red local
@@ -84,24 +108,51 @@ End If
 
 If strIP = "" Then strIP = "192.168.1.102"
 
-' 7. Validar IP de la impresora 'cocina' configurada en Windows y verificar conexion (Ping)
-Dim printerPort, printerIP, isPrinterOnline, strPrinterMsg, colPing, objStatus
+' 7. Validar dinamicamente la impresora termica instalada en Windows y verificar conexion (Ping)
+Dim printerPort, printerIP, isPrinterOnline, strPrinterMsg, colPing, objStatus, strFoundPrinter, regHostName
+Dim arrCandidates, cName
 printerPort = ""
 printerIP = ""
+strFoundPrinter = ""
 isPrinterOnline = False
 
-On Error Resume Next
-printerPort = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\cocina\Port")
-On Error GoTo 0
-
-If printerPort <> "" Then
-    If UCase(Left(printerPort, 3)) = "IP_" Then
-        printerIP = Mid(printerPort, 4)
-    Else
-        printerIP = printerPort
+' 1. Intentar candidatos comunes de nombres de impresoras térmicas
+arrCandidates = Array("POS-80C", "POS-80", "cocina", "POS80", "Ticketera", "Comandas")
+For Each cName In arrCandidates
+    On Error Resume Next
+    printerPort = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\" & cName & "\Port")
+    On Error GoTo 0
+    If printerPort <> "" Then
+        strFoundPrinter = cName
+        Exit For
     End If
-    
-    If InStr(printerIP, ".") = 0 Then
+Next
+
+' 2. Si no se encontró por nombre exacto, buscar en Win32_Printer cualquier impresora con POS, Cocina o Ticket
+If strFoundPrinter = "" Then
+    On Error Resume Next
+    Dim colPrinters, objPrinter
+    Set colPrinters = objWMI.ExecQuery("SELECT Name, PortName FROM Win32_Printer")
+    For Each objPrinter In colPrinters
+        If InStr(UCase(objPrinter.Name), "POS") > 0 Or InStr(UCase(objPrinter.Name), "COCINA") > 0 Or InStr(UCase(objPrinter.Name), "TICKET") > 0 Then
+            strFoundPrinter = objPrinter.Name
+            printerPort = objPrinter.PortName
+            Exit For
+        End If
+    Next
+    On Error GoTo 0
+End If
+
+' 3. Determinar la IP real a partir del puerto consultando Standard TCP/IP Port
+If printerPort <> "" Then
+    On Error Resume Next
+    regHostName = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Monitors\Standard TCP/IP Port\Ports\" & printerPort & "\HostName")
+    If regHostName <> "" Then
+        printerIP = regHostName
+    End If
+    On Error GoTo 0
+
+    If printerIP = "" Then
         On Error Resume Next
         Dim colPorts, objPort
         Set colPorts = objWMI.ExecQuery("SELECT HostAddress FROM Win32_TCPIPPrinterPort WHERE Name = '" & printerPort & "'")
@@ -113,7 +164,18 @@ If printerPort <> "" Then
         Next
         On Error GoTo 0
     End If
+
+    If printerIP = "" Then
+        If UCase(Left(printerPort, 3)) = "IP_" Then
+            printerIP = Mid(printerPort, 4)
+        ElseIf InStr(printerPort, ".") > 0 Then
+            printerIP = printerPort
+        End If
+    End If
 End If
+
+If printerIP = "" Then printerIP = "192.168.1.150"
+If strFoundPrinter = "" Then strFoundPrinter = "POS-80"
 
 If printerIP <> "" And InStr(printerIP, ".") > 0 Then
     Set colPing = objWMI.ExecQuery("SELECT StatusCode FROM Win32_PingStatus WHERE Address = '" & printerIP & "' AND Timeout = 1200")
@@ -125,15 +187,15 @@ If printerIP <> "" And InStr(printerIP, ".") > 0 Then
     Next
     
     If isPrinterOnline Then
-        strPrinterMsg = "  [OK] Impresora 'cocina' en Windows (" & printerIP & "): ENCENDIDA Y RESPONDE"
+        strPrinterMsg = "  [OK] Impresora '" & strFoundPrinter & "' (" & printerIP & "): ENCENDIDA Y RESPONDE"
     Else
-        strPrinterMsg = "  [ALERTA] Impresora 'cocina' en Windows (" & printerIP & "): NO RESPONDE AL PING" & vbCrLf & _
+        strPrinterMsg = "  [ALERTA] Impresora '" & strFoundPrinter & "' (" & printerIP & "): NO RESPONDE AL PING" & vbCrLf & _
                         "           -> Verifique que la impresora este encendida o que su IP coincida."
     End If
 ElseIf printerPort <> "" Then
-    strPrinterMsg = "  [INFO] Impresora 'cocina' en Windows asignada al puerto: " & printerPort
+    strPrinterMsg = "  [INFO] Impresora '" & strFoundPrinter & "' asignada al puerto: " & printerPort
 Else
-    strPrinterMsg = "  [AVISO] No se encontro la impresora 'cocina' instalada en Windows."
+    strPrinterMsg = "  [AVISO] No se encontro impresora termica instalada en Windows."
 End If
 
 ' 8. Ventana emergente informativa para guiar a mesoneros y cajeros

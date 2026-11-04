@@ -9,45 +9,99 @@
  *  - PRODUCCIÓN (Restaurante): Puerto 3306, Usuario root, Contraseña 1234
  */
 
+if (!function_exists("detectar_puerto_mysql_activo")) {
+    /**
+     * Detecta en menos de 1 milisegundo qué puerto MySQL está escuchando activamente
+     * en esta computadora (3306 para Producción/Restaurante o 3307 para Desarrollo/Casa).
+     */
+    function detectar_puerto_mysql_activo()
+    {
+        static $puerto = null;
+        if ($puerto !== null) return $puerto;
+
+        // Probar primero 3306 (Restaurante / Producción)
+        $fp = @fsockopen('127.0.0.1', 3306, $errno, $errstr, 0.04);
+        if ($fp) {
+            fclose($fp);
+            $puerto = 3306;
+            return 3306;
+        }
+
+        // Si no responde, probar 3307 (Casa / Desarrollo)
+        $fp2 = @fsockopen('127.0.0.1', 3307, $errno, $errstr, 0.04);
+        if ($fp2) {
+            fclose($fp2);
+            $puerto = 3307;
+            return 3307;
+        }
+
+        $puerto = 3306;
+        return 3306;
+    }
+}
+
 if (!function_exists("credenciales_mysql_candidatas")) {
     function credenciales_mysql_candidatas()
     {
-        return [
-            // 1. Prioridad: DESARROLLO (PC Casa: MySQL 5.5 de Premium Soft)
-            [
-                'port' => 3307,
-                'user' => 'root',
-                'pw'   => 'root',
-                'entorno' => 'desarrollo'
-            ],
-            // 2. PRODUCCIÓN (PC Restaurante: MySQL 5.5/8 con clave del restaurante)
-            [
-                'port' => 3306,
-                'user' => 'root',
-                'pw'   => '1234',
-                'entorno' => 'produccion'
-            ],
-            // 3. Fallbacks de tolerancia a fallos
-            [
-                'port' => 3306,
-                'user' => 'root',
-                'pw'   => 'root',
-                'entorno' => 'produccion'
-            ],
-            [
-                'port' => 3307,
-                'user' => 'root',
-                'pw'   => '1234',
-                'entorno' => 'desarrollo'
-            ]
-        ];
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        $p_activo = detectar_puerto_mysql_activo();
+
+        if ($p_activo === 3306) {
+            // PRODUCCIÓN (Restaurante): Puerto 3306 en máxima prioridad instantánea
+            $cached = [
+                [
+                    'port' => 3306,
+                    'user' => 'root',
+                    'pw'   => '1234',
+                    'entorno' => 'produccion'
+                ],
+                [
+                    'port' => 3306,
+                    'user' => 'root',
+                    'pw'   => 'root',
+                    'entorno' => 'produccion'
+                ],
+                [
+                    'port' => 3307,
+                    'user' => 'root',
+                    'pw'   => 'root',
+                    'entorno' => 'desarrollo'
+                ]
+            ];
+        } else {
+            // DESARROLLO (Casa): Puerto 3307 en máxima prioridad instantánea
+            $cached = [
+                [
+                    'port' => 3307,
+                    'user' => 'root',
+                    'pw'   => 'root',
+                    'entorno' => 'desarrollo'
+                ],
+                [
+                    'port' => 3307,
+                    'user' => 'root',
+                    'pw'   => '1234',
+                    'entorno' => 'desarrollo'
+                ],
+                [
+                    'port' => 3306,
+                    'user' => 'root',
+                    'pw'   => '1234',
+                    'entorno' => 'produccion'
+                ]
+            ];
+        }
+
+        return $cached;
     }
 }
 
 if (!function_exists("puertos_mysql_candidatos")) {
     function puertos_mysql_candidatos()
     {
-        return [3307 => "desarrollo", 3306 => "produccion"];
+        return [3306 => "produccion", 3307 => "desarrollo"];
     }
 }
 
