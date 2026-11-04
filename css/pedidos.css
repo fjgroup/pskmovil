@@ -580,11 +580,32 @@ footer a:hover {
 	box-sizing: border-box;
 }
 
+.detalles_cuenta {
+	position: -webkit-sticky;
+	position: sticky;
+	top: 0;
+	z-index: 1000;
+	background-color: #fff;
+	padding-top: 6px;
+	padding-bottom: 6px;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
 #productos_agregados {
 	margin-top: 5px;
-	height: 200px;
-	overflow-y: scroll;
+	min-height: 260px;
+	max-height: 380px;
+	height: 330px;
+	overflow-y: auto;
 	border: 1px solid #CCC;
+	border-radius: 4px;
+	background: #fff;
+}
+
+#productos_agregados table tbody td {
+	padding: 5px 6px;
+	vertical-align: middle;
+	font-size: 13px;
 }
 
 #en_transito {
@@ -601,10 +622,13 @@ footer a:hover {
 }
 
 #productos_agregados .fa-edit,
+#productos_agregados .fa-pencil,
 #productos_agregados .fa-times,
-#productos_agregados .fa-percent {
+#productos_agregados .fa-percent,
+#productos_agregados .fa-lock {
 	cursor: pointer;
-	font-size: 30px;
+	font-size: 13px;
+	padding: 2px;
 }
 
 #productos_agregados .fa-edit:hover,

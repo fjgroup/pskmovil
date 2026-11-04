@@ -13,19 +13,19 @@ $bd_conexion_cliente = "cliente";
 $permitir_descuentos = isset($datos_conexion['permitir_descuentos']) ? $datos_conexion['permitir_descuentos'] : 'si';
 
 echo "		
-		<table class='table table-striped'>
+		<table class='table table-striped' style='margin-bottom: 0;'>
 			<thead>
 				<tr>
-					<th>Notas</th>";
+					<th style='width: 32px; text-align: center;'>Nota</th>";
 if ($permitir_descuentos != 'no') {
-	echo "<th>Dscto</th>";
+	echo "<th style='width: 32px; text-align: center;'>%</th>";
 }
 echo "
 
-					<th class='text-center'>Cant.</th>
-					<th>Producto</th>
-					<th>Total</th>
-					<th class='text-center'>Eliminar</th>
+					<th class='text-center' style='width: 45px;'>Cant.</th>
+					<th>Descripción</th>
+					<th style='width: 80px; text-align: right;'>Total</th>
+					<th class='text-center' style='width: 32px;'></th>
 				</tr>
 			</thead>
 			<tbody>	
@@ -34,7 +34,8 @@ echo "
 
 if (isset($_POST['productos_array'])) {
 	$array_productos = array();
-	if (!empty($_GET['resumir_lineas'])) {
+	$debe_resumir = !isset($_GET['resumir_lineas']) || !empty($_GET['resumir_lineas']);
+	if ($debe_resumir) {
 		$array_productos = array();
 		foreach ($_POST['productos_array'] as $producto) {
 
@@ -108,6 +109,14 @@ if (isset($_POST['productos_array'])) {
 	$subtotal = 0;
 	$monto_recargo = 0;
 	$total_descuento = 0;
+	$pids_con_componentes = [];
+	foreach ($array_productos as $chk_val) {
+		$d_chk = explode('|', $chk_val['datos']);
+		if (!empty($d_chk[14])) {
+			$pids_con_componentes[trim($d_chk[13])] = true;
+		}
+	}
+	
 	//print_r($array_productos);
 	foreach ($array_productos as $value) {
 
@@ -223,22 +232,31 @@ if (isset($_POST['productos_array'])) {
 			}
 
 			if (!empty($codpadre)) {
-				echo "<tr class='es_componente' pid='" . $pid . "' pidhijo='" . $pidhijo . "'>";
+				echo "<tr class='es_componente' pid='" . $pid . "' pidhijo='" . $pidhijo . "' style='display:none; background-color:#fafafa;'>";
 			} else {
 				echo "<tr pid='" . $pid . "' pidhijo='" . $pidhijo . "'>";
 			}
 
 			echo "							
-						<td><i class='fa fa-edit'></i></td>";
+						<td class='text-center'><i class='fa fa-pencil fa-edit' style='font-size:13px; color:#555; cursor:pointer;' title='Editar notas'></i></td>";
 			if ($permitir_descuentos != 'no') {
-				echo "<td><i class='fa fa-percent'></i></td>";
+				echo "<td class='text-center'><i class='fa fa-percent' style='font-size:12px; color:#777; cursor:pointer;' title='Descuento'></i></td>";
 			}
 			echo "
 
-						<td class='text-center' style='font-weight: bold; font-size: 14px;'>" . (float)$cantidad . "</td>
-						<td>" . $nombre . "</td>
-						<td>" . number_format($precioneto, 2, ',', '.') . "</td>
-						" . (($se_comando == 1 || $se_guardo == 1) ? "<td class='text-center' title='Producto guardado/comandado. Para anularlo debe solicitarlo en Caja.'><i class='fa fa-lock' style='color: #9E9E9E; font-size: 14px;'></i></td>" : "<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='0' se_guardo='0' pid='" . $pid . "' pidhijo='" . $pidhijo . "' title='Eliminar de la comanda actual'></i></td>") . "
+						<td class='text-center' style='font-weight: bold; font-size: 13px;'>" . (float)$cantidad . "</td>
+						<td>";
+			if (!empty($codpadre)) {
+				echo "<span style='color: #666; font-size: 12px; padding-left: 6px;'>↳ " . $nombre . "</span>";
+			} else {
+				echo "<span>" . $nombre . "</span>";
+				if (!empty($pids_con_componentes[$pid])) {
+					echo " <button type='button' class='btn btn-xs' onclick='toggle_combo_info(\"" . $pid . "\", this)' style='padding: 1px 6px; font-size: 11px; margin-left: 4px; border-radius: 8px; background-color: #0880C5; color: #fff; border: none; cursor:pointer;'><i class='fa fa-info-circle'></i> Incluye</button>";
+				}
+			}
+			echo "</td>
+						<td style='font-size: 13px; text-align: right; font-weight: 600;'>" . (empty($codpadre) ? number_format($precioneto, 2, ',', '.') : '') . "</td>
+						" . (($se_comando == 1 || $se_guardo == 1) ? "<td class='text-center' title='Producto guardado/comandado. Para anularlo debe solicitarlo en Caja.'><i class='fa fa-lock' style='color: #9E9E9E; font-size: 13px;'></i></td>" : "<td class='text-center'><i class='fa fa-times clase-eliminar-producto' se_comando='0' se_guardo='0' pid='" . $pid . "' pidhijo='" . $pidhijo . "' style='font-size:13px; color:#d9534f; cursor:pointer;' title='Eliminar'></i></td>") . "
 					</tr>		
 				";
 		}
@@ -250,6 +268,20 @@ if (isset($_POST['productos_array'])) {
 	";
 
 	$script = "<script>";
+	$script .= "
+		if (typeof window.toggle_combo_info === 'undefined') {
+			window.toggle_combo_info = function(pid, btn) {
+				var comp = $('#productos_agregados tr.es_componente[pid=\"' + pid + '\"]');
+				comp.toggle();
+				if (comp.is(':visible')) {
+					$(btn).css('background-color', '#28a745').html('<i class=\"fa fa-chevron-up\"></i> Ocultar');
+				} else {
+					$(btn).css('background-color', '#0880C5').html('<i class=\"fa fa-info-circle\"></i> Incluye');
+				}
+			};
+		}
+	";
+	
 
 	$mesa_activa_id = !empty($_POST['mesa']) ? trim($_POST['mesa']) : '';
 	if (!empty($mesa_activa_id)) {
@@ -288,6 +320,8 @@ if (isset($_POST['productos_array'])) {
             $('#precio_total_precuenta').val(" . $monto_total . ");
             $('#total_moneda_extranjera_precuenta').val(" . $monto_total_ext . ");
             $('.precio_total_ref').val('REF.:" . number_format($monto_total_ext, 2, ',', '.') . "');
+            $('.precio_total_texto').text(" . json_encode(number_format($monto_total, 2, ',', '.') . ' Bs') . ");
+            $('.precio_total_ref_texto').text('REF ' + " . json_encode(number_format($monto_total_ext, 2, ',', '.')) . ");
             ";
 
     $script .= "</script>";

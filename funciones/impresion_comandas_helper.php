@@ -167,19 +167,29 @@ if (!function_exists('enviar_bytes_impresora')) {
             'detalle' => ''
         ];
 
-        // 1. Intento por Socket TCP directo (RAW 9100)
+        // 1. Intento por Socket TCP directo (RAW 9100 con tolerancia y auto-deteccion de IP candidatas)
+        $ips_candidatas = array_filter(array_unique([
+            $ip,
+            '192.168.0.150',
+            '192.168.1.150',
+            '192.168.1.100',
+            '127.0.0.1'
+        ]));
+
         $t0 = microtime(true);
-        $fp = @fsockopen($ip, (int)$port, $errno, $errstr, 2.0);
-        if ($fp) {
-            @stream_set_timeout($fp, 3);
-            @fwrite($fp, $raw_data);
-            @fflush($fp);
-            @fclose($fp);
-            $duracion = round((microtime(true) - $t0) * 1000, 1);
-            $resultado['success'] = true;
-            $resultado['metodo'] = "socket_tcp ($ip:$port, {$duracion}ms)";
-            $resultado['detalle'] = "Enviado con éxito directamente por socket TCP";
-            return $resultado;
+        foreach ($ips_candidatas as $ip_try) {
+            $fp = @fsockopen($ip_try, (int)$port, $errno, $errstr, 0.5);
+            if ($fp) {
+                @stream_set_timeout($fp, 3);
+                @fwrite($fp, $raw_data);
+                @fflush($fp);
+                @fclose($fp);
+                $duracion = round((microtime(true) - $t0) * 1000, 1);
+                $resultado['success'] = true;
+                $resultado['metodo'] = "socket_tcp ($ip_try:$port, {$duracion}ms)";
+                $resultado['detalle'] = "Enviado con éxito directamente por socket TCP";
+                return $resultado;
+            }
         }
 
         // 2. Fallback a cola de Windows si el socket directo no respondió

@@ -535,6 +535,27 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 		</div>
 	</form>
 
+	<!-- BARRA FLOTANTE STICKY DE TOTAL (PARA MOVIL AL HACER SCROLL) -->
+	<div id="barra_total_flotante" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #232b38; color: #FFF; padding: 6px 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border-bottom: 2px solid #0880C5;">
+		<div style="display: flex; align-items: center; justify-content: space-between; max-width: 900px; margin: 0 auto; gap: 8px;">
+			<div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+				<div style="line-height: 1.1;">
+					<span style="font-size: 10px; color: #a0aec0; text-transform: uppercase; font-weight: bold; display: block;">Total Cuenta</span>
+					<span style="font-size: 16px; font-weight: 800; color: #2ecc71;" class="precio_total_texto">0,00 Bs</span>
+				</div>
+				<div style="background: #11141a; padding: 2px 8px; border-radius: 4px; border: 1px solid #3a4556; line-height: 1.1;">
+					<span style="font-size: 9px; color: #ffb703; font-weight: bold; display: block;">REFERENCIA</span>
+					<span style="font-size: 13px; font-weight: 700; color: #FFF;" class="precio_total_ref_texto">REF 0,00</span>
+				</div>
+			</div>
+			<div style="display: flex; gap: 4px;">
+				<button type="button" class="btn btn-sm" onclick="ver_div_izquierda()" style="background-color: #0880C5; color: #FFF; border: none; padding: 5px 12px; font-size: 12px; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+					<i class="fa fa-shopping-cart"></i> Ver Pedido
+				</button>
+			</div>
+		</div>
+	</div>
+
 	<div id="contenedor">
 		<div id="div_izquierda">
 			<div id="logo" class="logo-hero">
@@ -586,11 +607,10 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 
 					<input type="text" class="form-control" id="input_cliente" placeholder="Cliente"
 						value="Cliente contado" onchange="cliente_contado()" onclick="$(this).val('');" />
-					<input type="text" class="form-control" id="nrorif" placeholder="Nro Identificación"
-						value="" />
-
-					<input type="text" class="form-control" id="input_mesa" placeholder="Mesa"
-						onchange="consultar_mesa()" />
+					<div style="display: flex; gap: 4px; margin-bottom: 3px;">
+						<input type="text" class="form-control" style="flex: 1; margin-bottom: 0;" id="nrorif" placeholder="Cédula / RIF" value="" />
+						<input type="text" class="form-control" style="flex: 1; margin-bottom: 0;" id="input_mesa" placeholder="Mesa / Tasca" onchange="consultar_mesa()" />
+					</div>
 					<div style="text-align:center">
 						<div class="btn btn-success" onclick="procesar_pedido('1')"><i
 								class="fa fa-check"></i>&nbsp;Procesar</div>
@@ -602,12 +622,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 								class="fa fa-trash"></i>&nbsp;Cancelar</div>
 					</div>
 					<div id="productos_agregados"></div>
-					<div style="margin-top:5px;margin-bottom:40px;">
-						<label>
-							<input type='checkbox' id='resumir_lineas' onclick="ResumirLineas()" checked /> Agrupar cantidades por productos
-
-						</label>
-					</div>
+					<input type="checkbox" id="resumir_lineas" checked style="display: none;" />
 				</div>
 				<div id="en_transito"></div>
 			</div>
@@ -714,6 +729,34 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 			</a>
 		</div>
 	</footer>
+<script>
+	(function($) {
+		var origVal = $.fn.val;
+		$.fn.val = function(value) {
+			var res = origVal.apply(this, arguments);
+			if (value !== undefined) {
+				if (this.hasClass('precio_total') || this.attr('id') === 'precio_total') {
+					$('.precio_total_texto').text(value + ' Bs');
+				}
+				if (this.hasClass('precio_total_ref') || this.attr('id') === 'precio_total_ref') {
+					$('.precio_total_ref_texto').text(value);
+				}
+			}
+			return res;
+		};
+		$(window).on('scroll', function() {
+			var $detalles = $('.detalles_cuenta');
+			if ($detalles.length && $detalles.is(':visible')) {
+				var offsetBottom = $detalles.offset().top + $detalles.outerHeight();
+				if ($(window).scrollTop() > offsetBottom) {
+					$('#barra_total_flotante').fadeIn(150);
+				} else {
+					$('#barra_total_flotante').fadeOut(150);
+				}
+			}
+		});
+	})(jQuery);
+</script>
 </body>
 
 </html>
