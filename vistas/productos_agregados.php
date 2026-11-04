@@ -194,6 +194,11 @@ if (isset($_POST['productos_array'])) {
 			$codgrupo = $datos[1];
 			$codsubgrupo = $datos[2];
 			$nombre = $datos[3];
+			$nombre = str_replace(
+				['\u00d3', '\u00f3', '\u00e1', '\u00e9', '\u00ed', '\u00fa', '\u00f1', '\u00c1', '\u00c9', '\u00cd', '\u00da', '\u00d1'],
+				['Ó', 'ó', 'á', 'é', 'í', 'ú', 'ñ', 'Á', 'É', 'Í', 'Ú', 'Ñ'],
+				$nombre
+			);
 
 			$precio_unit = empty($codpadre) ? round($datos[4], 2) : 0;
 			if ($prc_descuento > 0) {
@@ -255,10 +260,11 @@ if (isset($_POST['productos_array'])) {
 				}
 			}
 
+			$pid_padre_asoc = (!empty($codpadre) && !empty($datos[7])) ? trim($datos[7]) : $pid;
 			if (!empty($codpadre)) {
-				echo "<tr class='es_componente' pid='" . $pid . "' pidhijo='" . $pidhijo . "' style='display:none; background-color:#fafafa;'>";
+				echo "<tr class='es_componente' pid='" . $pid_padre_asoc . "' pid_propio='" . $pid . "' codpadre='" . trim($codpadre) . "' pidhijo='" . $pidhijo . "' style='display:none; background-color:#fafafa;'>";
 			} else {
-				echo "<tr pid='" . $pid . "' pidhijo='" . $pidhijo . "'>";
+				echo "<tr class='es_padre' pid='" . $pid . "' codart='" . trim($codigo) . "' pidhijo='" . $pidhijo . "'>";
 			}
 
 			echo "							
@@ -304,17 +310,23 @@ if (isset($_POST['productos_array'])) {
 
 	$script = "<script>";
 	$script .= "
-		if (typeof window.toggle_combo_info === 'undefined') {
-			window.toggle_combo_info = function(pid, btn) {
-				var comp = $('#productos_agregados tr.es_componente[pid=\"' + pid + '\"]');
-				comp.toggle();
-				if (comp.is(':visible')) {
-					$(btn).css('background-color', '#28a745').html('<i class=\"fa fa-chevron-up\"></i> Ocultar');
-				} else {
-					$(btn).css('background-color', '#0880C5').html('<i class=\"fa fa-info-circle\"></i> Incluye');
-				}
-			};
-		}
+		window.toggle_combo_info = function(pid, btn) {
+			var row = $(btn).closest('tr');
+			var codart = row.attr('codart') || '';
+			var comp = $('#productos_agregados tr.es_componente[pid=\"' + pid + '\"]');
+			if (!comp.length && codart) {
+				comp = $('#productos_agregados tr.es_componente[codpadre=\"' + codart + '\"]');
+			}
+			var info = $('#productos_agregados tr.fila_info_combo[pid=\"' + pid + '\"]');
+			if (comp.length) { comp.toggle(); }
+			if (info.length) { info.toggle(); }
+			var vis = (comp.length && comp.is(':visible')) || (info.length && info.is(':visible'));
+			if (vis) {
+				$(btn).css('background-color', '#28a745').html('<i class=\"fa fa-chevron-up\"></i> Ocultar');
+			} else {
+				$(btn).css('background-color', '#0880C5').html('<i class=\"fa fa-info-circle\"></i> Incluye');
+			}
+		};
 	";
 	
 

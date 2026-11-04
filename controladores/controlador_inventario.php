@@ -643,7 +643,7 @@ if ($_GET['accion'] == "obtener_integrados") {
 				$articomp['impuesto1'] . "||" . $se_guardo;
 
 			echo "
-				<tr datos_art_comp='" . json_encode($datos) . "'>
+				<tr datos_art_comp='" . json_encode($datos, JSON_UNESCAPED_UNICODE) . "'>
 					<td class='text-center'><button class='btn btn-danger btn-xs btn_delete_art_comp'><i class='fa fa-trash'></i></button></td>
 					<td>" . $articomp['codigo'] . "</td>
 					<td>" . $articomp['nombre'] . "</td>
