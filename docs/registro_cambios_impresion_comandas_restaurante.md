@@ -203,11 +203,12 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
   Mesa existente a la que se le agregaron platos nuevos que aún no se han enviado a comanda.
 * **Mapa de Mesas (`mostrar_mesas`):** Las mesas ocupadas con comanda enviada muestran el icono de cubiertos `fa-cutlery`.
 
-### 5.4 Limpieza de Pantalla en Caja y Detección Automática de IP para Mesoneros
+### 5.4 Limpieza de Pantalla en Caja, Detección de IP y Validación de Impresora
 * Se creó el iniciador silencioso [`iniciar_sistema_segundo_plano.vbs`](file:///e:/herd/comandasmoviles/iniciar_sistema_segundo_plano.vbs). Al hacer doble clic:
   1. Detecta automáticamente mediante WMI la **dirección IPv4 activa** de la PC en la red local (`192.168.1.102` en el restaurante con gateway `192.168.1.1`).
-  2. Inicia el servidor web local en el puerto **2010** y el sincronizador Cloud en segundo plano sin mostrar ninguna ventana de consola negra (`style 0`).
-  3. Muestra una ventana emergente informativa para guiar al cajero y mesoneros:
+  2. Lee dinámicamente del Registro de Windows a qué IP apunta la impresora `cocina` y ejecuta un **Ping de comprobación** para verificar si la impresora física está encendida y en línea.
+  3. Inicia el servidor web local en el puerto **2010** y el sincronizador Cloud en segundo plano sin mostrar ninguna consola negra (`style 0`).
+  4. Muestra una ventana emergente informativa para guiar al cajero y mesoneros:
      ```text
      =========================================
         MI JARDIN - COMANDAS MOVILES ACTIVAS   
@@ -215,17 +216,21 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
      DIRECCION PARA LOS MESONEROS (CELULARES Y TABLETS):
        >>>   http://192.168.1.102:2010   <<<
      -----------------------------------------
-       * IP detectada de esta PC: 192.168.1.102
+       * IP de esta PC (Servidor): 192.168.1.102
        * Puerto Web: 2010
-       * Impresora Termica: 192.168.1.100 (Puerto 9100)
+     -----------------------------------------
+     Validacion de Impresora Fisica:
+       [OK] Impresora 'cocina' en Windows (192.168.1.100): ENCENDIDA Y RESPONDE
      -----------------------------------------
      Estado del Sistema:
        [OK] Servidor Web Comandas: ACTIVO
        [OK] Sincronizador Nube Cloud: ACTIVO
-       [OK] Pantalla de caja: 100% LIMPIA (Sin ventanas negras)
+       [OK] Pantalla de caja: 100% LIMPIA (Sin consolas negras)
      Al presionar [Aceptar], ambos servicios continuaran corriendo
      en segundo plano sin ocupar espacio en la pantalla de caja.
      ```
+     *(Si la impresora estuviera apagada o con una IP distinta, la ventana alertará inmediatamente: `[ALERTA] Impresora 'cocina' no responde al ping. Verifique que esté encendida`).*
+* **Detección Automática de Impresora en PHP:** En [`funciones/impresion_comandas_helper.php`](file:///e:/herd/comandasmoviles/funciones/impresion_comandas_helper.php), la función `detectar_ip_impresora_windows()` consulta el Registro de Windows (`HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\cocina\Port`) para enviar las comandas directamente a la IP que el usuario haya configurado en Windows sin necesidad de modificar archivos de código.
 * **Sustitución de `iniciar_sistema.bat`:** El archivo `.bat` fue redirigido internamente para ejecutar de forma silenciosa el iniciador `.vbs`. Así, si alguien hace doble clic por costumbre en el archivo `.bat` o en un acceso directo anterior del escritorio, jamás quedará una ventana negra abierta en la pantalla de caja.
 * Se creó [`detener_sistema.bat`](file:///e:/herd/comandasmoviles/detener_sistema.bat) para detener los procesos de forma limpia cuando sea requerido.
 * `cmonitor.exe` **ya no necesita ejecutarse**, liberando memoria y espacio en pantalla.

@@ -5,9 +5,10 @@
 
 Option Explicit
 
-Dim WshShell, fso, strCurrentDir
+Dim WshShell, fso, strCurrentDir, objWMI
 Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
+Set objWMI = GetObject("winmgmts:\\.\root\cimv2")
 
 ' Directorio base del proyecto
 strCurrentDir = fso.GetParentFolderName(WScript.ScriptFullName)
@@ -51,8 +52,7 @@ WshShell.Run "cmd /c """ & strCurrentDir & "\iniciar_daemon.bat""", 0, False
 WshShell.Run """" & phpCmd & """ -S 0.0.0.0:2010 -t """ & strCurrentDir & """", 0, False
 
 ' 6. Detectar dinamicamente la IP activa de la PC en la red local
-Dim objWMI, colAdapters, objAdapter, strIP, ip
-Set objWMI = GetObject("winmgmts:\\.\root\cimv2")
+Dim colAdapters, objAdapter, strIP, ip
 Set colAdapters = objWMI.ExecQuery("SELECT IPAddress, DefaultIPGateway FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = True")
 
 strIP = ""
@@ -84,7 +84,59 @@ End If
 
 If strIP = "" Then strIP = "192.168.1.102"
 
-' 7. Ventana emergente con la IP exacta para guiar a mesoneros y cajeros
+' 7. Validar IP de la impresora 'cocina' configurada en Windows y verificar conexion (Ping)
+Dim printerPort, printerIP, isPrinterOnline, strPrinterMsg, colPing, objStatus
+printerPort = ""
+printerIP = ""
+isPrinterOnline = False
+
+On Error Resume Next
+printerPort = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\cocina\Port")
+On Error GoTo 0
+
+If printerPort <> "" Then
+    If UCase(Left(printerPort, 3)) = "IP_" Then
+        printerIP = Mid(printerPort, 4)
+    Else
+        printerIP = printerPort
+    End If
+    
+    If InStr(printerIP, ".") = 0 Then
+        On Error Resume Next
+        Dim colPorts, objPort
+        Set colPorts = objWMI.ExecQuery("SELECT HostAddress FROM Win32_TCPIPPrinterPort WHERE Name = '" & printerPort & "'")
+        For Each objPort In colPorts
+            If Not IsNull(objPort.HostAddress) And objPort.HostAddress <> "" Then
+                printerIP = objPort.HostAddress
+                Exit For
+            End If
+        Next
+        On Error GoTo 0
+    End If
+End If
+
+If printerIP <> "" And InStr(printerIP, ".") > 0 Then
+    Set colPing = objWMI.ExecQuery("SELECT StatusCode FROM Win32_PingStatus WHERE Address = '" & printerIP & "' AND Timeout = 1200")
+    For Each objStatus In colPing
+        If Not IsNull(objStatus.StatusCode) And objStatus.StatusCode = 0 Then
+            isPrinterOnline = True
+            Exit For
+        End If
+    Next
+    
+    If isPrinterOnline Then
+        strPrinterMsg = "  [OK] Impresora 'cocina' en Windows (" & printerIP & "): ENCENDIDA Y RESPONDE"
+    Else
+        strPrinterMsg = "  [ALERTA] Impresora 'cocina' en Windows (" & printerIP & "): NO RESPONDE AL PING" & vbCrLf & _
+                        "           -> Verifique que la impresora este encendida o que su IP coincida."
+    End If
+ElseIf printerPort <> "" Then
+    strPrinterMsg = "  [INFO] Impresora 'cocina' en Windows asignada al puerto: " & printerPort
+Else
+    strPrinterMsg = "  [AVISO] No se encontro la impresora 'cocina' instalada en Windows."
+End If
+
+' 8. Ventana emergente informativa para guiar a mesoneros y cajeros
 Dim strMsg
 strMsg = "=========================================" & vbCrLf & _
          "   MI JARDIN - COMANDAS MOVILES ACTIVAS   " & vbCrLf & _
@@ -92,14 +144,15 @@ strMsg = "=========================================" & vbCrLf & _
          "DIRECCION PARA LOS MESONEROS (CELULARES Y TABLETS):" & vbCrLf & vbCrLf & _
          "  >>>   http://" & strIP & ":2010   <<<" & vbCrLf & vbCrLf & _
          "-----------------------------------------" & vbCrLf & _
-         "  * IP detectada de esta PC: " & strIP & vbCrLf & _
+         "  * IP de esta PC (Servidor): " & strIP & vbCrLf & _
          "  * Puerto Web: 2010" & vbCrLf & _
-         "  * Impresora Termica: 192.168.1.100 (Puerto 9100)" & vbCrLf & _
          "-----------------------------------------" & vbCrLf & vbCrLf & _
+         "Validacion de Impresora Fisica:" & vbCrLf & _
+         strPrinterMsg & vbCrLf & vbCrLf & _
          "Estado del Sistema:" & vbCrLf & _
          "  [OK] Servidor Web Comandas: ACTIVO" & vbCrLf & _
          "  [OK] Sincronizador Nube Cloud: ACTIVO" & vbCrLf & _
-         "  [OK] Pantalla de caja: 100% LIMPIA (Sin ventanas negras)" & vbCrLf & vbCrLf & _
+         "  [OK] Pantalla de caja: 100% LIMPIA (Sin consolas negras)" & vbCrLf & vbCrLf & _
          "Al presionar [Aceptar], ambos servicios continuaran corriendo" & vbCrLf & _
          "en segundo plano sin ocupar espacio en la pantalla de caja."
 

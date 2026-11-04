@@ -53,23 +53,88 @@ if (!function_exists('obtener_conexion_impresion')) {
     }
 }
 
+if (!function_exists('detectar_ip_impresora_windows')) {
+    /**
+     * Consulta el registro de Windows para detectar automáticamente
+     * la IP a la que apunta el puerto de la impresora térmica (ej. 'cocina').
+     */
+    function detectar_ip_impresora_windows($nombre_impresora = 'cocina') {
+        static $cache = [];
+        if (isset($cache[$nombre_impresora])) {
+            return $cache[$nombre_impresora];
+        }
+
+        $ip_detectada = null;
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $salida = [];
+            @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $nombre_impresora . '" /v "Port"', $salida);
+            foreach ($salida as $linea) {
+                if (preg_match('/Port\s+REG_SZ\s+(?:IP_)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $linea, $m)) {
+                    $ip_detectada = $m[1];
+                    break;
+                }
+            }
+        }
+
+        $cache[$nombre_impresora] = $ip_detectada;
+        return $ip_detectada;
+    }
+}
+
+if (!function_exists('validar_conexion_impresora')) {
+    /**
+     * Valida si la impresora configurada en Windows está encendida y accesible por red.
+     */
+    function validar_conexion_impresora($nombre_impresora = 'cocina', $port = 9100) {
+        $ip = detectar_ip_impresora_windows($nombre_impresora);
+        if (!$ip) {
+            return [
+                'success' => false,
+                'ip'      => null,
+                'mensaje' => "No se detectó un puerto IP asignado a la impresora '$nombre_impresora' en Windows."
+            ];
+        }
+
+        $t0 = microtime(true);
+        $fp = @fsockopen($ip, (int)$port, $errno, $errstr, 1.2);
+        if ($fp) {
+            @fclose($fp);
+            $ms = round((microtime(true) - $t0) * 1000, 1);
+            return [
+                'success' => true,
+                'ip'      => $ip,
+                'port'    => $port,
+                'ms'      => $ms,
+                'mensaje' => "Impresora '$nombre_impresora' ($ip:$port) respondiendo y en línea ({$ms} ms)."
+            ];
+        }
+
+        return [
+            'success' => false,
+            'ip'      => $ip,
+            'port'    => $port,
+            'error'   => $errstr,
+            'mensaje' => "La impresora '$nombre_impresora' apunta a $ip en Windows, pero no responde. Verifique que esté encendida o que su IP coincida."
+        ];
+    }
+}
+
 if (!function_exists('obtener_config_impresoras')) {
     function obtener_config_impresoras() {
         $cfg = obtener_config_sistema();
         $entorno = $cfg['modo_entorno'] ?? 'desarrollo';
 
-        // Valores por defecto según entorno
-        // En desarrollo usamos la ticketera física en red local 192.168.0.150:9100
-        // En producción (restaurante) la ticketera tiene IP 192.168.1.100:9100
-        $ip_defecto = ($entorno === 'produccion') ? '192.168.1.100' : '192.168.0.150';
+        $windows_printer = $cfg['impresora_windows'] ?? 'cocina';
+        $ip_windows = detectar_ip_impresora_windows($windows_printer);
+
+        // Si Windows tiene una IP asignada a la impresora, esa tiene la máxima prioridad
+        $ip_defecto = $ip_windows ?: (($entorno === 'produccion') ? '192.168.1.100' : '192.168.0.150');
 
         $cocina_ip = $cfg['impresora_cocina_ip'] ?? $ip_defecto;
         $cocina_port = (int)($cfg['impresora_cocina_port'] ?? 9100);
 
         $barra_ip = $cfg['impresora_barra_ip'] ?? $cocina_ip;
         $barra_port = (int)($cfg['impresora_barra_port'] ?? 9100);
-
-        $windows_printer = $cfg['impresora_windows'] ?? 'cocina';
 
         return [
             'cocina_ip'   => $cocina_ip,
@@ -167,7 +232,9 @@ if (!function_exists('enviar_bytes_impresora')) {
         ];
 
         // 1. Intento por Socket TCP directo a la impresora física en red (RAW 9100)
+        $ip_win = detectar_ip_impresora_windows($windows_printer);
         $ips_candidatas = array_filter(array_unique([
+            $ip_win,
             $ip,
             '192.168.0.150',
             '192.168.1.150',
