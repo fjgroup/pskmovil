@@ -47,3 +47,4 @@ WshShell.Run """" & phpCmd & """ -S 0.0.0.0:2010 -t """ & strCurrentDir & """", 
 ' Notificacion sutil opcional al usuario
 WshShell.Popup "Sistema de Comandas Moviles y Sincronizador Cloud iniciados en segundo plano." & vbCrLf & _
                "Pantalla de caja limpia. No requiere ejecutar cmonitor.exe.", 4, "Mi Jardin Restaurant", 64
+

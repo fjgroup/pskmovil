@@ -15,6 +15,44 @@
 
 require_once __DIR__ . '/config_helper.php';
 
+if (!function_exists('obtener_conexion_impresion')) {
+    function obtener_conexion_impresion() {
+        static $cached_conn = null;
+        if ($cached_conn instanceof \mysqli && @$cached_conn->ping()) {
+            return $cached_conn;
+        }
+
+        $cfg = obtener_config_sistema();
+        $host = $cfg['host'] ?? '127.0.0.1';
+        $user = $cfg['user'] ?? 'root';
+        $pw   = $cfg['pw'] ?? 'root';
+        $bd   = $cfg['bd_pos'] ?? ($cfg['bd'] ?? 'adminbahiap');
+        $port = (int)($cfg['port'] ?? 3307);
+
+        try {
+            $conn = @new \mysqli($host, $user, $pw, $bd, $port);
+            if ($conn && !$conn->connect_errno) {
+                $cached_conn = $conn;
+                return $conn;
+            }
+        } catch (\Throwable $e) {}
+
+        // Fallback usando candidatos de credenciales
+        if (function_exists('credenciales_mysql_candidatas')) {
+            foreach (credenciales_mysql_candidatas() as $cred) {
+                try {
+                    $conn = @new \mysqli($host, $cred['user'], $cred['pw'], $bd, (int)$cred['port']);
+                    if ($conn && !$conn->connect_errno) {
+                        $cached_conn = $conn;
+                        return $conn;
+                    }
+                } catch (\Throwable $e) {}
+            }
+        }
+        return null;
+    }
+}
+
 if (!function_exists('obtener_config_impresoras')) {
     function obtener_config_impresoras() {
         $cfg = obtener_config_sistema();
@@ -171,104 +209,118 @@ if (!function_exists('imprimir_comandas_pedido')) {
      * Procesa la lista de ítems de una comanda, clasifica por formato (COCINA vs BARRA),
      * totaliza cantidades idénticas y envía los tickets de forma directa e independiente.
      */
-    function imprimir_comandas_pedido($mesa_doc, $consecutivo, $vendedor_nombre, array $items_nuevos, $bd_conexion) {
-        if (empty($items_nuevos)) {
-            return [
-                'success' => false,
-                'mensaje' => 'No hay ítems para imprimir en comanda'
-            ];
-        }
+    function imprimir_comandas_pedido($mesa_doc, $consecutivo, $vendedor_nombre, array $items_nuevos, $bd_conexion = 'cliente') {
+        try {
+            if (empty($items_nuevos)) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'No hay ítems para imprimir en comanda'
+                ];
+            }
 
-        $config_imp = obtener_config_impresoras();
+            $config_imp = obtener_config_impresoras();
+            $conn = obtener_conexion_impresion();
 
-        // 1. Obtener los formatos de destino (COCINA o BARRA) consultando articulo + grupos
-        $codigos = array_unique(array_map(function($it) {
-            return "'" . addslashes(trim($it['codigo'])) . "'";
-        }, $items_nuevos));
+            // 1. Obtener los formatos de destino (COCINA o BARRA) consultando articulo + grupos
+            $formatos_por_codigo = [];
+            if ($conn) {
+                $codigos = array_unique(array_map(function($it) use ($conn) {
+                    return "'" . $conn->real_escape_string(trim($it['codigo'])) . "'";
+                }, $items_nuevos));
 
-        $formatos_por_codigo = [];
-        if (!empty($codigos)) {
-            $sql_formatos = "
-                SELECT a.codigo, IFNULL(NULLIF(TRIM(g.formato), ''), 'COCINA') as formato
-                FROM articulo a
-                LEFT JOIN grupos g ON g.codigo = a.grupo
-                WHERE a.codigo IN (" . implode(',', $codigos) . ")
-            ";
-            $res_f = mysqli_query($GLOBALS['conexion_' . $bd_conexion] ?? $GLOBALS['conexion_cliente'] ?? $GLOBALS['conexion'], $sql_formatos);
-            if ($res_f) {
-                while ($rf = mysqli_fetch_assoc($res_f)) {
-                    $formatos_por_codigo[trim($rf['codigo'])] = strtoupper(trim($rf['formato']));
+                if (!empty($codigos)) {
+                    $sql_formatos = "
+                        SELECT a.codigo, IFNULL(NULLIF(TRIM(g.formato), ''), 'COCINA') as formato
+                        FROM articulo a
+                        LEFT JOIN grupos g ON g.codigo = a.grupo
+                        WHERE a.codigo IN (" . implode(',', $codigos) . ")
+                    ";
+                    $res_f = @$conn->query($sql_formatos);
+                    if ($res_f) {
+                        while ($rf = $res_f->fetch_assoc()) {
+                            $formatos_por_codigo[trim($rf['codigo'])] = strtoupper(trim($rf['formato']));
+                        }
+                    }
                 }
             }
-        }
 
-        // 2. Separar los ítems por destino y consolidar/totalizar ítems idénticos
-        $grupos_tickets = [
-            'COCINA' => [],
-            'BARRA'  => []
-        ];
+            // 2. Separar los ítems por destino y consolidar/totalizar ítems idénticos
+            $grupos_tickets = [
+                'COCINA' => [],
+                'BARRA'  => []
+            ];
 
-        foreach ($items_nuevos as $item) {
-            $cod = trim($item['codigo']);
-            $destino = $formatos_por_codigo[$cod] ?? 'COCINA';
-            if ($destino !== 'BARRA') {
-                $destino = 'COCINA';
+            foreach ($items_nuevos as $item) {
+                $cod = trim($item['codigo']);
+                $destino = $formatos_por_codigo[$cod] ?? 'COCINA';
+                if ($destino !== 'BARRA') {
+                    $destino = 'COCINA';
+                }
+
+                // Agrupar por clave única (código + notas) para sumar cantidades
+                $clave = $cod . '|' . trim($item['notas'] ?? '');
+                if (!isset($grupos_tickets[$destino][$clave])) {
+                    $grupos_tickets[$destino][$clave] = [
+                        'codigo'   => $cod,
+                        'nombre'   => $item['nombre'],
+                        'cantidad' => (float)$item['cantidad'],
+                        'notas'    => trim($item['notas'] ?? '')
+                    ];
+                } else {
+                    $grupos_tickets[$destino][$clave]['cantidad'] += (float)$item['cantidad'];
+                }
             }
 
-            // Agrupar por clave única (código + notas) para sumar cantidades
-            $clave = $cod . '|' . trim($item['notas'] ?? '');
-            if (!isset($grupos_tickets[$destino][$clave])) {
-                $grupos_tickets[$destino][$clave] = [
-                    'codigo'   => $cod,
-                    'nombre'   => $item['nombre'],
-                    'cantidad' => (float)$item['cantidad'],
-                    'notas'    => trim($item['notas'] ?? '')
+            $tickets_enviados = [];
+            $mesa_limpia = ltrim(trim($mesa_doc), 'E');
+
+            // 3. Imprimir ticket de COCINA si tiene ítems
+            if (!empty($grupos_tickets['COCINA'])) {
+                $items_cocina = array_values($grupos_tickets['COCINA']);
+                $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_cocina);
+                $env_cocina = enviar_bytes_impresora($raw_cocina, $config_imp['cocina_ip'], $config_imp['cocina_port'], $config_imp['windows_printer']);
+                $tickets_enviados[] = [
+                    'tipo'      => 'COCINA',
+                    'items'     => count($items_cocina),
+                    'resultado' => $env_cocina
                 ];
-            } else {
-                $grupos_tickets[$destino][$clave]['cantidad'] += (float)$item['cantidad'];
             }
-        }
 
-        $tickets_enviados = [];
-        $mesa_limpia = ltrim(trim($mesa_doc), 'E');
+            // 4. Imprimir ticket de BARRA si tiene ítems
+            if (!empty($grupos_tickets['BARRA'])) {
+                $items_barra = array_values($grupos_tickets['BARRA']);
+                $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_barra);
+                $env_barra = enviar_bytes_impresora($raw_barra, $config_imp['barra_ip'], $config_imp['barra_port'], $config_imp['windows_printer']);
+                $tickets_enviados[] = [
+                    'tipo'      => 'BARRA',
+                    'items'     => count($items_barra),
+                    'resultado' => $env_barra
+                ];
+            }
 
-        // 3. Imprimir ticket de COCINA si tiene ítems
-        if (!empty($grupos_tickets['COCINA'])) {
-            $items_cocina = array_values($grupos_tickets['COCINA']);
-            $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_cocina);
-            $env_cocina = enviar_bytes_impresora($raw_cocina, $config_imp['cocina_ip'], $config_imp['cocina_port'], $config_imp['windows_printer']);
-            $tickets_enviados[] = [
-                'tipo'      => 'COCINA',
-                'items'     => count($items_cocina),
-                'resultado' => $env_cocina
+            // 5. Actualizar comandasmv.impresion = 2 para los ítems de este pedido
+            if ($conn) {
+                $mesa_esc = $conn->real_escape_string($mesa_doc);
+                $pid_esc  = $conn->real_escape_string($consecutivo);
+                @$conn->query("UPDATE comandasmv SET impresion = 2 WHERE documento = '{$mesa_esc}' AND (pid = '{$pid_esc}' OR impresion = 1)");
+            }
+
+            return [
+                'success'          => true,
+                'consecutivo'      => $consecutivo,
+                'tickets_enviados' => $tickets_enviados
+            ];
+        } catch (\Throwable $e) {
+            // Log de error de contingencia para diagnóstico
+            @file_put_contents(
+                dirname(__DIR__) . '/scratch/impresion_comandas.log',
+                "[" . date('Y-m-d H:i:s') . "] Error en imprimir_comandas_pedido: " . $e->getMessage() . "\n",
+                FILE_APPEND
+            );
+            return [
+                'success' => false,
+                'mensaje' => $e->getMessage()
             ];
         }
-
-        // 4. Imprimir ticket de BARRA si tiene ítems
-        if (!empty($grupos_tickets['BARRA'])) {
-            $items_barra = array_values($grupos_tickets['BARRA']);
-            $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_limpia, $vendedor_nombre, $items_barra);
-            $env_barra = enviar_bytes_impresora($raw_barra, $config_imp['barra_ip'], $config_imp['barra_port'], $config_imp['windows_printer']);
-            $tickets_enviados[] = [
-                'tipo'      => 'BARRA',
-                'items'     => count($items_barra),
-                'resultado' => $env_barra
-            ];
-        }
-
-        // 5. Actualizar comandasmv.impresion = 2 para los ítems de este pedido
-        // (Marca las líneas como ya impresas para evitar cualquier re-impresión accidental)
-        $conn = $GLOBALS['conexion_' . $bd_conexion] ?? $GLOBALS['conexion_cliente'] ?? $GLOBALS['conexion'];
-        if ($conn) {
-            $mesa_esc = mysqli_real_escape_string($conn, $mesa_doc);
-            $pid_esc  = mysqli_real_escape_string($conn, $consecutivo);
-            @mysqli_query($conn, "UPDATE comandasmv SET impresion = 2 WHERE documento = '{$mesa_esc}' AND (pid = '{$pid_esc}' OR impresion = 1)");
-        }
-
-        return [
-            'success'          => true,
-            'consecutivo'      => $consecutivo,
-            'tickets_enviados' => $tickets_enviados
-        ];
     }
 }

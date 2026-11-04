@@ -972,11 +972,13 @@ if ($_GET['accion'] == "procesar_pedido") {
 								require_once dirname(__DIR__) . '/funciones/impresion_comandas_helper.php';
 								if (!empty($items_para_comanda)) {
 									$vendedor_nombre = $_POST['vendedor'];
-									$query_vend = "SELECT nombre FROM listvend WHERE codigo = '" . addslashes($_POST['vendedor']) . "' LIMIT 1";
-									$res_vend = $objeto_pedido->general_query($bd_conexion, $query_vend);
-									if ($res_vend && $row_vend = mysqli_fetch_assoc($res_vend)) {
-										$vendedor_nombre = $row_vend['nombre'];
-									}
+									try {
+										$query_vend = "SELECT nombre FROM listvend WHERE codigo = '" . addslashes($_POST['vendedor']) . "' LIMIT 1";
+										$res_vend = $objeto_pedido->general_query($bd_conexion, $query_vend);
+										if ($res_vend && ($row_vend = mysqli_fetch_array($res_vend))) {
+											$vendedor_nombre = $row_vend['nombre'];
+										}
+									} catch (\Throwable $e_v) {}
 									$nro_consec = !empty($consecutivo_comandasmv) ? $consecutivo_comandasmv : '00000001';
 									$imp_res = imprimir_comandas_pedido($mesa, $nro_consec, $vendedor_nombre, $items_para_comanda, $bd_conexion);
 									$tickets_txt = [];
