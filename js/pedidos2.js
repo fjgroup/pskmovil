@@ -1166,54 +1166,11 @@ function ocultar_descuentos() {
 }
 
 function cancelar_operacion() {
+	limpiar_productos_agregados();
+	localStorage.removeItem('consumo');
+	$('#input_mesa').val('');
 	$('#input_mesa').css('border', '1px solid #CCC');
-	var mesa = $('#input_mesa').val();
-	if (mesa != "") {
-		$('#input_mesa').css('border', '1px solid #CCC');
-		mostrar_pw_administrador("Cancelar operacion");
-		$('#pw_administrador .btn-success').unbind();
-		$('#pw_administrador .btn-success').click(function () {
-			var password_sup = $('#password_sup').val();
-			var id_empresa = $('#id_empresa').val();
-			var datos = { "mesa": mesa, "id_empresa": id_empresa, "password_sup": password_sup };
-			$.ajax({
-				type: "POST",
-				url: "funciones/permisos_adm.php",
-				data: datos,
-				beforeSend: function () {
-					mostrar_cargando();
-				},
-				success: function (r) {
-					ocultar_cargando();
-					if (r == "true") {
-						$.ajax({
-							type: "POST",
-							url: "controladores/controlador_pedidos.php?accion=cancelar_pedido",
-							data: datos,
-							beforeSend: function () {
-								mostrar_cargando();
-							},
-							success: function (r) {
-								ocultar_pw_administrador();
-								ocultar_cargando();
-								mostrar_msj(r);
-							}
-						});
-					} else {
-						$('#pw_administrador i').html("Contrase&ntildea incorrecta");
-						$('#bloqueo').show();
-					}
-				}
-			});
-		});
-		$('#msj_php .ventanas_contenido .btn-danger').unbind();
-		$('#msj_php .ventanas_contenido .btn-danger').click(function () {
-			ocultar_msj();
-		});
-	} else {
-		$('#input_mesa').css('border', '2px solid red');
-	}
-
+	mostrar_msj("<i class='fa fa-check'></i><br>Operación cancelada y pantalla limpiada.");
 }
 
 function limpiar_productos_agregados() {

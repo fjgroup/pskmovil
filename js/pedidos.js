@@ -2115,89 +2115,17 @@ function ocultar_descuentos() {
 }
 
 function cancelar_operacion() {
+	// Cancelar en Comandas Móviles limpia y restablece la operación actual del móvil.
+	// No pide clave de supervisor (la clave es solo para la configuración del sistema).
+	// Si hay productos guardados, el mesonero debe anularlos en Premium Soft directamente.
+	limpiar_productos_agregados();
+	localStorage.removeItem('consumo');
+	$('#input_mesa').val('');
 	$('#input_mesa').css('border', '1px solid #CCC');
-	var mesa = $('#input_mesa').val();
-
-	// Verificar si hay algún producto que ya esté guardado en la base de datos (se_guardo == 1 o pid_opermv)
-	var tiene_guardados = false;
-	if (typeof productos_array !== 'undefined' && productos_array.length > 0) {
-		for (var i = 0; i < productos_array.length; i++) {
-			var d = productos_array[i].split('|');
-			if (d[8] === '1' || (d[13] && d[13].trim() !== '')) {
-				tiene_guardados = true;
-				break;
-			}
-		}
-	}
-
-	// Si NO tiene productos guardados en la BD (es un borrador que todavía no se ha procesado ni guardado):
-	// Permitir cancelar y limpiar todo sin solicitar contraseña de supervisor
-	if (!tiene_guardados) {
-		limpiar_productos_agregados();
-		localStorage.removeItem('consumo');
-		$('#input_mesa').val('');
-		$('#btn_compartir_qr').hide();
-		actualizarEstadoBotonCancelar();
-		mostrar_msj("<i class='fa fa-check'></i><br>Comanda cancelada y mesa limpiada.");
-		return;
-	}
-
-	// Si TIENE productos guardados en la BD (comanda activa en operti/opermv), requiere clave de supervisor
-	if (mesa != "") {
-		$('#input_mesa').css('border', '1px solid #CCC');
-		mostrar_pw_administrador("Cancelar operacion");
-		$('#pw_administrador .btn-success').unbind();
-		$('#pw_administrador .btn-success').click(function () {
-			var password_sup = $('#password_sup').val();
-			var id_empresa = $('#id_empresa').val();
-			var datos = { "mesa": mesa, "id_empresa": id_empresa, "password_sup": password_sup };
-			$.ajax({
-				type: "POST",
-				url: "funciones/permisos_adm.php",
-				data: datos,
-				beforeSend: function () {
-					mostrar_cargando();
-				},
-				success: function (r) {
-					ocultar_cargando();
-					if (r == "true") {
-						$.ajax({
-							type: "POST",
-							url: "controladores/controlador_pedidos.php?accion=cancelar_pedido",
-							data: datos,
-							beforeSend: function () {
-								mostrar_cargando();
-							},
-							success: function (r) {
-								ocultar_pw_administrador();
-								ocultar_cargando();
-								limpiar_productos_agregados();
-								localStorage.removeItem('consumo');
-								$('#input_mesa').val('');
-								$('#btn_compartir_qr').hide();
-								actualizarEstadoBotonCancelar();
-								mostrar_msj(r);
-							}
-						});
-					} else {
-						$('#pw_administrador i').html("Contrase&ntildea incorrecta");
-						$('#bloqueo').show();
-					}
-				}
-			});
-		});
-		$('#msj_php .ventanas_contenido .btn-danger').unbind();
-		$('#msj_php .ventanas_contenido .btn-danger').click(function () {
-			ocultar_msj();
-		});
-	} else {
-		limpiar_productos_agregados();
-		localStorage.removeItem('consumo');
-		$('#input_mesa').val('');
-		$('#btn_compartir_qr').hide();
-		actualizarEstadoBotonCancelar();
-		mostrar_msj("<i class='fa fa-check'></i><br>Operación cancelada.");
-	}
+	$('#btn_compartir_qr').hide();
+	actualizarEstadoBotonCancelar();
+	mostrar_msj("<i class='fa fa-check'></i><br>Operación cancelada y pantalla limpiada.");
+}
 
 }
 

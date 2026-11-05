@@ -398,13 +398,9 @@ if (!function_exists('enviar_bytes_impresora')) {
                 $res_m = @$conn->query("SELECT descripcion FROM idconsumos WHERE id_consumo = '{$mesa_esc}' OR nombre_corto = '{$mesa_esc}' LIMIT 1");
                 if ($res_m && ($row_m = $res_m->fetch_assoc())) {
                     $desc = trim($row_m['descripcion']);
-                    if (strtoupper($mesa_limpia) === 'M00' || strtoupper($desc) === 'LLEVAR') {
-                        $mesa_etiqueta = 'LLEVAR';
-                    } elseif (!empty($desc) && strtoupper($desc) !== strtoupper($mesa_limpia)) {
-                        $mesa_etiqueta = $mesa_limpia . " - " . $desc;
+                    if (!empty($desc)) {
+                        $mesa_etiqueta = $desc;
                     }
-                } elseif (strtoupper($mesa_limpia) === '001' || strtoupper($mesa_limpia) === 'M00' || strtoupper($mesa_limpia) === 'LLEVAR') {
-                    $mesa_etiqueta = "LLEVAR";
                 }
             }
 
