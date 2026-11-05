@@ -18,6 +18,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
             'tablas_creadas' => [],
             'columnas_agregadas' => [],
             'config_actualizada' => [],
+            'config_insertada'   => [],
             'detalles' => [],
             'errores' => []
         ];
@@ -236,7 +237,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
             }
         }
 
-        // 5. Parámetros obligatorios de z_config_sistema (no sobreescribe valores existentes)
+        // 5. Parámetros obligatorios de z_config_sistema (Única fuente de verdad: no sobreescribe valores existentes)
         $config_defaults = [
             'url_hosting'         => 'https://mijardinrestaurant.com',
             'url_web_mesa'        => 'https://mijardinrestaurant.com/mesa',
@@ -244,7 +245,15 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
             'bd_pos'              => 'adminbahiap',
             'bd_sistema'          => 'mijar26273_sistema',
             'permitir_descuentos' => 'no',
-            'monedafactor'        => '887.3020'
+            'monedafactor'        => '887.3020',
+            // Centralización de conexión e impresora (Fuente de verdad)
+            'host'                => '127.0.0.1',
+            'port'                => '3306',
+            'user'                => 'root',
+            'pw'                  => ($cred_activa['pw'] ?? 'root'),
+            'bd'                  => 'adminbahiap',
+            'impresora_windows'   => 'POS-80C',
+            'impresora_ip'        => '192.168.1.150'
         ];
 
         // Depurar claves obsoletas de versiones anteriores
@@ -257,9 +266,12 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         foreach ($config_defaults as $k => $def_v) {
             $k_esc = $mysqli->real_escape_string($k);
             $v_esc = $mysqli->real_escape_string($def_v);
-            // Insertar solo si la clave no existe
+            // Insertar solo si la clave no existe (conserva cualquier cambio realizado en la BD)
             $mysqli->query("INSERT IGNORE INTO z_config_sistema (clave, valor, created_at, updated_at) 
                             VALUES ('{$k_esc}', '{$v_esc}', '{$now}', '{$now}');");
+            if ($mysqli->affected_rows > 0) {
+                $reporte['config_insertada'][] = "{$k} => {$def_v}";
+            }
             $reporte['config_actualizada'][] = $k;
         }
 
@@ -281,6 +293,9 @@ if (php_sapi_name() === 'cli' && isset($argv[0]) && realpath($argv[0]) === realp
         }
         if (!empty($res['columnas_agregadas'])) {
             echo "        Columnas agregadas: " . implode(', ', $res['columnas_agregadas']) . PHP_EOL;
+        }
+        if (!empty($res['config_insertada'])) {
+            echo "        Configuraciones inicializadas: " . implode(', ', $res['config_insertada']) . PHP_EOL;
         }
         exit(0);
     } else {
