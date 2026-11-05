@@ -74,18 +74,6 @@ document.addEventListener("DOMContentLoaded", function () {
         inputFiscal1.attr("placeholder", "RIF");
     }
 
-    function actualizarEstadoBotonCancelar() {
-        const consumoGuardado = localStorage.getItem('consumo');
-
-        if (consumoGuardado) {
-            cancelarButton.hide();
-            console.log('El elemento "consumo" existe en localStorage. El botón "cancelarButton" está oculto.');
-        } else {
-            cancelarButton.show();
-            console.log('El elemento "consumo" NO existe en localStorage. El botón "cancelarButton" está visible.');
-        }
-    }
-
     // Checkbox ocultar_campos
     const ocultarCamposCheckbox = document.getElementById('ocultar_campos_conf');
     const precioTotalInput = document.getElementById('precio_total');

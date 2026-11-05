@@ -43,31 +43,33 @@ if (isset($_POST['productos_array'])) {
 			$codigo = $datos[0];
 			$unidad = $datos[9];
 			$cod_hijo = $datos[14];
+			$se_guardo_key = (isset($datos[8]) && trim($datos[8]) == '1') ? '1' : '0';
+			$clave_agrupacion = $codigo . $unidad . $cod_hijo . '_' . $se_guardo_key;
 			$prc_descuento = 0;
 
 			if (!empty($datos[15])) {
 				$prc_descuento = $datos[15];
 			}
-			if (!isset($array_productos[$codigo . $unidad . $cod_hijo])) {
+			if (!isset($array_productos[$clave_agrupacion])) {
 				$array_explo = explode('|', $producto);
 
-				$array_productos[$codigo . $unidad . $cod_hijo]['datos'] = $producto;
-				$array_productos[$codigo . $unidad . $cod_hijo]['cantidad'] = number_format($array_explo[12], 3, '.', '');
+				$array_productos[$clave_agrupacion]['datos'] = $producto;
+				$array_productos[$clave_agrupacion]['cantidad'] = number_format($array_explo[12], 3, '.', '');
 			} else {
 
-				$dat = explode('|', $array_productos[$codigo . $unidad . $cod_hijo]['datos']);
+				$dat = explode('|', $array_productos[$clave_agrupacion]['datos']);
 				if (empty($dat[15])) {
 					$dat[15] = 0;
 				}
 				$dat[15] += $prc_descuento;
 				$dat = implode('|', $dat);
 				$array_explo = explode('|', $producto);
-				$array_productos[$codigo . $unidad . $cod_hijo]['datos'] = $dat;
-				$array_productos[$codigo . $unidad . $cod_hijo]['cantidad'] += number_format($array_explo[12], 3, '.', '');
+				$array_productos[$clave_agrupacion]['datos'] = $dat;
+				$array_productos[$clave_agrupacion]['cantidad'] += number_format($array_explo[12], 3, '.', '');
 			}
 
 		}
-		foreach ($array_productos as $codigo => $value) {
+		foreach ($array_productos as $clave_agrupacion => $value) {
 			$datos = explode('|', $value['datos']);
 			$prc_descuento = 0;
 			if (!empty($datos[15])) {
@@ -76,7 +78,7 @@ if (isset($_POST['productos_array'])) {
 					$prc_descuento = $prc_descuento / $value['cantidad'];
 					$datos[15] = $prc_descuento;
 					$dat = implode('|', $datos);
-					$array_productos[$codigo . $unidad]['datos'] = $dat;
+					$array_productos[$clave_agrupacion]['datos'] = $dat;
 				}
 			}
 		}

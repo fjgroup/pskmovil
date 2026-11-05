@@ -155,13 +155,13 @@ if (!function_exists('obtener_config_impresoras')) {
         $windows_printer = $cfg['impresora_windows'] ?? ($info_win['nombre'] ?: 'POS-80C');
         $ip_windows = $info_win['ip'] ?? null;
 
-        // Si Windows o la detección tiene una IP asignada a la impresora, esa tiene la máxima prioridad
-        $ip_defecto = $ip_windows ?: '192.168.1.150';
+        // La IP configurada en la impresora de Windows (POS-80C) siempre tiene la máxima prioridad
+        $ip_defecto = $ip_windows ?: ($cfg['impresora_ip'] ?? '192.168.1.150');
 
-        $cocina_ip = $cfg['impresora_cocina_ip'] ?? $ip_defecto;
+        $cocina_ip = $ip_windows ?: ($cfg['impresora_cocina_ip'] ?? $ip_defecto);
         $cocina_port = (int)($cfg['impresora_cocina_port'] ?? 9100);
 
-        $barra_ip = $cfg['impresora_barra_ip'] ?? $cocina_ip;
+        $barra_ip = $ip_windows ?: ($cfg['impresora_barra_ip'] ?? $cocina_ip);
         $barra_port = (int)($cfg['impresora_barra_port'] ?? 9100);
 
         return [
@@ -299,9 +299,16 @@ if (!function_exists('enviar_bytes_impresora')) {
      *  Intento 2: Fallback a la cola de impresión de Windows.
      */
     function enviar_bytes_impresora($raw_data, $ip = null, $port = 9100, $windows_printer = 'POS-80C') {
-        $resultado = ['success' => false, 'metodo' => null, 'detalle' => ''];
         $info_win = detectar_info_impresora_windows($windows_printer);
         $ip_destino = $info_win['ip'] ?: ($ip ?: '192.168.1.150');
+        $es_local = in_array($ip_destino, ['127.0.0.1', 'localhost', '::1'], true);
+        $resultado = [
+            'success'  => false,
+            'metodo'   => null,
+            'detalle'  => '',
+            'ip'       => $ip_destino,
+            'es_local' => $es_local
+        ];
         // 1. Envío directo por Socket TCP
         $fp = @fsockopen($ip_destino, (int)$port, $errno, $errstr, 1.0);
         if ($fp) {
@@ -311,8 +318,8 @@ if (!function_exists('enviar_bytes_impresora')) {
             $resultado['metodo'] = "socket_tcp ($ip_destino:$port)";
             return $resultado;
         }
-        // 2. Fallback por Spooler de Windows si el socket no responde
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        // 2. Fallback por Spooler de Windows solo si no es el simulador local apagado
+        if (!$es_local && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $temp_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ticket_' . uniqid() . '.prn';
             file_put_contents($temp_file, $raw_data);
             $cmd = 'powershell -NoProfile -Command "Get-Content -Path ' . escapeshellarg($temp_file) . ' -Raw | Out-Printer -Name ' . escapeshellarg($windows_printer) . '"';
@@ -408,8 +415,11 @@ if (!function_exists('enviar_bytes_impresora')) {
             if (!empty($grupos_tickets['COCINA'])) {
                 $items_cocina = array_values($grupos_tickets['COCINA']);
                 $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_cocina, null, $cliente_nombre);
-                registrar_ticket_en_archivo('COCINA', $raw_cocina, $consecutivo);
                 $env_cocina = enviar_bytes_impresora($raw_cocina, $config_imp['cocina_ip'], $config_imp['cocina_port'], $config_imp['windows_printer']);
+                // Si el simulador local en 127.0.0.1:9100 ya recibió el ticket por socket, él mismo lo guarda en tickets_virtuales.txt
+                if (empty($env_cocina['success']) || empty($env_cocina['es_local'])) {
+                    registrar_ticket_en_archivo('COCINA', $raw_cocina, $consecutivo);
+                }
                 $tickets_enviados[] = [
                     'tipo'      => 'COCINA',
                     'items'     => count($items_cocina),
@@ -421,8 +431,10 @@ if (!function_exists('enviar_bytes_impresora')) {
             if (!empty($grupos_tickets['BARRA'])) {
                 $items_barra = array_values($grupos_tickets['BARRA']);
                 $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_barra, null, $cliente_nombre);
-                registrar_ticket_en_archivo('BARRA', $raw_barra, $consecutivo);
                 $env_barra = enviar_bytes_impresora($raw_barra, $config_imp['barra_ip'], $config_imp['barra_port'], $config_imp['windows_printer']);
+                if (empty($env_barra['success']) || empty($env_barra['es_local'])) {
+                    registrar_ticket_en_archivo('BARRA', $raw_barra, $consecutivo);
+                }
                 $tickets_enviados[] = [
                     'tipo'      => 'BARRA',
                     'items'     => count($items_barra),

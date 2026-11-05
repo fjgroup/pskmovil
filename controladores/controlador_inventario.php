@@ -690,7 +690,8 @@ if ($_GET['accion'] == "obtener_precios") {
 
 if ($_GET['accion'] == "ver_cuenta_mesa") {
 
-	$mesa = "E" . $_POST['mesa'];
+	require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+	$mesa = resolver_documento_mesa($_POST['mesa']);
 
 	$select = "*";
 	$from = "opermv";
@@ -719,7 +720,7 @@ if ($_GET['accion'] == "ver_cuenta_mesa") {
 			trim($cuenta['preciofin']) . "|" .
 			trim($cuenta['timpueprc']) . "|" .
 			trim($cuenta['pidpadre']) . "|" .
-			trim($cuenta['se_guardo']) . "|" .
+			"1|" .
 			trim($cuenta['unidad']) . "|" .
 			trim($cuenta['preciounit']) . "|" .
 			trim($cuenta['cntagrupada']) . "|" .
@@ -774,7 +775,7 @@ if ($_GET['accion'] == "consultar_mesa") {
 			trim($cuenta['preciofin']) . "|" .
 			trim($cuenta['timpueprc']) . "|" .
 			trim($cuenta['pidpadre']) . "|" .
-			trim($cuenta['se_guardo']) . "|" .
+			"1|" .
 			trim($cuenta['unidad']) . "|" .
 			trim($cuenta['preciounit']) . "|" .
 			trim($cuenta['cntagrupada']) . "|" .
@@ -814,7 +815,8 @@ if ($_GET['accion'] == "consultar_mesa") {
 
 if ($_GET['accion'] == "eliminar_producto") {
 
-	$documento = "E" . $_POST['mesa'];
+	require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+	$documento = resolver_documento_mesa($_POST['mesa']);
 	$pid_solicitado = trim($_POST['pid'] ?? '');
 
 	// Seguridad: Si el producto ya existe en la base de datos (opermv), no se permite anular desde el móvil

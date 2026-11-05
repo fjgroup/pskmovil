@@ -608,10 +608,8 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 						<div class="input-group-addon" onclick="mostrar_modal_reg_cli()">Nuevo</div>
 					</div>
 
-					<input type="text" class="form-control" id="input_cliente" placeholder="Cliente"
-						value="Cliente contado" onchange="cliente_contado()" onclick="$(this).val('');" />
-					<div style="display: flex; gap: 4px; margin-bottom: 3px;">
-						<input type="text" class="form-control" style="flex: 1; margin-bottom: 0;" id="nrorif" placeholder="Cédula / RIF" value="" />
+					<div style="display: flex; gap: 4px; margin: 5px 0px;">
+						<input type="text" class="form-control" style="flex: 1.4; margin-bottom: 0;" id="input_cliente" placeholder="Cliente" value="Cliente contado" readonly />
 						<input type="text" class="form-control" style="flex: 1; margin-bottom: 0;" id="input_mesa" placeholder="Mesa / Tasca" onchange="consultar_mesa()" />
 					</div>
 					<div style="text-align:center">

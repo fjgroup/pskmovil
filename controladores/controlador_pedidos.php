@@ -48,7 +48,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 		}
 
 		$operti_ya_existe = false;
-		$select_operti = "documento";
+		$select_operti = "documento, pid, notas";
 		$from_operti = "operti";
 		$where_operti = " documento = '" . $mesa . "' ";
 		$consulta_operti = $objeto_pedido->select($bd_conexion, $select_operti, $from_operti, $where_operti, '', '');
@@ -271,7 +271,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 				}
 			}
 
-			$se_guardo = 0;
+			$se_guardo = 1;
 
 			if ($precio_unitario_agrupado != "" and $cantidad_agrupada > 0) {
 				$preciounit = $precio_unitario_agrupado;
@@ -772,7 +772,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 					$resultado_direccion = $objeto_pedido->general_query($bd_conexion, $query_direccion);
 					$datos_direccion = mysqli_fetch_array($resultado_direccion);
 					if (!empty($datos_direccion['direccion'])) {
-						$direccion_cliente = addslashes($datos_direccion['direccion']);
+						$direccion_cliente = addslashes(trim($datos_direccion['direccion']));
 					}
 					
 					// Consultar RIF del cliente desde cliempre si no viene en POST
@@ -790,6 +790,26 @@ if ($_GET['accion'] == "procesar_pedido") {
 							$rif_cliente = addslashes(trim($datos_rif['cedula']));
 						}
 					}
+
+					// Consultar factor de cambio activo desde tabla monedas (igual que Premium Soft)
+					$factor_cambio = 1.0000;
+					$query_factor = "SELECT ultimacotizacion FROM monedas WHERE (codigo = '001' OR tipo = 2) AND ultimacotizacion > 0 ORDER BY codigo LIMIT 1";
+					$resultado_factor = $objeto_pedido->general_query($bd_conexion, $query_factor);
+					if ($resultado_factor && ($datos_factor = mysqli_fetch_array($resultado_factor))) {
+						if ((float)$datos_factor['ultimacotizacion'] > 0) {
+							$factor_cambio = (float)$datos_factor['ultimacotizacion'];
+						}
+					}
+					$factor_cambio_str = number_format($factor_cambio, 4, '.', '');
+
+					// Generar o conservar ID TRANSACCION para operti.pid y operti.notas (formato HHMMSS + ms + 152 de Premium Soft)
+					$ms_trans = sprintf('%03d', (int)round((microtime(true) - floor(microtime(true))) * 1000) % 1000);
+					$id_transaccion_operti = (!empty($operti['pid']) && trim($operti['pid']) !== '')
+						? addslashes(trim($operti['pid']))
+						: (date('His', strtotime($hour)) . $ms_trans . '152');
+					$notas_operti = (!empty($operti['notas']) && trim($operti['notas']) !== '')
+						? addslashes(trim($operti['notas']))
+						: ('ID TRANSACCION: ' . $id_transaccion_operti);
 					
 					if (!$operti_ya_existe) {
 						$query = "
@@ -819,6 +839,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 									notas,
 									vendedor,
 									factorcamb,
+									factorreferencial,
 									uemisor,
 									estacion,
 									almacen,
@@ -837,6 +858,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 									fchyhrant,
 									ordentrab,
 									totcosto,
+									pid,
 									usertipofac
 								)
 								VALUES
@@ -862,9 +884,10 @@ if ($_GET['accion'] == "procesar_pedido") {
 									'" . number_format($totalfinal, 2, '.', '') . "',
 									'" . number_format($total_impuesto, 2, '.', '') . "',
 									'" . number_format($total_impuesto, 2, '.', '') . "',
-									'',
+									'" . $notas_operti . "',
 									'" . $_POST['vendedor'] . "',
-									'1',
+									'" . $factor_cambio_str . "',
+									'" . $factor_cambio_str . "',
 									'" . $_POST['vendedor'] . "',
 									'PSK',
 									'" . $datos_conexion['cod_deposito'] . "',
@@ -883,6 +906,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 									'" . $fechayhora . "',
 									'" . $mesa . "',
 									'" . number_format($totcosto, 2, '.', '') . "',
+									'" . $id_transaccion_operti . "',
 									'2'
 								)
 							";
@@ -896,6 +920,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 								nombrecli = '" . strtoupper($_POST['nombre_cliente']) . "',
 								rif = '" . strtoupper($rif_cliente) . "',
 								contacto = '" . strtoupper($_POST['nombre_cliente']) . "',
+								direccion = '" . $direccion_cliente . "',
 								emision = '" . $fecha_hoy . "',
 								recepcion = '" . $fecha_hoy . "',
 								vence = '" . $fecha_hoy . "',
@@ -905,12 +930,16 @@ if ($_GET['accion'] == "procesar_pedido") {
 								totalfinal = '" . number_format($totalfinal, 2, '.', '') . "',
 								totimpuest = '" . number_format($total_impuesto, 2, '.', '') . "',
 								impuesto1 = 0,
+								notas = '" . $notas_operti . "',
 								vendedor = '" . $_POST['vendedor'] . "',
+								factorcamb = '" . $factor_cambio_str . "',
+								factorreferencial = '" . $factor_cambio_str . "',
 								horadocum = '" . $hora_actual . "',
 								comanda_movil = '" . $_POST['imprimir'] . "',
 								comanda_kmonitor = '" . $_POST['imprimir'] . "',
 								fechayhora = '" . $fechayhora . "',
 								totcosto = '" . number_format($totcosto, 2, '.', '') . "',
+								pid = '" . $id_transaccion_operti . "',
 								usertipofac = '2'
 								WHERE 
 								documento = '" . $mesa . "' AND 
