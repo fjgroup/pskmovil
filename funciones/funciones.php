@@ -1,5 +1,5 @@
 <?php
-date_default_timezone_set('America/Panama');
+date_default_timezone_set('America/Caracas');
 
 function limpiarCaracteresEspeciales($string) {
     //$string = htmlentities($string);

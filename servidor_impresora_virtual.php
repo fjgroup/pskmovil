@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('America/Caracas');
 /**
  * Servidor de Impresora Termica Virtual para Comandas Moviles y Premium Soft
  * Escucha en el puerto TCP 9100 (RAW ESC/POS).
@@ -62,20 +63,24 @@ while ($client = @stream_socket_accept($server, -1)) {
     // Limpiar espacios sobrantes al final de cada línea
     $clean = preg_replace('/[ \t]+$/m', '', $clean);
 
-    // Enriquecer la mesa con su descripción de idconsumos (ej. "j02" -> "j02 - JARDIN 02")
-    if (preg_match('/Mesa:\s+([a-zA-Z0-9]+)/i', $clean, $mMesa)) {
+    // Enriquecer la mesa con su descripción de idconsumos SOLO si no tiene ya descripción (ej. "j02" -> "j02 - JARDIN 02", "m00" -> "LLEVAR")
+    if (!preg_match('/Mesa:[^\r\n]*-/i', $clean) && preg_match('/Mesa:\s+([a-zA-Z0-9]+)/i', $clean, $mMesa)) {
         $cod_m = strtolower(trim($mMesa[1]));
-        try {
-            $pdo_m = new PDO('mysql:host=127.0.0.1;port=3306;dbname=adminbahiap', 'root', 'root');
-            $stm_m = $pdo_m->prepare("SELECT descripcion FROM idconsumos WHERE id_consumo = ? OR nombre_corto = ? LIMIT 1");
-            $stm_m->execute([$cod_m, $cod_m]);
-            if ($row_m = $stm_m->fetch(PDO::FETCH_ASSOC)) {
-                $desc_m = trim($row_m['descripcion']);
-                if (!empty($desc_m) && strtoupper($desc_m) !== strtoupper($cod_m)) {
-                    $clean = preg_replace('/(Mesa:\s+[a-zA-Z0-9]+)(?:\s*-\s*)?/i', "$1 - {$desc_m}", $clean, 1);
+        if ($cod_m === 'm00') {
+            $clean = preg_replace('/(Mesa:\s+)[a-zA-Z0-9]+/i', '$1LLEVAR', $clean, 1);
+        } else {
+            try {
+                $pdo_m = new PDO('mysql:host=127.0.0.1;port=3306;dbname=adminbahiap', 'root', 'root');
+                $stm_m = $pdo_m->prepare("SELECT descripcion FROM idconsumos WHERE id_consumo = ? OR nombre_corto = ? LIMIT 1");
+                $stm_m->execute([$cod_m, $cod_m]);
+                if ($row_m = $stm_m->fetch(PDO::FETCH_ASSOC)) {
+                    $desc_m = trim($row_m['descripcion']);
+                    if (!empty($desc_m) && strtoupper($desc_m) !== strtoupper($cod_m)) {
+                        $clean = preg_replace('/(Mesa:\s+[a-zA-Z0-9]+)/i', "$1 - {$desc_m}", $clean, 1);
+                    }
                 }
-            }
-        } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {}
+        }
     }
 
     $clean = trim($clean);

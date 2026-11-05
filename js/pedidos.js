@@ -2117,6 +2117,32 @@ function ocultar_descuentos() {
 function cancelar_operacion() {
 	$('#input_mesa').css('border', '1px solid #CCC');
 	var mesa = $('#input_mesa').val();
+
+	// Verificar si hay algún producto que ya esté guardado en la base de datos (se_guardo == 1 o pid_opermv)
+	var tiene_guardados = false;
+	if (typeof productos_array !== 'undefined' && productos_array.length > 0) {
+		for (var i = 0; i < productos_array.length; i++) {
+			var d = productos_array[i].split('|');
+			if (d[8] === '1' || (d[13] && d[13].trim() !== '')) {
+				tiene_guardados = true;
+				break;
+			}
+		}
+	}
+
+	// Si NO tiene productos guardados en la BD (es un borrador que todavía no se ha procesado ni guardado):
+	// Permitir cancelar y limpiar todo sin solicitar contraseña de supervisor
+	if (!tiene_guardados) {
+		limpiar_productos_agregados();
+		localStorage.removeItem('consumo');
+		$('#input_mesa').val('');
+		$('#btn_compartir_qr').hide();
+		actualizarEstadoBotonCancelar();
+		mostrar_msj("<i class='fa fa-check'></i><br>Comanda cancelada y mesa limpiada.");
+		return;
+	}
+
+	// Si TIENE productos guardados en la BD (comanda activa en operti/opermv), requiere clave de supervisor
 	if (mesa != "") {
 		$('#input_mesa').css('border', '1px solid #CCC');
 		mostrar_pw_administrador("Cancelar operacion");
@@ -2145,6 +2171,11 @@ function cancelar_operacion() {
 							success: function (r) {
 								ocultar_pw_administrador();
 								ocultar_cargando();
+								limpiar_productos_agregados();
+								localStorage.removeItem('consumo');
+								$('#input_mesa').val('');
+								$('#btn_compartir_qr').hide();
+								actualizarEstadoBotonCancelar();
 								mostrar_msj(r);
 							}
 						});
@@ -2160,7 +2191,12 @@ function cancelar_operacion() {
 			ocultar_msj();
 		});
 	} else {
-		$('#input_mesa').css('border', '2px solid red');
+		limpiar_productos_agregados();
+		localStorage.removeItem('consumo');
+		$('#input_mesa').val('');
+		$('#btn_compartir_qr').hide();
+		actualizarEstadoBotonCancelar();
+		mostrar_msj("<i class='fa fa-check'></i><br>Operación cancelada.");
 	}
 
 }
@@ -2186,6 +2222,10 @@ function ResumirLineas() {
 }
 
 function procesar_pedido(imprimir) {
+	if (typeof productos_array === 'undefined' || productos_array.length === 0) {
+		mostrar_msj("<i class='fa fa-exclamation-triangle'></i><br>Debe agregar al menos un producto a la comanda.");
+		return;
+	}
 	var vendedor = $('#cod_vend').val();
 	var nombre_cliente = $('#input_cliente').val();
 	var nrorif = $('#nrorif').val();
@@ -2811,8 +2851,22 @@ function es_mesa_oficial_js(mesa) {
 
 function actualizar_estado_boton_compartir() {
 	var mesa = $('#input_mesa').val() ? $('#input_mesa').val().trim() : '';
-	// Solo mostrar botón Compartir para mesas físicas reales de idconsumos (nunca para pedidos en caja)
-	if (typeof productos_array !== 'undefined' && productos_array.length > 0 && mesa !== '' && es_mesa_oficial_js(mesa)) {
+
+	// Verificar si hay productos YA guardados/procesados en la base de datos
+	var tiene_guardados = false;
+	if (typeof productos_array !== 'undefined' && productos_array.length > 0) {
+		for (var i = 0; i < productos_array.length; i++) {
+			var d = productos_array[i].split('|');
+			if (d[8] === '1' || (d[13] && d[13].trim() !== '')) {
+				tiene_guardados = true;
+				break;
+			}
+		}
+	}
+
+	// El botón Compartir (código QR y PIN) SOLO debe mostrarse cuando la comanda ya está procesada y guardada en la BD
+	// (nunca para comandas en borrador que aún no tienen PIN, ni para pedidos de llevar en caja)
+	if (tiene_guardados && mesa !== '' && es_mesa_oficial_js(mesa)) {
 		$('#btn_compartir_qr').css('display', 'inline-block');
 	} else {
 		$('#btn_compartir_qr').hide();
