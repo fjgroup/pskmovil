@@ -215,7 +215,7 @@ if ($_GET['accion'] == "registrar_conexion") {
     $host_loc = !empty($_POST['host']) ? $_POST['host'] : '127.0.0.1';
     $user_loc = !empty($_POST['user']) ? $_POST['user'] : 'root';
     $pw_loc   = isset($_POST['pw']) ? $_POST['pw'] : 'root';
-    $port_loc = !empty($_POST['port']) ? (int)$_POST['port'] : 3307;
+    $port_loc = !empty($_POST['port']) ? (int)$_POST['port'] : 3306;
     $bd_pos   = !empty($_POST['bd']) ? $_POST['bd'] : 'adminbahiap';
     $bd_sist  = !empty($_POST['bd_sistema']) ? $_POST['bd_sistema'] : 'mijar26273_sistema';
 
@@ -271,7 +271,7 @@ if ($_GET['accion'] == "registrar_conexion") {
         $array['monedafactor'] = $datos_existentes['monedafactor'];
     }
 
-    // Guardar en la base de datos local mijar26273_sistema (puerto 3307)
+    // Guardar en la base de datos local mijar26273_sistema
     $guardado = guardar_config_sistema($array);
 
     // Obtener las formas de pago (cuentas bancarias de listbanc en adminbahiap) para enviar a la BD remota
@@ -302,7 +302,7 @@ if ($_GET['accion'] == "registrar_conexion") {
         $mysqli_pos->close();
     }
 
-    // Guardar en la base de datos satélite local mijar26273_sistema (puerto 3307)
+    // Guardar en la base de datos satélite local mijar26273_sistema
     $mysqli_sat = @new mysqli($host_loc, $user_loc, $pw_loc, $bd_sist, $port_loc);
     if ($mysqli_sat && !$mysqli_sat->connect_errno) {
         $mysqli_sat->query("TRUNCATE TABLE z_config_bancos");
@@ -358,7 +358,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "sincronizar_bancos_rapido") {
     $host_loc = $config['host'] ?? '127.0.0.1';
     $user_loc = $config['user'] ?? 'root';
     $pw_loc   = $config['pw'] ?? 'root';
-    $port_loc = (int)($config['port'] ?? 3307);
+    $port_loc = (int)($config['port'] ?? 3306);
     $bd_pos   = $config['bd_pos'] ?? 'adminbahiap';
     $bd_sist  = $config['bd_sistema'] ?? 'mijar26273_sistema';
     $url_host = rtrim($config['url_hosting'] ?? 'https://mijardinrestaurant.com', '/');

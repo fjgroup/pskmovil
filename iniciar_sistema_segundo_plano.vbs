@@ -128,32 +128,10 @@ printerIP = ""
 strFoundPrinter = ""
 isPrinterOnline = False
 
-' 1. Intentar candidatos comunes de nombres de impresoras térmicas
-arrCandidates = Array("POS-80C", "POS-80", "cocina", "POS80", "Ticketera", "Comandas")
-For Each cName In arrCandidates
-    On Error Resume Next
-    printerPort = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\" & cName & "\Port")
-    On Error GoTo 0
-    If printerPort <> "" Then
-        strFoundPrinter = cName
-        Exit For
-    End If
-Next
-
-' 2. Si no se encontró por nombre exacto, buscar en Win32_Printer cualquier impresora con POS, Cocina o Ticket
-If strFoundPrinter = "" Then
-    On Error Resume Next
-    Dim colPrinters, objPrinter
-    Set colPrinters = objWMI.ExecQuery("SELECT Name, PortName FROM Win32_Printer")
-    For Each objPrinter In colPrinters
-        If InStr(UCase(objPrinter.Name), "POS") > 0 Or InStr(UCase(objPrinter.Name), "COCINA") > 0 Or InStr(UCase(objPrinter.Name), "TICKET") > 0 Then
-            strFoundPrinter = objPrinter.Name
-            printerPort = objPrinter.PortName
-            Exit For
-        End If
-    Next
-    On Error GoTo 0
-End If
+strFoundPrinter = "POS-80C"
+On Error Resume Next
+printerPort = WshShell.RegRead("HKLM\SYSTEM\CurrentControlSet\Control\Print\Printers\POS-80C\Port")
+On Error GoTo 0
 
 ' 3. Determinar la IP real a partir del puerto consultando Standard TCP/IP Port
 If printerPort <> "" Then

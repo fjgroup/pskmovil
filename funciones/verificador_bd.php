@@ -47,7 +47,7 @@ if (!function_exists('verificar_y_reparar_base_datos_satelite')) {
         }
 
         if (!$mysqli) {
-            $reporte['errores'][] = "No se pudo conectar a MySQL en ningún puerto candidato (3307 / 3306).";
+            $reporte['errores'][] = "No se pudo conectar al servicio local de MySQL (Puerto 3306).";
             return $reporte;
         }
 

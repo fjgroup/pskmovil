@@ -33,11 +33,11 @@ $datos_conexion = obtener_config_sistema();
 // Entorno: 'desarrollo' o 'produccion' (gestionado en BD z_config_sistema)
 $modo_entorno = strtolower(trim($datos_conexion['modo_entorno'] ?? 'desarrollo'));
 
-// Parámetros de bases locales (3307 en desarrollo, 3306 en producción si no se especifica)
+// Parámetros de bases locales
 $host_local = $datos_conexion['host'] ?? '127.0.0.1';
 $user_local = $datos_conexion['user'] ?? 'root';
 $pass_local = $datos_conexion['pw'] ?? 'root';
-$port_local = (int) ($datos_conexion['port'] ?? ($modo_entorno === 'produccion' ? 3306 : 3307));
+$port_local = (int) ($datos_conexion['port'] ?? 3306);
 $bd_pos     = $datos_conexion['bd_pos'] ?? ($datos_conexion['bd'] ?? 'adminbahiap');
 $bd_sistema = $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema';
 
@@ -160,7 +160,7 @@ function procesar_top_productos($mysqli_pos, $mysqli_sistema, $tasa, $forzar = f
             }
         }
 
-        // Actualizar tabla z_top_productos en BD satélite local (puerto 3307)
+        // Actualizar tabla z_top_productos en BD satélite local
         $mysqli_sistema->query("
             INSERT INTO z_top_productos (posicion, codigo, nombre, precio_bs, precio_usd, imagen, total_vendido, updated_at)
             VALUES ({$pos}, '{$mysqli_sistema->real_escape_string($codigo)}', '{$mysqli_sistema->real_escape_string($nombre)}', {$precio_bs}, {$precio_usd}, '{$mysqli_sistema->real_escape_string($img_name)}', {$total_vendido}, '{$now}')
@@ -201,7 +201,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
 {
     $timestamp = date('H:i:s');
 
-    // 1. Conexión a bases locales (puerto 3307)
+    // 1. Conexión a bases locales
     $mysqli_pos = @new mysqli($host_local, $user_local, $pass_local, $bd_pos, $port_local);
     if ($mysqli_pos->connect_error) {
         echo "[{$timestamp}] [ERROR LOCAL] No se pudo conectar a {$bd_pos} ({$port_local}): " . $mysqli_pos->connect_error . PHP_EOL;
@@ -642,7 +642,7 @@ function sincronizar_ciclo($host_local, $user_local, $pass_local, $port_local, $
         $info_top = !empty($top_productos) ? " + [TOP 5 NUBE ACTUALIZADO]" : "";
         echo "[{$timestamp}] [OK NUBE 200] Sincronizada(s) {$cant_mesas} mesa(s){$info_top}: " . (empty($resumen) ? "Sin mesas abiertas" : implode(' | ', $resumen)) . PHP_EOL;
 
-        // Si la nube envió pagos pendientes reportados, registrarlos en local (mijar26273_sistema:3307)
+        // Si la nube envió pagos pendientes reportados, registrarlos en local (mijar26273_sistema)
         if (!empty($json_resp['pagos_pendientes']) && is_array($json_resp['pagos_pendientes'])) {
             $c_rep = count($json_resp['pagos_pendientes']);
             echo "[{$timestamp}] [AVISO] Se detectaron {$c_rep} pago(s) reportado(s) por clientes en la nube. Sincronizando con z_status_pago local..." . PHP_EOL;

@@ -20,7 +20,7 @@
 
 ### 1.2 Respaldo y Sustitución
 * Se renombró la base de datos previa de desarrollo a **`adminbahiap_old`** (272 tablas resguardadas intactas).
-* Se extrajo el bloque limpio de `adminbahiap` (líneas 1 a 595.557) en `bd/adminbahiap_02112026.sql` y se importó en MySQL 5.5 (puerto 3307).
+* Se extrajo el bloque limpio de `adminbahiap` (líneas 1 a 595.557) en `bd/adminbahiap_02112026.sql` y se importó en MySQL 5.5 (puerto 3306).
 * Verificación de datos:
   * `operti`: 50.240 registros (última fecha: 01/11/2026).
   * `opermv`: 61.438 registros.
@@ -44,7 +44,7 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 1. Ir a `Panel de Control > Dispositivos e Impresoras` (o `Configuración > Bluetooth y dispositivos > Impresoras y escáneres`).
 2. Agregar impresora manualmente > **Agregar una impresora por medio de una dirección IP o un nombre de host**.
 3. Tipo de dispositivo: **Dispositivo TCP/IP**.
-4. Dirección IP: `192.168.1.150` (en Desarrollo usamos `192.168.0.150`). Puerto: `9100`.
+4. Dirección IP: `192.168.1.150` (en Desarrollo usamos `192.168.1.150`). Puerto: `9100`.
 5. Controlador: Seleccionar fabricante **Generic** y modelo **Generic / Text Only**.
 6. Nombre de impresora: **`cocina`** (en minúsculas).
 7. Compartir impresora: Compartir con el nombre de recurso compartido: **`cocina`**.

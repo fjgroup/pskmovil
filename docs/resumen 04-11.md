@@ -12,7 +12,7 @@ En la computadora del restaurante, el gestor de credenciales de Windows (`Git Cr
 
 ### ¿Se romperá algo en Casa?
 **NO.** Todo el código que modificamos hoy fue diseñado con **arquitectura dual inteligente**:
-* En tu **Casa**: Detecta automáticamente el puerto `3307`, clave `root` y la red `192.168.0.x` en menos de 2 milisegundos.
+* En tu **Casa**: Detecta automáticamente el puerto `3306`, clave `root` y la red `192.168.1.x` en menos de 2 milisegundos.
 * En el **Restaurante**: Detecta automáticamente el puerto `3306`, clave `1234`, la red `192.168.1.x` y la ticketera en `192.168.1.150`.
 * **No hay que cambiar nada a mano:** el mismo código corre en ambos lugares.
 
@@ -55,11 +55,11 @@ El usuario observó acertadamente que al entrar desde `localhost:2010` (en la mi
 * **La memoria RAM:** La PC tiene 4 GB (3.6 GB utilizables) con 550 MB libres, suficiente para PHP CLI.
 
 ### 3.2 La Causa Real: Timeout de Conexión a MySQL (6.104 ms)
-En el archivo `funciones/config_helper.php`, la función `credenciales_mysql_candidatas()` tenía como **prioridad #1 el puerto 3307**:
+En el archivo `funciones/config_helper.php`, la función `credenciales_mysql_candidatas()` tenía como **prioridad #1 el puerto 3306**:
 ```php
 // ANTES:
 [
-    'port' => 3307,
+    'port' => 3306,
     'user' => 'root',
     'pw'   => 'root',
     'entorno' => 'desarrollo'
@@ -68,10 +68,10 @@ En el archivo `funciones/config_helper.php`, la función `credenciales_mysql_can
     'port' => 3306,
     ...
 ```
-* En el restaurante, el puerto `3307` **NO existe ni escucha**.
-* En cada petición HTTP, PHP intentaba conectar al puerto 3307 para 3 bases de datos candidatas (`mijar26273_sistema`, `mijardin_sistema`, `mijar_sistema`).
+* En el restaurante, el puerto `3306` **NO existe ni escucha**.
+* En cada petición HTTP, PHP intentaba conectar al puerto 3306 para 3 bases de datos candidatas (`mijar26273_sistema`, `mijardin_sistema`, `mijar_sistema`).
 * El sistema operativo Windows tarda **2.000 ms (2 segundos)** en darse cuenta de que un puerto TCP no responde (TCP SYN Timeout).
-* **Resultado medido:** ¡Cada simple clic o carga de página tardaba **6.104 milisegundos (6.1 segundos)** solo esperando a que fallara el puerto 3307!
+* **Resultado medido:** ¡Cada simple clic o carga de página tardaba **6.104 milisegundos (6.1 segundos)** solo esperando a que fallara el puerto 3306!
 * Al haber 14 celulares conectados al servidor PHP monoproceso (un solo hilo), las peticiones se encolaban: 14 celulares × 6 segundos = **esperas de más de 1 minuto en las pantallas de los mesoneros**.
 
 ### 3.3 Procesos Duplicados en Memoria
@@ -86,7 +86,7 @@ Al ejecutar el iniciador varias veces, quedaron corriendo en segundo plano:
 ### 4.1 Sonda Instantánea de Puerto MySQL (`detectar_puerto_mysql_activo`)
 En `funciones/config_helper.php` se implementó una verificación ultra-rápida por socket (timeout de 0.04s):
 * Si el puerto `3306` responde (en 1.9 ms), activa el entorno **Producción (Restaurante)** de inmediato como prioridad #1.
-* Si el puerto `3307` responde, activa el entorno **Desarrollo (Casa)** como prioridad #1.
+* Si el puerto `3306` responde, activa el entorno **Desarrollo (Casa)** como prioridad #1.
 * **Resultado:** La carga de configuración pasó de **6.104 ms a 5.5 ms** (¡**1.100 veces más rápido**!).
 
 ### 4.2 Activación de Multi-Workers (`PHP_CLI_SERVER_WORKERS = 8`)
@@ -130,14 +130,14 @@ exit
  * protegiendo los datos confidenciales y eliminando la dependencia de archivos planos JSON inseguros.
  * 
  * Soporte Dual Automático de Credenciales:
- *  - DESARROLLO (Casa): Puerto 3307, Usuario root, Contraseña root
+ *  - DESARROLLO (Casa): Puerto 3306, Usuario root, Contraseña root
  *  - PRODUCCIÓN (Restaurante): Puerto 3306, Usuario root, Contraseña 1234
  */
 
 if (!function_exists("detectar_puerto_mysql_activo")) {
     /**
      * Detecta en menos de 1 milisegundo qué puerto MySQL está escuchando activamente
-     * en esta computadora (3306 para Producción/Restaurante o 3307 para Desarrollo/Casa).
+     * en esta computadora (3306 para Producción/Restaurante o 3306 para Desarrollo/Casa).
      */
     function detectar_puerto_mysql_activo()
     {
@@ -152,12 +152,12 @@ if (!function_exists("detectar_puerto_mysql_activo")) {
             return 3306;
         }
 
-        // Si no responde, probar 3307 (Casa / Desarrollo)
-        $fp2 = @fsockopen('127.0.0.1', 3307, $errno, $errstr, 0.04);
+        // Si no responde, probar 3306 (Casa / Desarrollo)
+        $fp2 = @fsockopen('127.0.0.1', 3306, $errno, $errstr, 0.04);
         if ($fp2) {
             fclose($fp2);
-            $puerto = 3307;
-            return 3307;
+            $puerto = 3306;
+            return 3306;
         }
 
         $puerto = 3306;
@@ -189,23 +189,23 @@ if (!function_exists("credenciales_mysql_candidatas")) {
                     'entorno' => 'produccion'
                 ],
                 [
-                    'port' => 3307,
+                    'port' => 3306,
                     'user' => 'root',
                     'pw'   => 'root',
                     'entorno' => 'desarrollo'
                 ]
             ];
         } else {
-            // DESARROLLO (Casa): Puerto 3307 en máxima prioridad instantánea
+            // DESARROLLO (Casa): Puerto 3306 en máxima prioridad instantánea
             $cached = [
                 [
-                    'port' => 3307,
+                    'port' => 3306,
                     'user' => 'root',
                     'pw'   => 'root',
                     'entorno' => 'desarrollo'
                 ],
                 [
-                    'port' => 3307,
+                    'port' => 3306,
                     'user' => 'root',
                     'pw'   => '1234',
                     'entorno' => 'desarrollo'
@@ -226,7 +226,7 @@ if (!function_exists("credenciales_mysql_candidatas")) {
 if (!function_exists("puertos_mysql_candidatos")) {
     function puertos_mysql_candidatos()
     {
-        return [3306 => "produccion", 3307 => "desarrollo"];
+        return [3306 => "produccion", 3306 => "desarrollo"];
     }
 }
 ```
@@ -374,8 +374,8 @@ WshShell.Run """" & phpCmd & """ -S 0.0.0.0:2010 -t """ & strCurrentDir & """", 
 
 Cuando estés en tu casa en tu computadora habitual:
 1. No necesitas cambiar ninguna configuración de red:
-   * Tu router `192.168.0.x` será detectado solo.
-   * Tu puerto `3307` con clave `root` será detectado en 1 ms.
+   * Tu router `192.168.1.x` será detectado solo.
+   * Tu puerto `3306` con clave `root` será detectado en 1 ms.
 2. Si copias estos archivos o haces merge:
    * Todo funcionará en tu casa exactamente igual que en el restaurante.
 3. El archivo `datos_conexion.json` ya no se usa ni en casa ni en el restaurante: todo se lee de la BD satélite `mijar26273_sistema`.

@@ -1051,9 +1051,9 @@ if ($_GET['accion'] == "ver_pedidos") {
 
 	$consulta = $objeto_pedido->general_query($bd_conexion, $query);
 
-	// Consultar estados de pago en satélite local (mijar26273_sistema:3307)
+	// Consultar estados de pago en satélite local (mijar26273_sistema)
 	$pagos_mesas = [];
-	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3306));
 	if ($mysqli_sist && !$mysqli_sist->connect_errno) {
 		$res_p = $mysqli_sist->query("SELECT documento, token_pin, estado, metodo, banco_origen, referencia, monto, fecha_reporte FROM z_status_pago");
 		if ($res_p) {
@@ -1287,7 +1287,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "cambiar_estado_pago") {
 		exit;
 	}
 
-	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3306));
 	if (!$mysqli_sist || $mysqli_sist->connect_errno) {
 		echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos satélite']);
 		exit;
@@ -1371,7 +1371,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_impuesto_mesa") {
 	$doc = 'E' . ltrim($mesa_raw, 'E');
 	$impuesto = 0.00;
 
-	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3307));
+	$mysqli_sist = @new mysqli($datos_conexion['host'] ?? '127.0.0.1', $datos_conexion['user'] ?? 'root', $datos_conexion['pw'] ?? 'root', $datos_conexion['bd_sistema'] ?? 'mijar26273_sistema', (int)($datos_conexion['port'] ?? 3306));
 	if ($mysqli_sist && !$mysqli_sist->connect_errno) {
 		$sql = "SELECT impuesto_bs FROM z_mesas_activas WHERE documento = '" . $mysqli_sist->real_escape_string($doc) . "' OR mesa = '" . $mysqli_sist->real_escape_string($mesa_raw) . "' OR mesa = 'MESA " . $mysqli_sist->real_escape_string($mesa_raw) . "' LIMIT 1";
 		$res = $mysqli_sist->query($sql);

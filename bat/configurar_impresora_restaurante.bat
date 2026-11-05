@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title Configurar Impresora Fisica Restaurante (POS-80C / Cocina)
+title Configurar Impresora Fisica Restaurante (POS-80C)
 echo ========================================================
 echo   CONFIGURADOR DE IMPRESORA FISICA DEL RESTAURANTE       
 echo   Mi Jardin Restaurant - IP Termica: 192.168.1.150       
@@ -37,16 +37,15 @@ powershell -NoProfile -Command ^
     "} else {" ^
     "    Write-Host '  Puerto TCP/IP 192.168.1.150 ya existe.' -ForegroundColor Yellow;" ^
     "};" ^
-    "$printers = Get-Printer | Where-Object { $_.Name -match '(?i)POS-80|cocina' };" ^
-    "foreach ($p in $printers) {" ^
-    "    Set-Printer -Name $p.Name -PortName $portName -ErrorAction SilentlyContinue;" ^
-    "    Write-Host ('  Impresora ' + $p.Name + ' asignada al puerto ' + $portName) -ForegroundColor Green;" ^
+    "$p = Get-Printer -Name 'POS-80C' -ErrorAction SilentlyContinue;" ^
+    "if ($p) {" ^
+    "    Set-Printer -Name 'POS-80C' -PortName $portName -ErrorAction SilentlyContinue;" ^
+    "    Write-Host ('  Impresora POS-80C asignada al puerto ' + $portName) -ForegroundColor Green;" ^
     "}"
-
 echo.
-echo [3/3] Estado actual de impresoras termicas en Windows:
+echo [3/3] Estado actual de la impresora termica en Windows:
 echo --------------------------------------------------------
-powershell -NoProfile -Command "Get-Printer | Where-Object { $_.Name -match '(?i)POS-80|cocina' } | Select-Object Name, PortName, DriverName | Format-Table -AutoSize"
+powershell -NoProfile -Command "Get-Printer -Name 'POS-80C' -ErrorAction SilentlyContinue | Select-Object Name, PortName, DriverName | Format-Table -AutoSize"
 echo --------------------------------------------------------
 echo.
 echo ========================================================

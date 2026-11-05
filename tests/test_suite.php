@@ -64,7 +64,7 @@ class SuiteDiagnostico {
     }
 
     // ------------------------------------------------------------------------
-    // TEST 1: Fallback Dual de Conexión MySQL (3307 Desarrollo vs 3306 Producción)
+    // TEST 1: Conexión MySQL (Puerto 3306)
     // ------------------------------------------------------------------------
     private function testConexionDualMySQL() {
         $t0 = microtime(true);
@@ -114,7 +114,7 @@ class SuiteDiagnostico {
                 'Conexión Dual MySQL (Fallback Automático)',
                 'Base de Datos',
                 'FAIL',
-                'No se pudo conectar a MySQL en ninguno de los puertos candidatos (3307 desarrollo ni 3306 producción).',
+                'No se pudo conectar a MySQL en el puerto 3306.',
                 $detalles,
                 $dur
             );

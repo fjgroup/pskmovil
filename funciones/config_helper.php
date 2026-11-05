@@ -4,38 +4,12 @@
  * Lee prioritariamente la configuracion desde la base de datos satelite local "mijar26273_sistema",
  * protegiendo los datos confidenciales y eliminando la dependencia de archivos planos JSON inseguros.
  * 
- * Soporte Dual Automático de Credenciales:
- *  - DESARROLLO (Casa): Puerto 3307, Usuario root, Contraseña root
- *  - PRODUCCIÓN (Restaurante): Puerto 3306, Usuario root, Contraseña 1234
+ * Configuración única centralizada en MySQL (Puerto 3306).
  */
 
 if (!function_exists("detectar_puerto_mysql_activo")) {
-    /**
-     * Detecta en menos de 1 milisegundo qué puerto MySQL está escuchando activamente
-     * en esta computadora (3306 para Producción/Restaurante o 3307 para Desarrollo/Casa).
-     */
     function detectar_puerto_mysql_activo()
     {
-        static $puerto = null;
-        if ($puerto !== null) return $puerto;
-
-        // Probar primero 3306 (Restaurante / Producción)
-        $fp = @fsockopen('127.0.0.1', 3306, $errno, $errstr, 0.04);
-        if ($fp) {
-            fclose($fp);
-            $puerto = 3306;
-            return 3306;
-        }
-
-        // Si no responde, probar 3307 (Casa / Desarrollo)
-        $fp2 = @fsockopen('127.0.0.1', 3307, $errno, $errstr, 0.04);
-        if ($fp2) {
-            fclose($fp2);
-            $puerto = 3307;
-            return 3307;
-        }
-
-        $puerto = 3306;
         return 3306;
     }
 }
@@ -43,65 +17,17 @@ if (!function_exists("detectar_puerto_mysql_activo")) {
 if (!function_exists("credenciales_mysql_candidatas")) {
     function credenciales_mysql_candidatas()
     {
-        static $cached = null;
-        if ($cached !== null) return $cached;
-
-        $p_activo = detectar_puerto_mysql_activo();
-
-        if ($p_activo === 3306) {
-            // PRODUCCIÓN (Restaurante): Puerto 3306 en máxima prioridad instantánea
-            $cached = [
-                [
-                    'port' => 3306,
-                    'user' => 'root',
-                    'pw'   => '1234',
-                    'entorno' => 'produccion'
-                ],
-                [
-                    'port' => 3306,
-                    'user' => 'root',
-                    'pw'   => 'root',
-                    'entorno' => 'desarrollo'
-                ],
-                [
-                    'port' => 3307,
-                    'user' => 'root',
-                    'pw'   => 'root',
-                    'entorno' => 'desarrollo'
-                ]
-            ];
-        } else {
-            // DESARROLLO (Casa): Puerto 3307 en máxima prioridad instantánea
-            $cached = [
-                [
-                    'port' => 3307,
-                    'user' => 'root',
-                    'pw'   => 'root',
-                    'entorno' => 'desarrollo'
-                ],
-                [
-                    'port' => 3307,
-                    'user' => 'root',
-                    'pw'   => '1234',
-                    'entorno' => 'desarrollo'
-                ],
-                [
-                    'port' => 3306,
-                    'user' => 'root',
-                    'pw'   => '1234',
-                    'entorno' => 'produccion'
-                ]
-            ];
-        }
-
-        return $cached;
+        return [
+            ['port' => 3306, 'user' => 'root', 'pw' => 'root', 'entorno' => 'desarrollo'],
+            ['port' => 3306, 'user' => 'root', 'pw' => '1234', 'entorno' => 'produccion']
+        ];
     }
 }
 
 if (!function_exists("puertos_mysql_candidatos")) {
     function puertos_mysql_candidatos()
     {
-        return [3306 => "produccion", 3307 => "desarrollo"];
+        return [3306 => "sistema"];
     }
 }
 
@@ -116,7 +42,7 @@ if (!function_exists("obtener_config_sistema")) {
         $host_default = "127.0.0.1";
         $bd_candidatas = ["mijar26273_sistema", "mijardin_sistema", "mijar_sistema"];
 
-        // 1. Intentar consultar z_config_sistema con la matriz de credenciales (3307 root/root primero, luego 3306 root/1234)
+        // 1. Intentar consultar z_config_sistema con la matriz de credenciales (3306 root/root primero, luego 3306 root/1234)
         foreach (credenciales_mysql_candidatas() as $cred) {
             $port_c = $cred['port'];
             $user_c = $cred['user'];
@@ -261,7 +187,7 @@ if (!function_exists("conectar_bd_pos")) {
             if (!$m->connect_errno) return $m;
         }
 
-        // 2. Probar matriz dual completa (3307 root/root -> 3306 root/1234)
+        // 2. Probar matriz dual completa (3306 root/root -> 3306 root/1234)
         foreach (credenciales_mysql_candidatas() as $c) {
             $m = @new mysqli($host, $c['user'], $c['pw'], $bd, (int)$c['port']);
             if (!$m->connect_errno) return $m;
@@ -287,7 +213,7 @@ if (!function_exists("conectar_bd_sistema")) {
             }
         }
 
-        // 2. Probar matriz dual completa (3307 root/root -> 3306 root/1234)
+        // 2. Probar matriz dual completa (3306 root/root -> 3306 root/1234)
         foreach (credenciales_mysql_candidatas() as $c) {
             foreach ($bds as $bd) {
                 $m = @new mysqli($host, $c['user'], $c['pw'], $bd, (int)$c['port']);

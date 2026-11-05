@@ -11,7 +11,7 @@
 El ecosistema digital de **Mi Jardín Restaurant** consta de dos componentes integrados mediante peticiones salientes seguras (Outbound HTTPS POST):
 
 1. **`comandasmoviles` (Aplicación Interna POS Móvil):**
-   - Sistema web PHP/JS para tablets y teléfonos de mesoneros y cajeros en red local interna bajo el puerto **`2010`** (`http://192.168.0.102:2010/`).
+   - Sistema web PHP/JS para tablets y teléfonos de mesoneros y cajeros en red local interna bajo el puerto **`2010`** (`http://192.168.1.102:2010/`).
    - Interactúa en tiempo real con el servidor de base de datos local del restaurante.
 2. **`mijardinrestaurant.com` (Portal Nube Autoservicio - Laravel):**
    - Servidor Cloud VPS en internet (`https://mijardinrestaurant.com`).
@@ -25,8 +25,8 @@ El sistema maneja tres bases de datos fundamentales:
 
 | Base de Datos | Ubicación | Motor / Puerto | Rol y Restricciones Críticas |
 | :--- | :--- | :--- | :--- |
-| **`adminbahiap`** | Local (PC Restaurante / PC Desarrollo) | MySQL 5.5 (3306 o 3307) | **BD Fiscal de Premium Soft.** <br>⚠️ **INTOCABLE:** Homologada por el **SENIAT**. Prohibido alterar tablas, crear columnas o llaves foráneas. Solo lecturas e inserciones transaccionales nativas (`operti`, `opermv`, `idconsumos`, etc.). |
-| **`mijar26273_sistema` (Local)** | Local (Mismo servidor MySQL) | MySQL 5.5 (3306 o 3307) | **BD Satélite Local.** <br>Almacena tokens PIN temporales (`z_status_pago`), estados de sincronización (`z_mesas_activas`), configuración (`z_config_sistema`) y bancos (`z_config_bancos`). |
+| **`adminbahiap`** | Local (PC Restaurante / PC Desarrollo) | MySQL 5.5 (3306 o 3306) | **BD Fiscal de Premium Soft.** <br>⚠️ **INTOCABLE:** Homologada por el **SENIAT**. Prohibido alterar tablas, crear columnas o llaves foráneas. Solo lecturas e inserciones transaccionales nativas (`operti`, `opermv`, `idconsumos`, etc.). |
+| **`mijar26273_sistema` (Local)** | Local (Mismo servidor MySQL) | MySQL 5.5 (3306 o 3306) | **BD Satélite Local.** <br>Almacena tokens PIN temporales (`z_status_pago`), estados de sincronización (`z_mesas_activas`), configuración (`z_config_sistema`) y bancos (`z_config_bancos`). |
 | **`mijar26273_sistema` (Cloud)** | Remoto (Hosting VPS / Cloud) | MySQL 8.x / MariaDB | **BD de la Plataforma Web Laravel.** <br>Alimenta la consulta del comensal. Recibe datos vía API saliente desde `sync_daemon.php`. |
 
 ---
@@ -36,12 +36,12 @@ El sistema maneja tres bases de datos fundamentales:
 El sistema opera de forma transparente tanto en la estación de desarrollo como en el servidor de producción del restaurante **sin necesidad de cambiar archivos de configuración ni tocar switches manuales**.
 
 ### Matriz de Credenciales Candidatas:
-* **Entorno Desarrollo (PC Casa):** Puerto `3307`, Usuario `root`, Contraseña `root`.
+* **Entorno Desarrollo (PC Casa):** Puerto `3306`, Usuario `root`, Contraseña `root`.
 * **Entorno Producción (Restaurante):** Puerto `3306`, Usuario `root`, Contraseña `1234`.
 
 ### Funciones Centralizadas en `funciones/config_helper.php`:
 * `obtener_config_sistema()`: Lee de `z_config_sistema` probando la matriz de credenciales y cachea la conexión que respondió.
-* `conectar_bd_pos($config = null)`: Retorna un objeto `mysqli` conectado a `adminbahiap`, probando 3307 y 3306 automáticamente.
+* `conectar_bd_pos($config = null)`: Retorna un objeto `mysqli` conectado a `adminbahiap`, probando 3306 y 3306 automáticamente.
 * `conectar_bd_sistema($config = null)`: Retorna un objeto `mysqli` conectado a la BD satélite `mijar26273_sistema`.
 
 > **Regla de Oro:** Ningún controlador o script debe hacer `new mysqli('127.0.0.1', 'root', 'root', ...)` con credenciales fijas. Siempre debe usarse `conectar_bd_pos()` o `conectar_bd_sistema()`.

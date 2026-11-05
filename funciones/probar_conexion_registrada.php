@@ -16,7 +16,7 @@ if (!empty($datos_conexion)) {
 	$pw = trim($datos_conexion['pw']);
 	$bd = trim($datos_conexion['bd']);
 	$modo_entorno = strtolower(trim($datos_conexion['modo_entorno'] ?? 'desarrollo'));
-	$port = !empty($datos_conexion['port']) ? trim($datos_conexion['port']) : ($modo_entorno === 'produccion' ? '3306' : '3307');
+	$port = !empty($datos_conexion['port']) ? trim($datos_conexion['port']) : '3306';
 	$cod_empresa = strtoupper($datos_conexion['cod_empresa']);
 	$cod_agencia = strtoupper($datos_conexion['cod_agencia']);
 	$cod_cliente = strtoupper($datos_conexion['cod_cliente']);

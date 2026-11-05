@@ -9,7 +9,7 @@ if (!empty($_POST['password_sup'])) {
     $config = obtener_config_sistema();
 
     $host = $config['host'] ?? '127.0.0.1';
-    $port = (int)($config['port'] ?? 3307);
+    $port = (int)($config['port'] ?? 3306);
     $user = $config['user'] ?? 'root';
     $pw   = $config['pw'] ?? 'root';
     $bd   = $config['bd_pos'] ?? ($config['bd'] ?? 'adminbahiap');

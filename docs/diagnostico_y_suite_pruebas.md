@@ -51,7 +51,7 @@ Para certificar que todo el ecosistema (bases de datos local y satélite, reglas
 
 | # | Prueba | Subsistema | Objetivo / Criterio de Aprobación |
 |---|--------|------------|-----------------------------------|
-| **1** | `TEST_MYSQL_DUAL` | Base de Datos | Verifica conexión automática mediante fallback: primero puerto `3307` (`root`/`root`, Casa/Desarrollo) y luego puerto `3306` (`root`/`1234`, Restaurante/Producción). Mide latencia de conexión en milisegundos. |
+| **1** | `TEST_MYSQL_DUAL` | Base de Datos | Verifica conexión automática mediante fallback: primero puerto `3306` (`root`/`root`, Casa/Desarrollo) y luego puerto `3306` (`root`/`1234`, Restaurante/Producción). Mide latencia de conexión en milisegundos. |
 | **2** | `TEST_FISCAL_PREMIUM` | Fiscal SENIAT (`adminbahiap`) | Comprueba la existencia y disponibilidad de lectura de las 5 tablas maestras del sistema fiscal: `operti`, `opermv`, `idconsumos`, `monedas`, `listvend`. Verifica integridad de transacciones abiertas. |
 | **3** | `TEST_SATELITE_ESTRUCTURA` | Base Satélite (`mijar26273_sistema`) | Certifica la presencia de las 5 tablas canónicas satélite (`z_config_sistema`, `z_config_bancos`, `z_mesas_activas`, `z_status_pago`, `z_top_productos`). **Certifica la purga total** de tablas/columnas prohibidas (`mesas_caja`, `mesas_registradas`) y que `url_hosting` apunte a `https://mijardinrestaurant.com`. |
 | **4** | `TEST_LOGICA_MESAS` | Lógica de Negocio | Evalúa la regla universal dinámica: si un código existe en `adminbahiap.idconsumos` es `MESA REAL`; si no existe (códigos inventados por cajeros: `001`, `099`, `020`, `0101010`) es `PEDIDO EN CAJA`. Valida normalización de ceros (`MESA1` -> `MESA01`). |
@@ -74,7 +74,7 @@ O haciendo doble clic en el archivo directo:
 ### Opción B: Desde el Navegador Web (Dashboard Visual)
 Acceda desde el navegador a:
 - Local: `http://localhost:2010/tests/test_suite.php`
-- En red WiFi: `http://192.168.0.102:2010/tests/test_suite.php`
+- En red WiFi: `http://192.168.1.102:2010/tests/test_suite.php`
 
 El dashboard incluye:
 - Tarjetas de salud visual (Total Pruebas, Aprobadas, Fallidas, Índice de Salud %).

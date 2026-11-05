@@ -1,6 +1,6 @@
-# Base de Datos Local - Mi Jardín Restaurant (Puerto 3307)
+# Base de Datos Local - Mi Jardín Restaurant (Puerto 3306)
 
-Este documento contiene el volcado completo de la base de datos local satélite **`mijar26273_sistema`** del **puerto 3307** para ser copiado en el pendrive y transferido a la PC del restaurante.
+Este documento contiene el volcado completo de la base de datos local satélite **`mijar26273_sistema`** del **puerto 3306** para ser copiado en el pendrive y transferido a la PC del restaurante.
 
 > [!TIP]
 > **Archivo SQL listo para copiar al Pendrive:**  
@@ -11,7 +11,7 @@ Este documento contiene el volcado completo de la base de datos local satélite 
 ## 📌 Pasos para importar en la PC del Restaurante con HeidiSQL
 
 1. Conecta tu **pendrive** en la computadora del restaurante.
-2. Abre **HeidiSQL** en la computadora del restaurante y conéctate a la sesión local de MySQL (habitualmente **Puerto 3307**, usuario `root`).
+2. Abre **HeidiSQL** en la computadora del restaurante y conéctate a la sesión local de MySQL (habitualmente **Puerto 3306**, usuario `root`).
 3. En el menú superior de HeidiSQL, haz clic en **Archivo -> Cargar archivo SQL...** y selecciona `sql_local.sql` desde tu pendrive (o abre una pestaña de **Consulta** y pega el código SQL de abajo).
 4. Presiona la tecla **F9** (o el botón azul con forma de triángulo **Ejecutar**).
 5. En el panel izquierdo de HeidiSQL presiona **F5** para refrescar: verás la base de datos **`mijar26273_sistema`** creada con todas sus tablas y datos cargados.
@@ -19,12 +19,12 @@ Este documento contiene el volcado completo de la base de datos local satélite 
 
 ---
 
-## 💾 Script SQL Completo (Puerto 3307 - `mijar26273_sistema`)
+## 💾 Script SQL Completo (Puerto 3306 - `mijar26273_sistema`)
 
 ```sql
 -- ============================================================================
 -- BASE DE DATOS LOCAL SATÉLITE: MI JARDÍN RESTAURANT
--- Exportado desde MySQL Local (Puerto 3307) para la PC del Restaurante
+-- Exportado desde MySQL Local (Puerto 3306) para la PC del Restaurante
 -- Base de datos: mijar26273_sistema
 -- Fecha: 2026-10-26 15:43:41
 -- ============================================================================
@@ -58,12 +58,12 @@ CREATE TABLE `z_config_sistema` (
 -- Volcado de datos para la tabla `z_config_sistema` (35 registros)
 LOCK TABLES `z_config_sistema` WRITE;
 /*!40000 ALTER TABLE `z_config_sistema` DISABLE KEYS */;
-INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('1', 'config_completa', '{\"modo_entorno\":\"desarrollo\",\"host\":\"127.0.0.1\",\"user\":\"root\",\"pw\":\"root\",\"bd\":\"adminbahiap\",\"bd_pos\":\"adminbahiap\",\"bd_sistema\":\"mijar26273_sistema\",\"port\":\"3307\",\"url_hosting\":\"https:\\/\\/mijardinrestaurant.com\",\"url_web_mesa\":\"https:\\/\\/mijardinrestaurant.com\\/mesa\",\"nombre_empresa\":\"INVERSIONES BAHIA PLAZA, C.A\",\"cod_empresa\":\"BAHIAP\",\"cod_agencia\":\"001\",\"cod_cliente\":\"V123456789\",\"nrorif\":\"\",\"cod_zona\":\"001\",\"cod_deposito\":\"01\",\"recargo\":\"0\",\"pw_supervisor\":\"PeDrO\",\"cantidad_por_pagina\":\"12\",\"cuentas_compartidas_entre_vendedores\":\"si\",\"agrupar_mesas_por_ubicacion\":\"si\",\"usar_subgrupos\":\"no\",\"no_usar_impuestos\":\"no\",\"no_editar_integrados\":\"si\",\"ocultar_integrados\":\"no\",\"cm_ancho_precuenta\":\"8\",\"tipo_doc\":\"ESP\",\"no_tiene_existencia\":\"no\",\"permitir_descuentos\":\"no\",\"minutos_inactividad\":\"0\",\"impuestos\":[{\"codigo\":\"03\",\"nombre\":\"Alicuota Adicional\",\"prc\":\"31.0000000\"}],\"dividemultiplica\":\"1\",\"monedafactor\":\"887.3020\"}', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
+INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('1', 'config_completa', '{\"modo_entorno\":\"desarrollo\",\"host\":\"127.0.0.1\",\"user\":\"root\",\"pw\":\"root\",\"bd\":\"adminbahiap\",\"bd_pos\":\"adminbahiap\",\"bd_sistema\":\"mijar26273_sistema\",\"port\":\"3306\",\"url_hosting\":\"https:\\/\\/mijardinrestaurant.com\",\"url_web_mesa\":\"https:\\/\\/mijardinrestaurant.com\\/mesa\",\"nombre_empresa\":\"INVERSIONES BAHIA PLAZA, C.A\",\"cod_empresa\":\"BAHIAP\",\"cod_agencia\":\"001\",\"cod_cliente\":\"V123456789\",\"nrorif\":\"\",\"cod_zona\":\"001\",\"cod_deposito\":\"01\",\"recargo\":\"0\",\"pw_supervisor\":\"PeDrO\",\"cantidad_por_pagina\":\"12\",\"cuentas_compartidas_entre_vendedores\":\"si\",\"agrupar_mesas_por_ubicacion\":\"si\",\"usar_subgrupos\":\"no\",\"no_usar_impuestos\":\"no\",\"no_editar_integrados\":\"si\",\"ocultar_integrados\":\"no\",\"cm_ancho_precuenta\":\"8\",\"tipo_doc\":\"ESP\",\"no_tiene_existencia\":\"no\",\"permitir_descuentos\":\"no\",\"minutos_inactividad\":\"0\",\"impuestos\":[{\"codigo\":\"03\",\"nombre\":\"Alicuota Adicional\",\"prc\":\"31.0000000\"}],\"dividemultiplica\":\"1\",\"monedafactor\":\"887.3020\"}', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('2', 'host', '127.0.0.1', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('3', 'user', 'root', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('4', 'pw', 'root', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('5', 'bd', 'adminbahiap', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
-INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('6', 'port', '3307', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
+INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('6', 'port', '3306', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('7', 'nombre_empresa', 'INVERSIONES BAHIA PLAZA, C.A', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('8', 'cod_empresa', 'BAHIAP', '2026-10-24 10:13:46', '2026-10-26 00:01:38');
 INSERT INTO `z_config_sistema` (`id`, `clave`, `valor`, `created_at`, `updated_at`) VALUES ('9', 'cod_agencia', '001', '2026-10-24 10:13:46', '2026-10-26 00:01:38');

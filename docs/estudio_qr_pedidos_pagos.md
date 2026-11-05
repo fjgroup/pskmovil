@@ -9,7 +9,7 @@
 ## 1. Diagnóstico de Seguridad y Red Local
 
 ### 1.1. Riesgos de una Red Plana Compartida
-En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 2010/8080 y MySQL 3306/3307) a la misma red Wi-Fi donde se conectan los clientes presenta riesgos críticos:
+En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 2010/8080 y MySQL 3306/3306) a la misma red Wi-Fi donde se conectan los clientes presenta riesgos críticos:
 - **Escaneo de Puertos y Vulnerabilidades:** Un comensal o persona en las adyacencias puede escanear la red con herramientas como Nmap o Fing y atacar servicios de Windows (SMB puerto 445, RDP 3389, o MySQL 3306).
 - **Ataques DoS:** Saturar el servidor Apache local y paralizar la toma de comandas de los mesoneros en plena hora pico.
 
@@ -41,7 +41,7 @@ En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 20
 Para garantizar que los clientes **nunca toquen la red local**, la interacción con comensales se traslada a un hosting en internet con dominio propio (`https://mijardinrestaurant.com`) desarrollado en **Laravel + Blade**.
 
 ### 2.1. Separación Estricta de Bases de Datos
-1. **Entorno Local (Puerto 3307 Casa / 3306 Restaurante):**
+1. **Entorno Local (Puerto 3306 Casa / 3306 Restaurante):**
    - **`adminbahiap`:** Base de datos principal de Premium Soft (tablas vírgenes: `operti`, `opermv`, etc.).
    - **`mijar26273_sistema` (Local):** Base de datos satélite que almacena el PIN generado por el mesonero en `z_status_pago` y copia local en `z_mesas_activas`.
 2. **Entorno Nube / Remoto (Hosting Web VPS en Internet):**
@@ -51,9 +51,9 @@ Para garantizar que los clientes **nunca toquen la red local**, la interacción 
 ```mermaid
 flowchart TD
     subgraph RedLocal [Red Local Privada del Restaurante - Puerto 2010]
-        PS[Premium Soft\nBD: adminbahiap :3307 / :3306]
+        PS[Premium Soft\nBD: adminbahiap :3306 / :3306]
         LocalSat[BD Satélite Local\nmijar26273_sistema]
-        Mesoneros[Mesoneros con Móviles\ncomandasmoviles :2010\nhttp://192.168.0.102:2010/]
+        Mesoneros[Mesoneros con Móviles\ncomandasmoviles :2010\nhttp://192.168.1.102:2010/]
         BatSync[iniciar_sistema.bat\nsync_daemon.php en 2do Plano]
 
         Mesoneros -->|1. Toma pedidos| PS
@@ -177,7 +177,7 @@ Al listar o consultar las mesas en tránsito dentro de `comandasmoviles`:
 
 El proceso local de sincronización se ejecuta mediante [sync_daemon.php](file:///e:/herd/comandasmoviles/sync_daemon.php) con lanzador directo [iniciar_sincronizador.bat](file:///e:/herd/comandasmoviles/iniciar_sincronizador.bat):
 
-1. **Lectura Local (Puerto 3307):**
+1. **Lectura Local (Puerto 3306):**
    - Consulta las mesas abiertas en `adminbahiap.operti` (`tipodoc = 'ESP'`).
    - Obtiene los platos y montos desde `adminbahiap.opermv`.
    - Consulta o genera el PIN en `mijar26273_sistema.z_status_pago`.
@@ -193,7 +193,7 @@ title Sincronizador Cloud - Mi Jardin Restaurant
 cd /d "%~dp0"
 echo ========================================================
 echo     SINCRONIZADOR CLOUD - MI JARDIN RESTAURANT
-echo        (MYSQL PUERTO 3307 LOCAL -> NUBE HTTPS)
+echo        (MYSQL PUERTO 3306 LOCAL -> NUBE HTTPS)
 echo ========================================================
 echo.
 php sync_daemon.php
@@ -215,7 +215,7 @@ gantt
     Estructura Blade + Plus Jakarta Sans    :done, p3, 2026-10-22, 2026-10-23
     Pantalla Espera con Contador 15s        :done, p4, 2026-10-23, 2026-10-23
     section Fase 3: Sincronización Multi-BD
-    Separación DB Local (3307) vs Nube (3306):done, p5, 2026-10-23, 2026-10-23
+    Separación DB Local (3306) vs Nube (3306):done, p5, 2026-10-23, 2026-10-23
     sync_daemon.php + iniciar_sincronizador :done, p6, 2026-10-23, 2026-10-23
     section Fase 4: Reporte y Validación de Pagos (FASE FINAL)
     Formulario Comensal (Banesco/BDV/Zelle) :active, p7, 2026-10-24, 2d
@@ -226,5 +226,5 @@ gantt
 ### Detalle de Fases:
 * **Fase 1 (Completada):** Botón «Compartir» en Comandas Móviles con medidas equivalentes a Procesar y Comanda, generación de PIN de 6 dígitos y modal de QR con protocolo HTTPS.
 * **Fase 2 (Completada):** Portal web del comensal en Laravel + Blade, pantalla de consulta por PIN y pantalla de espera con contador regresivo de 15 segundos animado.
-* **Fase 3 (Completada):** Separación de entornos de base de datos (`adminbahiap` y `mijar26273_sistema` en puerto 3307 local vs `mijar26273_sistema` en puerto 3306 nube) y demonio de sincronización automática `sync_daemon.php` con archivo `.bat`.
+* **Fase 3 (Completada):** Separación de entornos de base de datos (`adminbahiap` y `mijar26273_sistema` en puerto 3306 local vs `mijar26273_sistema` en puerto 3306 nube) y demonio de sincronización automática `sync_daemon.php` con archivo `.bat`.
 * **Fase 4 (Fase Final - Pagos):** Recepción de pagos móviles y transferencias reportadas por el comensal, validación en caja/supervisor y confirmación inmediata en la pantalla del cliente.

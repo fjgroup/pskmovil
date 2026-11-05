@@ -24,9 +24,9 @@
 
 El sistema opera bajo un modelo de **alta seguridad y aislamiento perimetral** con 3 bases de datos bien diferenciadas entre dos entornos:
 
-### 2.1. Entorno Local (Soporte Dual Automático 3307 / 3306)
+### 2.1. Entorno Local (Soporte Dual Automático 3306 / 3306)
 Ambas bases de datos corren localmente en el servidor del restaurante o en la estación de desarrollo con detección dual automática (`config_helper.php`):
-* **Desarrollo (Casa):** Puerto **3307** (`root` / `root`)
+* **Desarrollo (Casa):** Puerto **3306** (`root` / `root`)
 * **Producción (Restaurante):** Puerto **3306** (`root` / `1234`)
 
 1. **`adminbahiap` (Software Administrativo Premium Soft):**
@@ -66,10 +66,10 @@ Corre en el servidor web de producción (`https://mijardinrestaurant.com`):
 [ MESONERO ]
      │ (1) Toma pedido / Genera PIN
      ▼
-[ comandasmoviles (Local :2010 - http://192.168.0.102:2010/) ]
+[ comandasmoviles (Local :2010 - http://192.168.1.102:2010/) ]
      │
-     ├───► [ adminbahiap :3307 Casa / :3306 Restaurante ] (BD Fiscal Premium Soft - Intocable / SENIAT)
-     └───► [ mijar26273_sistema :3307 Casa / :3306 Restaurante ] (BD Satélite Local: PIN, Tokens, Config)
+     ├───► [ adminbahiap :3306 Casa / :3306 Restaurante ] (BD Fiscal Premium Soft - Intocable / SENIAT)
+     └───► [ mijar26273_sistema :3306 Casa / :3306 Restaurante ] (BD Satélite Local: PIN, Tokens, Config)
                  │
                  │ (2) sync_daemon.php lee cada 12 segundos
                  ▼

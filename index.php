@@ -5,7 +5,7 @@ $file = obtener_config_sistema();
 $titulo_web = !empty($file['nombre_empresa']) ? htmlspecialchars($file['nombre_empresa']) : 'Comandas Móviles';
 
 // Cargar listado oficial de mesas registradas en idconsumos de Premium Soft
-$mysqli_pos_init = @new mysqli($file['host'] ?? '127.0.0.1', $file['user'] ?? 'root', $file['pw'] ?? 'root', $file['bd_pos'] ?? 'adminbahiap', (int)($file['port'] ?? 3307));
+$mysqli_pos_init = @new mysqli($file['host'] ?? '127.0.0.1', $file['user'] ?? 'root', $file['pw'] ?? 'root', $file['bd_pos'] ?? 'adminbahiap', (int)($file['port'] ?? 3306));
 $mesas_oficiales_arr = ($mysqli_pos_init && !$mysqli_pos_init->connect_errno) ? array_keys(obtener_mesas_oficiales($mysqli_pos_init)) : [];
 if ($mysqli_pos_init) $mysqli_pos_init->close();
 ?>
@@ -230,7 +230,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 		<i class="fa fa-database"></i> 1. Base de Datos Satélite (mijar26273_sistema)
 	</div>
 	<p style="font-size: 12px; color: #555; margin-bottom: 12px; line-height: 1.5;">
-		El sistema opera con <strong>Detección Dual Automática</strong>: puerto <strong>3307</strong> (clave root) en Desarrollo y puerto <strong>3306</strong> (clave 1234) en Producción. Este verificador garantiza que las 5 tablas satélite y los parámetros requeridos existan y estén al día.
+		El sistema opera conectado a MySQL (Puerto <strong>3306</strong>). Este verificador garantiza que las tablas satélite y los parámetros requeridos existan y estén al día.
 	</p>
 	
 	<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
@@ -238,7 +238,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 			<i class="fa fa-wrench"></i> Verificar y Reparar Base de Datos Satélite
 		</button>
 		<span id="estado_conexion_auto" style="font-size: 12px; color: #666; font-weight: 600;">
-			<i class="fa fa-check-circle text-success"></i> Auto-conexión activa (3307 / 3306)
+			<i class="fa fa-check-circle text-success"></i> Conexión activa (Puerto 3306)
 		</span>
 	</div>
 
@@ -246,7 +246,7 @@ if ($mysqli_pos_init) $mysqli_pos_init->close();
 
 	<!-- Campos ocultos de conexión para compatibilidad interna -->
 	<input type="hidden" name="host" id="host" value="<?php echo $file['host'] ?? '127.0.0.1'; ?>" />
-	<input type="hidden" name="port" id="port" value="<?php echo $file['port'] ?? '3307'; ?>" />
+	<input type="hidden" name="port" id="port" value="<?php echo $file['port'] ?? '3306'; ?>" />
 	<input type="hidden" name="user" id="user" value="<?php echo $file['user'] ?? 'root'; ?>" />
 	<input type="hidden" name="pw" id="pw" value="<?php echo $file['pw'] ?? 'root'; ?>" />
 	<input type="hidden" name="bd" id="bd" value="adminbahiap" />

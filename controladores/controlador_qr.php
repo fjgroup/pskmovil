@@ -32,12 +32,12 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
     $mesa_clean = preg_replace('/^E/i', '', $mesa_input);
     $documento = "E" . $mesa_clean;
 
-    // 1. Conexión dual automática (detecta 3307 root/root en Casa o 3306 root/1234 en Restaurante)
+    // 1. Conexión a la base de datos de Premium Soft y Satélite
     require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
 
     $mysqli_pos = conectar_bd_pos($datos_conexion);
     if (!$mysqli_pos) {
-        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos de Premium Soft (adminbahiap). Verifique el servicio MySQL (puerto 3307 / 3306).']);
+        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos de Premium Soft (adminbahiap). Verifique el servicio MySQL (Puerto 3306).']);
         exit;
     }
 
@@ -54,7 +54,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
 
     $mysqli_sistema = conectar_bd_sistema($datos_conexion);
     if (!$mysqli_sistema) {
-        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base satélite local (mijar26273_sistema). Verifique el servicio MySQL (puerto 3307 / 3306).']);
+        echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base satélite local (mijar26273_sistema). Verifique el servicio MySQL (Puerto 3306).']);
         exit;
     }
 
@@ -86,7 +86,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
         $mysqli_sistema->query($insert);
     }
 
-    // 3. Recopilar artículos de opermv en adminbahiap (puerto 3307)
+    // 3. Recopilar artículos de opermv en adminbahiap
     $items = [];
     $total_bs = 0;
     
@@ -128,7 +128,7 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
     if ($tasa <= 0) $tasa = 1;
     $total_usd = $total_bs / $tasa;
 
-    // 4. Guardar copia local en mijar26273_sistema.z_mesas_activas (puerto 3307)
+    // 4. Guardar copia local en mijar26273_sistema.z_mesas_activas
     $items_json = json_encode($items, JSON_UNESCAPED_UNICODE);
     $fecha_act = date('Y-m-d H:i:s');
     $ins_mesa = "INSERT INTO z_mesas_activas (documento, mesa, token_pin, total_bs, total_usd, tasa_dia, items_json, estado, created_at, updated_at)

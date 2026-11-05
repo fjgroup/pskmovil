@@ -27,7 +27,7 @@ if (!function_exists('obtener_conexion_impresion')) {
         $user = $cfg['user'] ?? 'root';
         $pw   = $cfg['pw'] ?? 'root';
         $bd   = $cfg['bd_pos'] ?? ($cfg['bd'] ?? 'adminbahiap');
-        $port = (int)($cfg['port'] ?? 3307);
+        $port = (int)($cfg['port'] ?? 3306);
 
         try {
             $conn = @new \mysqli($host, $user, $pw, $bd, $port);
@@ -59,106 +59,48 @@ if (!function_exists('detectar_info_impresora_windows')) {
      * Busca candidatos prioritarios (POS-80C, POS-80, cocina, etc.) y lee la IP real desde
      * el monitor de puertos Standard TCP/IP (HostName), evitando confusiones con el nombre del puerto.
      */
+    /**
+     * Obtiene el puerto e IP de la impresora térmica única (POS-80C) configurada en Windows.
+     */
     function detectar_info_impresora_windows($nombre_impresora = null) {
         static $cache = [];
-        $clave = (string)$nombre_impresora;
-        if (isset($cache[$clave])) {
-            return $cache[$clave];
-        }
-
-        $info = [
-            'nombre'  => null,
-            'puerto'  => null,
-            'ip'      => null
-        ];
-
+        $nombre = $nombre_impresora ?: 'POS-80C';
+        if (isset($cache[$nombre])) return $cache[$nombre];
+        $info = ['nombre' => $nombre, 'puerto' => null, 'ip' => null];
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $candidatos = array_unique(array_filter([$nombre_impresora, 'POS-80C', 'POS-80', 'cocina', 'POS80', 'Ticketera', 'Comandas']));
-            $printer_encontrada = null;
-            $puerto = null;
-
-            // 1. Probar nombres prioritarios
-            foreach ($candidatos as $cand) {
-                $salida = [];
-                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $cand . '" /v "Port" 2>nul', $salida);
-                foreach ($salida as $l) {
-                    if (preg_match('/Port\s+REG_SZ\s+(.+)$/i', trim($l), $m)) {
-                        $printer_encontrada = $cand;
-                        $puerto = trim($m[1]);
-                        break 2;
-                    }
+            $salida = [];
+            $regKey = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $nombre;
+            @exec("reg query \"{$regKey}\" /v \"Port\" 2>nul", $salida);
+            foreach ($salida as $l) {
+                if (preg_match('/Port\s+REG_SZ\s+(.+)$/i', trim($l), $m)) {
+                    $info['puerto'] = trim($m[1]);
+                    break;
                 }
             }
-
-            // 2. Si no se encontró, escanear impresoras en el Registro que contengan POS, COCINA o TICKET
-            if (!$printer_encontrada) {
-                $salida_all = [];
-                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers" 2>nul', $salida_all);
-                foreach ($salida_all as $l) {
-                    if (preg_match('/Printers\\\\([^\\\\]*(?:POS|COCINA|TICKET|RECEIPT)[^\\\\]*)$/i', trim($l), $m)) {
-                        $cand = trim($m[1]);
-                        $salida_p = [];
-                        @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Printers\\' . $cand . '" /v "Port" 2>nul', $salida_p);
-                        foreach ($salida_p as $lp) {
-                            if (preg_match('/Port\s+REG_SZ\s+(.+)$/i', trim($lp), $mp)) {
-                                $printer_encontrada = $cand;
-                                $puerto = trim($mp[1]);
-                                break 2;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if ($printer_encontrada && $puerto) {
-                $info['nombre'] = $printer_encontrada;
-                $info['puerto'] = $puerto;
-
-                // 3. Consultar la IP real en Standard TCP/IP Port\Ports\<puerto>\HostName
+            if ($info['puerto']) {
                 $salida_host = [];
-                @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\' . $puerto . '" /v "HostName" 2>nul', $salida_host);
+                $portKey = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\' . $info['puerto'];
+                @exec("reg query \"{$portKey}\" /v \"HostName\" 2>nul", $salida_host);
                 foreach ($salida_host as $lh) {
                     if (preg_match('/HostName\s+REG_SZ\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $lh, $mh)) {
                         $info['ip'] = $mh[1];
                         break;
                     }
                 }
-
-                // Si no se obtuvo de HostName, intentar con el valor IPAddress
-                if (!$info['ip']) {
-                    $salida_ip = [];
-                    @exec('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Print\\Monitors\\Standard TCP/IP Port\\Ports\\' . $puerto . '" /v "IPAddress" 2>nul', $salida_ip);
-                    foreach ($salida_ip as $lip) {
-                        if (preg_match('/IPAddress\s+REG_SZ\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $lip, $mip)) {
-                            $info['ip'] = $mip[1];
-                            break;
-                        }
-                    }
-                }
-
-                // Si aún no, extraer del nombre del puerto si tiene formato IP
-                if (!$info['ip']) {
-                    if (preg_match('/(?:IP_)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $puerto, $mpu)) {
-                        $info['ip'] = $mpu[1];
-                    }
+                if (!$info['ip'] && preg_match('/(?:IP_)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i', $info['puerto'], $mpu)) {
+                    $info['ip'] = $mpu[1];
                 }
             }
         }
-
-        $cache[$clave] = $info;
+        $cache[$nombre] = $info;
         return $info;
     }
 }
 
-if (!function_exists('detectar_ip_impresora_windows')) {
-    /**
-     * Mantiene compatibilidad hacia atrás: retorna la IP detectada
-     */
     function detectar_ip_impresora_windows($nombre_impresora = null) {
         $info = detectar_info_impresora_windows($nombre_impresora);
         return $info['ip'] ?? null;
     }
-}
 
 if (!function_exists('validar_conexion_impresora')) {
     /**
@@ -344,65 +286,36 @@ if (!function_exists('enviar_bytes_impresora')) {
      *  Intento 1: Socket TCP directo al puerto 9100 (instantáneo, sin cola de Windows).
      *  Intento 2: Fallback a la cola de impresión de Windows.
      */
-    function enviar_bytes_impresora($raw_data, $ip, $port = 9100, $windows_printer = 'POS-80C') {
-        $resultado = [
-            'success' => false,
-            'metodo'  => null,
-            'detalle' => ''
-        ];
-
-        // 1. Intento por Socket TCP directo a la impresora física en red (RAW 9100)
-        $ip_win = detectar_ip_impresora_windows($windows_printer);
-        $ips_candidatas = array_filter(array_unique([
-            $ip_win,
-            $ip,
-            '192.168.1.150',
-            '127.0.0.1'
-        ]));
-
-        $t0 = microtime(true);
-        foreach ($ips_candidatas as $ip_try) {
-            $fp = @fsockopen($ip_try, (int)$port, $errno, $errstr, 0.8);
-            if ($fp) {
-                @stream_set_timeout($fp, 3);
-                @fwrite($fp, $raw_data);
-                @fflush($fp);
-                @fclose($fp);
-                $duracion = round((microtime(true) - $t0) * 1000, 1);
-                $resultado['success'] = true;
-                $resultado['metodo'] = "socket_tcp ($ip_try:$port, {$duracion}ms)";
-                $resultado['detalle'] = "Enviado con éxito directamente por socket TCP";
-                return $resultado;
-            }
+    function enviar_bytes_impresora($raw_data, $ip = null, $port = 9100, $windows_printer = 'POS-80C') {
+        $resultado = ['success' => false, 'metodo' => null, 'detalle' => ''];
+        $info_win = detectar_info_impresora_windows($windows_printer);
+        $ip_destino = $info_win['ip'] ?: ($ip ?: '192.168.1.150');
+        // 1. Envío directo por Socket TCP
+        $fp = @fsockopen($ip_destino, (int)$port, $errno, $errstr, 1.0);
+        if ($fp) {
+            @fwrite($fp, $raw_data);
+            @fclose($fp);
+            $resultado['success'] = true;
+            $resultado['metodo'] = "socket_tcp ($ip_destino:$port)";
+            return $resultado;
         }
-
-        // 2. Fallback a cola de Windows si el socket directo no respondió
-        if (!empty($windows_printer) && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        // 2. Fallback por Spooler de Windows si el socket no responde
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $temp_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ticket_' . uniqid() . '.prn';
             file_put_contents($temp_file, $raw_data);
-
             $cmd = 'powershell -NoProfile -Command "Get-Content -Path ' . escapeshellarg($temp_file) . ' -Raw | Out-Printer -Name ' . escapeshellarg($windows_printer) . '"';
             @exec($cmd, $out, $ret);
             @unlink($temp_file);
-
             if ($ret === 0) {
                 $resultado['success'] = true;
                 $resultado['metodo'] = "windows_spooler ($windows_printer)";
-                $resultado['detalle'] = "Enviado mediante cola de impresión de Windows ($windows_printer)";
                 return $resultado;
             }
         }
-
-        $resultado['detalle'] = "Fallo socket ($ip:$port - $errstr) y spooler de Windows";
         return $resultado;
     }
 }
 
-if (!function_exists('imprimir_comandas_pedido')) {
-    /**
-     * Procesa la lista de ítems de una comanda, clasifica por formato (COCINA vs BARRA),
-     * totaliza cantidades idénticas y envía los tickets de forma directa e independiente.
-     */
     function imprimir_comandas_pedido($mesa_doc, $consecutivo, $vendedor_nombre, array $items_nuevos, $bd_conexion = 'cliente', $cliente_nombre = '') {
         try {
             if (empty($items_nuevos)) {
@@ -532,4 +445,3 @@ if (!function_exists('imprimir_comandas_pedido')) {
             ];
         }
     }
-}
