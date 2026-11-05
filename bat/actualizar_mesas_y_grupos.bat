@@ -28,3 +28,4 @@ if exist "%USERPROFILE%\.config\herd\bin\php84\php.exe" (
 
 echo.
 pause
+

@@ -32,4 +32,38 @@ function LimpiarArreglo($array){
     return $array;
 }
 
+if (!function_exists('resolver_ruta_imagen')) {
+    function resolver_ruta_imagen($rutafoto, $fallback = 'imagenes/MESAS.jpg') {
+        $rutafoto = trim((string)$rutafoto);
+        if ($rutafoto === '') return $fallback;
+
+        $partes = preg_split('/[\/\\\\]+/', $rutafoto);
+        $nombre = end($partes);
+
+        // Si por falta de escape en BD se guardo sin barras (ej: "c:premiumimagenesjardin.jpg")
+        $nombre = preg_replace('/^.*(?:imagenes|premium|c:)/i', '', $nombre);
+
+        static $archivos_en_disco = null;
+        if ($archivos_en_disco === null) {
+            $dir = dirname(__DIR__) . '/imagenes/';
+            $archivos_en_disco = [];
+            if (is_dir($dir)) {
+                $scanned = scandir($dir);
+                foreach ($scanned as $f) {
+                    if ($f !== '.' && $f !== '..') {
+                        $archivos_en_disco[strtolower($f)] = $f;
+                    }
+                }
+            }
+        }
+
+        $nombre_lower = strtolower($nombre);
+        if (isset($archivos_en_disco[$nombre_lower])) {
+            return 'imagenes/' . $archivos_en_disco[$nombre_lower];
+        }
+
+        return 'imagenes/' . $nombre;
+    }
+}
+
 ?>

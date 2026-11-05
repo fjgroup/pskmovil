@@ -63,3 +63,4 @@ UPDATE idconsumos SET id_consumo = 'j05', nombre_corto = 'j05', descripcion = 'J
 
 -- 8. Verificación de resultado
 SELECT id_consumo, descripcion, ubicacion, codarea FROM idconsumos ORDER BY ubicacion, id_consumo;
+

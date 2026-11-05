@@ -31,10 +31,7 @@ if ($_GET['accion'] == "mostrar_grupos") {
 	$x = 0;
 	while ($grupos = mysqli_fetch_array($consulta)) {
 		$grupos = LimpiarArreglo($grupos);
-		$grupos['rutafoto'] = trim($grupos['rutafoto']);
-		$ruta_img = explode("/", str_replace('\\', '/', strtolower($grupos['rutafoto'])));
-		$basename = count($ruta_img) - 1;
-		$ruta_img = "imagenes/" . $ruta_img[$basename];
+		$ruta_img = resolver_ruta_imagen($grupos['rutafoto'] ?? '', 'imagenes/MESAS.jpg');
 		$grupos['nombre'] = ucfirst(strtolower(limpiarCaracteresEspeciales($grupos['nombre'])));
 
 		if ($datos_conexion['usar_subgrupos'] == 'si' and $grupos['total_subgrupos'] > 0) {
@@ -240,11 +237,7 @@ if ($_GET['accion'] == "mostrar_articulos") {
 		$articulo = LimpiarArreglo($articulo);
 
 		$articulo['impuesto1'] = number_format($articulo['impuesto1'], 0);
-
-		$articulo['rutafoto'] = trim($articulo['rutafoto']);
-		$ruta_img = explode("/", str_replace("\\", "/", trim(strtolower($articulo['rutafoto']))));
-		$basename = count($ruta_img) - 1;
-		$ruta_img = "imagenes/" . $ruta_img[$basename];
+		$ruta_img = resolver_ruta_imagen($articulo['rutafoto'] ?? '', 'imagenes/MESAS.jpg');
 		if (trim($articulo['nombrecorto']) == "") {
 			$articulo['nombrecorto'] = ucfirst(strtolower(limpiarCaracteresEspeciales($articulo['nombre'])));
 		} else {
@@ -479,10 +472,7 @@ if ($_GET['accion'] == "mostrar_mesas") {
 	while ($mesa = mysqli_fetch_array($consulta)) {
 
 		$mesa = LimpiarArreglo($mesa);
-		$mesa['rutafoto'] = trim($mesa['rutafoto']);
-		$ruta_img = explode("/", str_replace('\\', '/', strtolower($mesa['rutafoto'])));
-		$basename = count($ruta_img) - 1;
-		$ruta_img = "imagenes/" . $ruta_img[$basename];
+		$ruta_img = resolver_ruta_imagen($mesa['rutafoto'] ?? '', 'imagenes/MESAS.jpg');
 
 		if (!empty($mesa['nombre_corto'])) {
 			$nombre_mesa = ucfirst(strtolower($mesa['nombre_corto']));

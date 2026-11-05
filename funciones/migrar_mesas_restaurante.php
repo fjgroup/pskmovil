@@ -54,6 +54,7 @@ function migrar_mesa($db, $cod, $desc, $ubicacion, $codarea, $tipo, $foto) {
     }
 
     $existe = false;
+    $foto_esc = $db->real_escape_string($foto);
     if ($cod_ant) {
         $res = $db->query("SELECT id_consumo FROM idconsumos WHERE {$cod_ant} LIMIT 1");
         if ($res && $row = $res->fetch_assoc()) {
@@ -66,7 +67,7 @@ function migrar_mesa($db, $cod, $desc, $ubicacion, $codarea, $tipo, $foto) {
                 ubicacion = '{$ubicacion}',
                 codarea = '{$codarea}',
                 tipo_idconsumo = '{$tipo}',
-                rutafoto = '{$foto}',
+                rutafoto = '{$foto_esc}',
                 estatus = 1,
                 estatus2 = 1,
                 aplica_touch = 1,
@@ -84,7 +85,7 @@ function migrar_mesa($db, $cod, $desc, $ubicacion, $codarea, $tipo, $foto) {
             tipo_idconsumo, aplica_touch, ubicacion, caracticas, codarea, mostrarenmapa, tipofac
         ) VALUES (
             'BAHIAP', '001', '{$cod}', '{$desc}', '{$cod}',
-            '', 1, 1, '', '{$foto}', '',
+            '', 1, 1, '', '{$foto_esc}', '',
             '{$tipo}', 1, '{$ubicacion}', '', '{$codarea}', 1, 0
         )");
         echo "  + Creada nueva: {$cod} ({$desc})\n";
@@ -119,3 +120,4 @@ echo "  [OK] Grupo 006 (LICORES / Cervezas) -> Formato BARRA\n";
 echo "\n========================================================\n";
 echo "  PROCESO COMPLETADO EXITOSAMENTE                       \n";
 echo "========================================================\n";
+
