@@ -34,8 +34,8 @@ if ($_GET['accion'] == "procesar_pedido") {
 		$query_datos_config2 = $objeto_pedido->general_query($bd_conexion, $query);
 		$datos_config2 = mysqli_fetch_array($query_datos_config2);
 
-
-		$mesa = "E" . $_POST['mesa'];
+		require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+		$mesa = resolver_documento_mesa($_POST['mesa']);
 
 		$select = "idopermv,codigo";
 		$from = "comandasmv";
@@ -1333,7 +1333,8 @@ if ($_GET['accion'] == "cancelar_pedido") {
 
 	if ($_POST['mesa'] != "") {
 
-		$mesa = 'E' . $_POST['mesa'];
+		require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+		$mesa = resolver_documento_mesa($_POST['mesa']);
 
 		$where = " documento='" . $mesa . "' ";
 

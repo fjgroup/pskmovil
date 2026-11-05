@@ -736,7 +736,8 @@ if ($_GET['accion'] == "ver_cuenta_mesa") {
 
 if ($_GET['accion'] == "consultar_mesa") {
 
-	$mesa = "E" . $_POST['mesa'];
+	require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
+	$mesa = resolver_documento_mesa($_POST['mesa']);
 	
 	$select = " 
 		operti.codcliente,

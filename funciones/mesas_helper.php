@@ -154,3 +154,71 @@ if (!function_exists('construir_registro_mesas')) {
         ];
     }
 }
+
+if (!function_exists('resolver_documento_mesa')) {
+    /**
+     * Resuelve el nombre canónico de documento para Premium Soft (ej. "Em01", "Em00", "Ej02").
+     * En FoxPro, la grilla de CUENTAS compara 'Em01' == ALLTRIM(documento) de forma case-sensitive.
+     * Si documento es 'EM01' (con M mayúscula), FoxPro no lo reconoce y no pinta la mesa en ROJO.
+     *
+     * @param string $mesa_input Valor recibido (ej: "M01", "m01", "01", "1", "Em01", "EM01", "j02")
+     * @param mysqli|null $mysqli_pos Conexión a la base de datos de Premium Soft (adminbahiap)
+     * @return string Documento canónico (ej: "Em01", "E001")
+     */
+    function resolver_documento_mesa($mesa_input, $mysqli_pos = null)
+    {
+        $input = trim((string)$mesa_input);
+        if ($input === '') {
+            return '';
+        }
+
+        // Quitar prefijo E o ESP inicial si ya lo trae (ej. "Em01" -> "m01", "EM01" -> "M01")
+        $sin_e = preg_replace('/^E/i', '', $input);
+        $sin_e_trim = trim($sin_e);
+
+        if (!$mysqli_pos || !($mysqli_pos instanceof mysqli)) {
+            if (function_exists('conectar_bd_pos')) {
+                $mysqli_pos = conectar_bd_pos();
+            }
+        }
+
+        if ($mysqli_pos instanceof mysqli && !$mysqli_pos->connect_errno) {
+            $esc = $mysqli_pos->real_escape_string($sin_e_trim);
+            // Buscar coincidencia en idconsumos por id_consumo, nombre_corto o descripcion
+            $sql = "SELECT id_consumo FROM idconsumos 
+                    WHERE id_consumo = '{$esc}' 
+                       OR nombre_corto = '{$esc}' 
+                       OR descripcion = '{$esc}'";
+
+            // Si es numérico (ej: "1" o "01"), buscar coincidencia como m01
+            if (ctype_digit($sin_e_trim)) {
+                $num_pad = str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
+                $sql .= " OR id_consumo = 'm{$num_pad}' OR nombre_corto = 'm{$num_pad}'";
+            }
+
+            $sql .= " LIMIT 1";
+
+            $res = @$mysqli_pos->query($sql);
+            if ($res && ($row = $res->fetch_assoc())) {
+                $id_consumo = trim($row['id_consumo']);
+                if (!empty($id_consumo)) {
+                    return 'E' . $id_consumo;
+                }
+            }
+        }
+
+        // Reglas de respaldo sin conexión o si no está en idconsumos:
+        if (preg_match('/^m\d+/i', $sin_e_trim)) {
+            return 'E' . strtolower($sin_e_trim);
+        } elseif (preg_match('/^j\d+/i', $sin_e_trim)) {
+            return 'E' . strtolower($sin_e_trim);
+        } elseif (preg_match('/^t\d+/i', $sin_e_trim)) {
+            return 'E' . strtolower($sin_e_trim);
+        } elseif (ctype_digit($sin_e_trim) && strlen($sin_e_trim) <= 2) {
+            return 'Em' . str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
+        }
+
+        return 'E' . $sin_e_trim;
+    }
+}
+

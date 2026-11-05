@@ -29,9 +29,6 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
         exit;
     }
 
-    $mesa_clean = preg_replace('/^E/i', '', $mesa_input);
-    $documento = "E" . $mesa_clean;
-
     // 1. Conexión a la base de datos de Premium Soft y Satélite
     require_once dirname(__DIR__) . '/funciones/mesas_helper.php';
 
@@ -40,6 +37,9 @@ if (isset($_GET['accion']) && $_GET['accion'] == "obtener_pin") {
         echo json_encode(['success' => false, 'error' => 'No se pudo conectar a la base de datos de Premium Soft (adminbahiap). Verifique el servicio MySQL (Puerto 3306).']);
         exit;
     }
+
+    $documento = resolver_documento_mesa($mesa_input, $mysqli_pos);
+    $mesa_clean = preg_replace('/^E/i', '', $documento);
 
     // Validar si la mesa ingresada es una mesa física real registrada en idconsumos
     if (!es_mesa_oficial($mesa_input, $mysqli_pos)) {
