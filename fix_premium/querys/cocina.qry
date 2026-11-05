@@ -77,3 +77,4 @@ FROM
   Left JOIN articulo   ON (articulo.CODIGO   = opermv.CODIGO)
 
   LEFT JOIN grupos     ON (grupos.codigo     = opermv.grupo)
+

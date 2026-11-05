@@ -37,14 +37,14 @@ Todo esto debe realizarse en la PC del Restaurante cuando se monte la ticketera:
 
 ### 2.1 Datos de Red de la Ticketera
 * **Hardware:** Impresora térmica ESC/POS VCEST Modelo VOE-6120 / POS-80.
-* **IP en el Restaurante:** `192.168.1.100` (Gateway `192.168.1.1`).
+* **IP en el Restaurante:** `192.168.1.150` (Gateway `192.168.1.1`).
 * **Puerto de comunicación:** TCP **9100** (puerto RAW estándar).
 
 ### 2.2 Agregar la Impresora en Windows
 1. Ir a `Panel de Control > Dispositivos e Impresoras` (o `Configuración > Bluetooth y dispositivos > Impresoras y escáneres`).
 2. Agregar impresora manualmente > **Agregar una impresora por medio de una dirección IP o un nombre de host**.
 3. Tipo de dispositivo: **Dispositivo TCP/IP**.
-4. Dirección IP: `192.168.1.100` (en Desarrollo usamos `192.168.0.150`). Puerto: `9100`.
+4. Dirección IP: `192.168.1.150` (en Desarrollo usamos `192.168.0.150`). Puerto: `9100`.
 5. Controlador: Seleccionar fabricante **Generic** y modelo **Generic / Text Only**.
 6. Nombre de impresora: **`cocina`** (en minúsculas).
 7. Compartir impresora: Compartir con el nombre de recurso compartido: **`cocina`**.
@@ -188,7 +188,7 @@ Se implementó el módulo [`funciones/impresion_comandas_helper.php`](file:///e:
   1. `controladores/controlador_pedidos.php` registra la orden en `operti`, `opermv` y `comandasmv` para que Premium Soft POS mantenga su auditoría intacta.
   2. Determina el destino de cada plato consultando `grupos.formato` (`COCINA` vs `BARRA`).
   3. Totaliza y consolida cantidades de platos idénticos (ej. 4 COMBO ESPECIAL BRASA, 2 CERVEZA ZULIA).
-  4. Genera los bytes ESC/POS de 80 mm e imprime de forma instantánea mediante **Socket TCP directo al puerto 9100** de la impresora térmica en red (`192.168.1.100` en producción, `127.0.0.1` en desarrollo).
+  4. Genera los bytes ESC/POS de 80 mm e imprime de forma instantánea mediante **Socket TCP directo al puerto 9100** de la impresora térmica en red (`192.168.1.150` en producción, `127.0.0.1` en desarrollo).
   5. Si el socket estuviese ocupado o fuera de línea, conmuta automáticamente a la cola de Windows `cocina`.
   6. Envía el corte de papel al ras (`\x1bd\x03\x1dV\x01`) tras cada ticket.
   7. Marca `comandasmv.impresion = 2`.
@@ -220,7 +220,7 @@ En la pestaña **"En Tránsito"** (`controladores/controlador_pedidos.php?accion
        * Puerto Web: 2010
      -----------------------------------------
      Validacion de Impresora Fisica:
-       [OK] Impresora 'cocina' en Windows (192.168.1.100): ENCENDIDA Y RESPONDE
+       [OK] Impresora 'cocina' en Windows (192.168.1.150): ENCENDIDA Y RESPONDE
      -----------------------------------------
      Estado del Sistema:
        [OK] Servidor Web Comandas: ACTIVO

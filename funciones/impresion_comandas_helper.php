@@ -344,7 +344,7 @@ if (!function_exists('enviar_bytes_impresora')) {
      *  Intento 1: Socket TCP directo al puerto 9100 (instantáneo, sin cola de Windows).
      *  Intento 2: Fallback a la cola de impresión de Windows.
      */
-    function enviar_bytes_impresora($raw_data, $ip, $port = 9100, $windows_printer = 'cocina') {
+    function enviar_bytes_impresora($raw_data, $ip, $port = 9100, $windows_printer = 'POS-80C') {
         $resultado = [
             'success' => false,
             'metodo'  => null,
@@ -356,9 +356,8 @@ if (!function_exists('enviar_bytes_impresora')) {
         $ips_candidatas = array_filter(array_unique([
             $ip_win,
             $ip,
-            '127.0.0.1',
             '192.168.1.150',
-            '192.168.1.100'
+            '127.0.0.1'
         ]));
 
         $t0 = microtime(true);

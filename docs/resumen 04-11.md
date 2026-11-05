@@ -37,9 +37,9 @@ En la computadora del restaurante, el gestor de credenciales de Windows (`Git Cr
    ```powershell
    (New-Object -ComObject WScript.Network).SetDefaultPrinter('POS-80C')
    ```
-3. Se creó además un alias de impresora en Windows con el nombre exacto **`cocina`** usando el mismo controlador `POS-80C` y puerto `192.168.1.100` (`HostName: 192.168.1.150`):
+3. Se creó además un alias de impresora en Windows con el nombre exacto **`cocina`** usando el mismo controlador `POS-80C` y puerto `192.168.1.150` (`HostName: 192.168.1.150`):
    ```powershell
-   Add-Printer -Name "cocina" -DriverName "POS-80C" -PortName "192.168.1.100"
+   Add-Printer -Name "cocina" -DriverName "POS-80C" -PortName "192.168.1.150"
    Set-Printer -Name "cocina" -Shared $true -ShareName "cocina"
    Set-Printer -Name "POS-80C" -Shared $true -ShareName "POS-80C"
    ```
@@ -100,7 +100,7 @@ En `iniciar_sistema_segundo_plano.vbs` se agregó una rutina que, antes de inici
 ### 4.4 Detección Dinámica de Impresora y Lectura de `HostName`
 En `funciones/impresion_comandas_helper.php` y en `iniciar_sistema_segundo_plano.vbs`:
 * Ya no busca rígidamente solo `"cocina"`; busca candidatos como `POS-80C`, `POS-80`, `cocina`, etc.
-* En Windows, el puerto se llamaba `192.168.1.100`, pero la IP real asignada en la configuración del puerto era `192.168.1.150`.
+* En Windows, el puerto se llamaba `192.168.1.150`, pero la IP real asignada en la configuración del puerto era `192.168.1.150`.
 * Se implementó la lectura directa de la clave de Registro:
   `HKLM\SYSTEM\CurrentControlSet\Control\Print\Monitors\Standard TCP/IP Port\Ports\<Puerto>\HostName`
   obteniendo con total precisión la IP **`192.168.1.150`**.

@@ -16,14 +16,14 @@ En la propuesta inicial, exponer el servidor local (PC con Windows 11, puerto 20
 ### 1.2. Reglas de Protección Físicas y Firewall
 
 #### A. Segmentación Wi-Fi en el Router
-1. **Wi-Fi Privada (`Restaurante_Interno`):** Exclusiva para el Servidor (`192.168.1.100`), la PC de la Administradora (`192.168.1.101`) y los dispositivos móviles de los mesoneros. Esta contraseña **nunca se comparte con clientes**.
+1. **Wi-Fi Privada (`Restaurante_Interno`):** Exclusiva para el Servidor (`192.168.1.150`), la PC de la Administradora (`192.168.1.101`) y los dispositivos móviles de los mesoneros. Esta contraseña **nunca se comparte con clientes**.
 2. **Wi-Fi Clientes (`Restaurante_Invitados`):** Para los clientes que soliciten internet.
    - **Aislamiento de Clientes (AP Isolation):** Activado (los dispositivos de los clientes no pueden comunicarse entre sí).
    - **Bloqueo a Red Local (LAN Isolation):** Activado (el router les da salida a Internet pero bloquea cualquier intento de acceder al rango `192.168.1.X`).
 
 #### B. Regla Estricta para MySQL (Puerto 3306)
 - Dado que solo dos computadoras interactúan con la base de datos de Premium Soft:
-  - **Servidor Local:** `192.168.1.100` (`localhost` / `127.0.0.1`)
+  - **Servidor Local:** `192.168.1.150` (`localhost` / `127.0.0.1`)
   - **Administradora:** `192.168.1.101`
 - En el **Firewall de Windows Defender** del Servidor:
   - Se crea una regla de entrada en el puerto TCP `3306` con ámbito restringido (**Scope**): **Únicamente permitir la IP `192.168.1.101` y `127.0.0.1`**. Cualquier otra IP es rechazada de inmediato a nivel de red.
