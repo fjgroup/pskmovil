@@ -190,10 +190,10 @@ if (!function_exists('resolver_documento_mesa')) {
                        OR nombre_corto = '{$esc}' 
                        OR descripcion = '{$esc}'";
 
-            // Si es numérico (ej: "1" o "01"), buscar coincidencia como m01
+            // Si es numérico (ej: "1" o "01"), buscar coincidencia como MESA01 o m01
             if (ctype_digit($sin_e_trim)) {
                 $num_pad = str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
-                $sql .= " OR id_consumo = 'm{$num_pad}' OR nombre_corto = 'm{$num_pad}'";
+                $sql .= " OR id_consumo = 'MESA{$num_pad}' OR id_consumo = 'm{$num_pad}' OR nombre_corto = 'MESA{$num_pad}' OR nombre_corto = 'm{$num_pad}' OR descripcion = 'MESA {$num_pad}' OR descripcion = 'MESA " . (int)$sin_e_trim . "'";
             }
 
             $sql .= " LIMIT 1";
