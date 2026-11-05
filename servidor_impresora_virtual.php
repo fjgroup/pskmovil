@@ -64,6 +64,14 @@ while ($client = @stream_socket_accept($server, -1)) {
 
     @file_put_contents($log_file, $banner . $clean . "\n", FILE_APPEND);
     @file_put_contents($last_ticket_file, $clean);
+
+    // Mantener únicamente los últimos 4 tickets en el historial
+    $content = @file_get_contents($log_file);
+    if ($content && preg_match_all('/={30,}\r?\n\[TICKET[^=]+={30,}\r?\n.*?(?=(?:={30,}\r?\n\[TICKET)|\z)/s', $content, $m)) {
+        if (count($m[0]) > 4) {
+            @file_put_contents($log_file, trim(implode("\n\n", array_slice($m[0], -4))) . "\n");
+        }
+    }
 }
 
 @fclose($server);

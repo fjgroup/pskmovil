@@ -276,6 +276,14 @@ if (!function_exists('registrar_ticket_en_archivo')) {
 
             @file_put_contents($dir . '/tickets_virtuales.txt', $banner . $clean . "\n", FILE_APPEND);
             @file_put_contents($dir . '/ultimo_ticket.txt', $banner . $clean . "\n");
+
+            // Mantener unicamente los ultimos 4 tickets en el historial
+            $cHist = @file_get_contents($dir . '/tickets_virtuales.txt');
+            if ($cHist && preg_match_all('/={30,}\r?\n\[TICKET[^=]+={30,}\r?\n.*?(?=(?:={30,}\r?\n\[TICKET)|\z)/s', $cHist, $m)) {
+                if (count($m[0]) > 4) {
+                    @file_put_contents($dir . '/tickets_virtuales.txt', trim(implode("\n\n", array_slice($m[0], -4))) . "\n");
+                }
+            }
         } catch (\Throwable $e) {}
     }
 }
