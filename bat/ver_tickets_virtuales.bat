@@ -1,18 +1,21 @@
 @echo off
-title Ver Tickets Virtuales de Comandas
-set "LOG_FILE=%~dp0..\storage\tickets_virtuales.txt"
+title Historial de Tickets de Comandas - Mi Jardin Restaurant
+set "LOG_DIR=%~dp0..\storage"
+set "LOG_FILE=%LOG_DIR%\tickets_virtuales.txt"
+
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 if not exist "%LOG_FILE%" (
-    echo ========================================================
-    echo   No hay tickets registrados todavia.
-    echo ========================================================
-    echo   Para registrar tickets de prueba sin impresora fisica:
-    echo   1. Ejecuta: bat\iniciar_impresora_virtual.bat
-    echo   2. Envia un pedido desde Comandas Moviles o Premium Soft.
-    echo ========================================================
-    pause
-    exit /b
+    (
+        echo ========================================================
+        echo   MI JARDIN RESTAURANT - HISTORIAL DE TICKETS           
+        echo ========================================================
+        echo   Aun no se han generado pedidos en esta sesion.        
+        echo   Al enviar cualquier comanda desde el sistema web,     
+        echo   aparecera registrada aqui automaticamente.            
+        echo ========================================================
+    ) > "%LOG_FILE%"
 )
 
-echo Abriendo historial de tickets impresos en el Bloc de Notas...
 start notepad.exe "%LOG_FILE%"
+exit

@@ -307,6 +307,37 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
     }
 }
 
+if (!function_exists('registrar_ticket_en_archivo')) {
+    /**
+     * Guarda una copia en texto legible de cada comanda impresa en storage/tickets_virtuales.txt
+     * Permite inspeccionar en cualquier momento lo que se envio a imprimir, incluso sin impresora fisica.
+     */
+    function registrar_ticket_en_archivo($tipo, $raw_ticket, $consecutivo = '') {
+        try {
+            $dir = dirname(__DIR__) . '/storage';
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0777, true);
+            }
+            $clean = $raw_ticket;
+            $clean = preg_replace('/\x1b@/s', '', $clean);
+            $clean = preg_replace('/\x1ba[\x00-\x02]/s', '', $clean);
+            $clean = preg_replace('/\x1bE[\x00-\x01]/s', '', $clean);
+            $clean = preg_replace('/\x1b![\x00-\xFF]/s', '', $clean);
+            $clean = preg_replace('/\x1bd[\x00-\x09]/s', '', $clean);
+            $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
+            $clean = preg_replace('/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/s', '', $clean);
+            $clean = trim($clean);
+
+            $fecha = date('d/m/Y h:i:s A');
+            $sep = str_repeat('=', 44);
+            $banner = "\n{$sep}\n[TICKET {$tipo}] - {$fecha} (#{$consecutivo})\n{$sep}\n";
+
+            @file_put_contents($dir . '/tickets_virtuales.txt', $banner . $clean . "\n", FILE_APPEND);
+            @file_put_contents($dir . '/ultimo_ticket.txt', $banner . $clean . "\n");
+        } catch (\Throwable $e) {}
+    }
+}
+
 if (!function_exists('enviar_bytes_impresora')) {
     /**
      * Envía bytes directamente a la impresora:
@@ -455,6 +486,7 @@ if (!function_exists('imprimir_comandas_pedido')) {
             if (!empty($grupos_tickets['COCINA'])) {
                 $items_cocina = array_values($grupos_tickets['COCINA']);
                 $raw_cocina = formatear_ticket_comanda_espos('COCINA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_cocina, null, $cliente_nombre);
+                registrar_ticket_en_archivo('COCINA', $raw_cocina, $consecutivo);
                 $env_cocina = enviar_bytes_impresora($raw_cocina, $config_imp['cocina_ip'], $config_imp['cocina_port'], $config_imp['windows_printer']);
                 $tickets_enviados[] = [
                     'tipo'      => 'COCINA',
@@ -467,6 +499,7 @@ if (!function_exists('imprimir_comandas_pedido')) {
             if (!empty($grupos_tickets['BARRA'])) {
                 $items_barra = array_values($grupos_tickets['BARRA']);
                 $raw_barra = formatear_ticket_comanda_espos('BARRA', $consecutivo, $mesa_etiqueta, $vendedor_nombre, $items_barra, null, $cliente_nombre);
+                registrar_ticket_en_archivo('BARRA', $raw_barra, $consecutivo);
                 $env_barra = enviar_bytes_impresora($raw_barra, $config_imp['barra_ip'], $config_imp['barra_port'], $config_imp['windows_printer']);
                 $tickets_enviados[] = [
                     'tipo'      => 'BARRA',
