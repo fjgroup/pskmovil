@@ -27,11 +27,14 @@ Else
     phpCmd = "php.exe"
 End If
 
-' 2. Aplicar parches de reportes a Premium Soft si existen en fix_premium
-Dim strFixReports, strPosReports, strMatReports
+' 2. Aplicar parches de reportes y consultas a Premium Soft si existen en fix_premium
+Dim strFixReports, strPosReports, strMatReports, strFixQuerys, strPosQuerys, strMatQuerys
 strFixReports = strCurrentDir & "\fix_premium\reports"
 strPosReports = "C:\PREMIUM\ADMINISTRATIVO9X\bahiap\reports"
 strMatReports = "C:\PREMIUM\ADMINISTRATIVO9X\Matrices\reports"
+strFixQuerys  = strCurrentDir & "\fix_premium\querys"
+strPosQuerys  = "C:\PREMIUM\ADMINISTRATIVO9X\bahiap\querys"
+strMatQuerys  = "C:\PREMIUM\ADMINISTRATIVO9X\Matrices\querys"
 
 If fso.FolderExists(strFixReports) Then
     If fso.FolderExists(strPosReports) Then
@@ -39,6 +42,15 @@ If fso.FolderExists(strFixReports) Then
     End If
     If fso.FolderExists(strMatReports) Then
         WshShell.Run "cmd /c copy /y """ & strFixReports & "\*.*"" """ & strMatReports & "\""", 0, True
+    End If
+End If
+
+If fso.FolderExists(strFixQuerys) Then
+    If fso.FolderExists(strPosQuerys) Then
+        WshShell.Run "cmd /c copy /y """ & strFixQuerys & "\*.*"" """ & strPosQuerys & "\""", 0, True
+    End If
+    If fso.FolderExists(strMatQuerys) Then
+        WshShell.Run "cmd /c copy /y """ & strFixQuerys & "\*.*"" """ & strMatQuerys & "\""", 0, True
     End If
 End If
 
