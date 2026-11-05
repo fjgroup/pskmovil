@@ -268,6 +268,9 @@ if (!function_exists('registrar_ticket_en_archivo')) {
             $clean = preg_replace('/\x1bd[\x00-\x09]/s', '', $clean);
             $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
             $clean = preg_replace('/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/s', '', $clean);
+            $clean = preg_replace('/^[ \t]*([^\r\n]+)\r[ \t]*(Mesa:)[ \t]*/m', '   $2      $1', $clean);
+            $clean = str_replace("\r", " ", $clean);
+            $clean = preg_replace('/[ \t]+$/m', '', $clean);
             $clean = trim($clean);
 
             $fecha = date('d/m/Y h:i:s A');

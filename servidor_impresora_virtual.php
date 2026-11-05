@@ -54,6 +54,14 @@ while ($client = @stream_socket_accept($server, -1)) {
     $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
     // Remover otros bytes de control binarios
     $clean = preg_replace('/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/s', '', $clean);
+
+    // Normalizar líneas sobreimpresas con \r de FoxPro (ej. "<mesa>\r   Mesa:" -> "   Mesa:      <mesa>")
+    $clean = preg_replace('/^[ \t]*([^\r\n]+)\r[ \t]*(Mesa:)[ \t]*/m', '   $2      $1', $clean);
+    // Convertir retornos de carro residuales a espacio
+    $clean = str_replace("\r", " ", $clean);
+    // Limpiar espacios sobrantes al final de cada línea
+    $clean = preg_replace('/[ \t]+$/m', '', $clean);
+
     $clean = trim($clean);
 
     $fecha_actual = date('Y-m-d H:i:s');

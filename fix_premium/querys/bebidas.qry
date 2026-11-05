@@ -12,7 +12,9 @@ SELECT
   operti.RIF,
   operti.NIT,
   operti.CONTACTO,
-  operti.DOCUMENTO,
+  IF(idconsumos.descripcion IS NOT NULL AND idconsumos.descripcion != '', 
+     CONCAT('E', SUBSTRING(operti.DOCUMENTO, 2), ' - ', TRIM(idconsumos.descripcion)), 
+     operti.DOCUMENTO) AS DOCUMENTO,
   operti.EMISION,
   operti.ESCREDITO,
   operti.ESTATUSDOC,
@@ -78,4 +80,6 @@ FROM
   Left JOIN articulo   ON (articulo.CODIGO   = opermv.CODIGO)
 
   LEFT JOIN grupos     ON (grupos.codigo     = opermv.grupo)
+
+  LEFT JOIN idconsumos ON (idconsumos.id_consumo = SUBSTRING(operti.DOCUMENTO, 2))
 
