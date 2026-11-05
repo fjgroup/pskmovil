@@ -1,20 +1,38 @@
 @echo off
-title Aviso Importante - Mesas Premium Soft
+setlocal
+title Actualizar Mesas y Grupos en Premium Soft - Mi Jardin Restaurant
 echo ========================================================
-echo   AVISO IMPORTANTE: MIGRACION DE MESAS NO REQUERIDA     
+echo   ACTUALIZACION DE MESAS Y GRUPOS (BARRA / COCINA)      
+echo   Mi Jardin Restaurant - Premium Soft                   
 echo ========================================================
 echo.
-echo La base de datos fiscal de Premium Soft (adminbahiap) 
-echo esta auditada por el SENIAT y NO debe modificarse.
+echo Este proceso configurara en Premium Soft:
+echo   1. Respaldo automatico con fecha y hora de idconsumos.
+echo   2. Mesas en MAYUSCULAS estandar de Premium Soft:
+echo      - Tasca:  T01 (TASCA 01)
+echo      - Llevar: M00 (PARA LLEVAR)
+echo      - Salon:  M01 a M22 (MESA 01 a MESA 22)  [22 Mesas]
+echo      - Jardin: J01 a J05 (JARDIN 01 a JARDIN 05)
+echo   3. Sincronizacion de cuentas activas en operti (EMXX).
+echo   4. Asignacion de Bebidas y Licores (Grupos 005 y 006) a BARRA.
 echo.
-echo Comandas Moviles ya se adapta automaticamente a los 
-echo codigos nativos en mayusculas de Premium Soft:
-echo   - MESA01 .. MESA16   (documento EMESA01 .. EMESA16)
-echo   - JARD01 .. JARD05   (documento EJARD01 .. EJARD05)
-echo   - TASC01             (documento ETASC01)
-echo.
-echo Por seguridad, NO ejecutes ninguna modificacion en idconsumos.
-echo El sistema funciona directamente con las mesas de Premium Soft.
-echo ========================================================
+pause
+
+:: Detección de PHP
+if not defined PHP_CMD (
+    if exist "%USERPROFILE%\.config\herd\bin\php84\php.exe" (
+        set "PHP_CMD=%USERPROFILE%\.config\herd\bin\php84\php.exe"
+    ) else if exist "C:\Users\Principal\.config\herd\bin\php84\php.exe" (
+        set "PHP_CMD=C:\Users\Principal\.config\herd\bin\php84\php.exe"
+    ) else (
+        for /f "delims=" %%I in ('where php.exe 2^>nul') do (
+            if not defined PHP_CMD set "PHP_CMD=%%I"
+        )
+    )
+)
+if not defined PHP_CMD set "PHP_CMD=php"
+
+"%PHP_CMD%" "%~dp0..\funciones\migrar_mesas_restaurante.php"
+
 echo.
 pause

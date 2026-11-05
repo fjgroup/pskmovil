@@ -190,10 +190,21 @@ if (!function_exists('resolver_documento_mesa')) {
                        OR nombre_corto = '{$esc}' 
                        OR descripcion = '{$esc}'";
 
-            // Si es numérico (ej: "1" o "01"), buscar coincidencia como MESA01 o m01
+            // Si es numérico (ej: "1" o "01"), buscar coincidencia como M01, MESA01, m01
             if (ctype_digit($sin_e_trim)) {
                 $num_pad = str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
-                $sql .= " OR id_consumo = 'MESA{$num_pad}' OR id_consumo = 'm{$num_pad}' OR nombre_corto = 'MESA{$num_pad}' OR nombre_corto = 'm{$num_pad}' OR descripcion = 'MESA {$num_pad}' OR descripcion = 'MESA " . (int)$sin_e_trim . "'";
+                $sql .= " OR id_consumo = 'M{$num_pad}' OR id_consumo = 'm{$num_pad}' OR id_consumo = 'MESA{$num_pad}' OR nombre_corto = 'M{$num_pad}' OR descripcion = 'MESA {$num_pad}' OR descripcion = 'MESA " . (int)$sin_e_trim . "'";
+            } elseif (preg_match('/^(?:MESA|M)\s*(\d+)$/i', $sin_e_trim, $mMatch)) {
+                $num_pad = str_pad($mMatch[1], 2, '0', STR_PAD_LEFT);
+                $sql .= " OR id_consumo = 'M{$num_pad}' OR id_consumo = 'm{$num_pad}' OR id_consumo = 'MESA{$num_pad}' OR descripcion = 'MESA {$num_pad}'";
+            } elseif (preg_match('/^(?:JARDIN|JARD|J)\s*(\d+)$/i', $sin_e_trim, $mMatch)) {
+                $num_pad = str_pad($mMatch[1], 2, '0', STR_PAD_LEFT);
+                $sql .= " OR id_consumo = 'J{$num_pad}' OR id_consumo = 'j{$num_pad}' OR id_consumo = 'JARD{$num_pad}' OR descripcion = 'JARDIN {$num_pad}'";
+            } elseif (preg_match('/^(?:TASCA|TASC|T)\s*(\d+)$/i', $sin_e_trim, $mMatch)) {
+                $num_pad = str_pad($mMatch[1], 2, '0', STR_PAD_LEFT);
+                $sql .= " OR id_consumo = 'T{$num_pad}' OR id_consumo = 't{$num_pad}' OR id_consumo = 'TASC{$num_pad}' OR descripcion = 'TASCA {$num_pad}'";
+            } elseif (stripos($sin_e_trim, 'LLEVAR') !== false) {
+                $sql .= " OR id_consumo = 'M00' OR descripcion LIKE '%LLEVAR%'";
             }
 
             $sql .= " LIMIT 1";
@@ -207,15 +218,15 @@ if (!function_exists('resolver_documento_mesa')) {
             }
         }
 
-        // Reglas de respaldo sin conexión o si no está en idconsumos:
+        // Reglas de respaldo sin conexión o si no está en idconsumos (siempre en mayúsculas estilo Premium Soft):
         if (preg_match('/^m\d+/i', $sin_e_trim)) {
-            return 'E' . strtolower($sin_e_trim);
+            return 'E' . strtoupper($sin_e_trim);
         } elseif (preg_match('/^j\d+/i', $sin_e_trim)) {
-            return 'E' . strtolower($sin_e_trim);
+            return 'E' . strtoupper($sin_e_trim);
         } elseif (preg_match('/^t\d+/i', $sin_e_trim)) {
-            return 'E' . strtolower($sin_e_trim);
+            return 'E' . strtoupper($sin_e_trim);
         } elseif (ctype_digit($sin_e_trim) && strlen($sin_e_trim) <= 2) {
-            return 'Em' . str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
+            return 'EM' . str_pad($sin_e_trim, 2, '0', STR_PAD_LEFT);
         }
 
         return 'E' . $sin_e_trim;
