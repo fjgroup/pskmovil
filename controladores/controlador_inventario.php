@@ -616,6 +616,9 @@ if ($_GET['accion'] == "obtener_integrados") {
 		while ($articomp = mysqli_fetch_array($registro_operti)) {
 
 			$articomp = LimpiarArreglo($articomp);
+			if (function_exists('quitar_acentos')) {
+				$articomp['nombre'] = quitar_acentos($articomp['nombre']);
+			}
 
 			$se_guardo = "0";
 
@@ -633,8 +636,13 @@ if ($_GET['accion'] == "obtener_integrados") {
 				$articomp['nombre'] . "|" . $articomp['precio1'] . "|" . $articomp['preciofin1'] . "|" .
 				$articomp['impuesto1'] . "||" . $se_guardo;
 
+			$json_datos = json_encode($datos, JSON_UNESCAPED_UNICODE);
+			if ($json_datos === false) {
+				$json_datos = json_encode(mb_convert_encoding($datos, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8'));
+			}
+
 			echo "
-				<tr datos_art_comp='" . json_encode($datos, JSON_UNESCAPED_UNICODE) . "'>
+				<tr datos_art_comp='" . htmlspecialchars($json_datos, ENT_QUOTES) . "'>
 					<td class='text-center'><button class='btn btn-danger btn-xs btn_delete_art_comp'><i class='fa fa-trash'></i></button></td>
 					<td>" . $articomp['codigo'] . "</td>
 					<td>" . $articomp['nombre'] . "</td>

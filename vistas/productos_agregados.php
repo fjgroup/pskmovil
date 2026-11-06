@@ -52,9 +52,10 @@ if (isset($_POST['productos_array'])) {
 			}
 			if (!isset($array_productos[$clave_agrupacion])) {
 				$array_explo = explode('|', $producto);
+				$cant_item = (isset($array_explo[12]) && is_numeric($array_explo[12])) ? (float)$array_explo[12] : 1.0;
 
 				$array_productos[$clave_agrupacion]['datos'] = $producto;
-				$array_productos[$clave_agrupacion]['cantidad'] = number_format($array_explo[12], 3, '.', '');
+				$array_productos[$clave_agrupacion]['cantidad'] = number_format($cant_item, 3, '.', '');
 			} else {
 
 				$dat = explode('|', $array_productos[$clave_agrupacion]['datos']);
@@ -64,8 +65,9 @@ if (isset($_POST['productos_array'])) {
 				$dat[15] += $prc_descuento;
 				$dat = implode('|', $dat);
 				$array_explo = explode('|', $producto);
+				$cant_item = (isset($array_explo[12]) && is_numeric($array_explo[12])) ? (float)$array_explo[12] : 1.0;
 				$array_productos[$clave_agrupacion]['datos'] = $dat;
-				$array_productos[$clave_agrupacion]['cantidad'] += number_format($array_explo[12], 3, '.', '');
+				$array_productos[$clave_agrupacion]['cantidad'] += number_format($cant_item, 3, '.', '');
 			}
 
 		}
@@ -87,12 +89,13 @@ if (isset($_POST['productos_array'])) {
 		foreach ($_POST['productos_array'] as $producto) {
 
 			$dat = explode('|', $producto);
-			if ($dat[12] == 1) {
+			$cant_val = (isset($dat[12]) && is_numeric($dat[12])) ? (float)$dat[12] : 1.0;
+			if ($cant_val == 1) {
 				$array_productos[$x]['datos'] = $producto;
-				$array_productos[$x]['cantidad'] = number_format($dat[12], 3, '.', '');
+				$array_productos[$x]['cantidad'] = number_format($cant_val, 3, '.', '');
 				$x++;
 			} else {
-				$cant = $dat[12];
+				$cant = (int)$cant_val;
 				for ($i = 0; $i < $cant; $i++) {
 					$array_productos[$x]['datos'] = $producto;
 					$array_productos[$x]['cantidad'] = number_format(1, 3, '.', '');
