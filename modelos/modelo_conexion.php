@@ -20,6 +20,7 @@ class conexion{
 			
 		@$conexion = mysqli_connect($host.$port,$user,$pw);
 		if($conexion){
+			@mysqli_set_charset($conexion, 'utf8');
 			@$select_bd = mysqli_select_db($conexion,$bd);
 			if($select_bd){
 

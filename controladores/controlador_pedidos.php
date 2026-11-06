@@ -248,7 +248,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 
 			$codgrupo = $datos[1];
 			$codsubgrupo = $datos[2];
-			$nombre = $datos[3];
+			$nombre = function_exists('quitar_acentos') ? quitar_acentos($datos[3]) : $datos[3];
 			//$preciounit = $datos[4];
 			$preciounit = empty($codhijo) ? round($datos[4], 2) : 0;
 			//$precio_bruto = $datos[4];
@@ -289,7 +289,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 			$preciofin = ($precioneto * $impuesto) + $precioneto;
 
 			if (isset($datos[16]) and $datos[16] != 'undefined') {
-				$notas = $datos[16];
+				$notas = function_exists('quitar_acentos') ? quitar_acentos($datos[16]) : $datos[16];
 			} else {
 				$notas = "";
 			}
@@ -1009,7 +1009,7 @@ if ($_GET['accion'] == "procesar_pedido") {
 										}
 									} catch (\Throwable $e_v) {}
 									$nro_consec = !empty($consecutivo_comandasmv) ? $consecutivo_comandasmv : '00000001';
-									$cliente_nombre_comanda = !empty($_POST['nombre_cliente']) ? trim($_POST['nombre_cliente']) : '';
+									$cliente_nombre_comanda = !empty($_POST['nombre_cliente']) ? (function_exists('quitar_acentos') ? quitar_acentos(trim($_POST['nombre_cliente'])) : trim($_POST['nombre_cliente'])) : '';
 									$imp_res = imprimir_comandas_pedido($mesa, $nro_consec, $vendedor_nombre, $items_para_comanda, $bd_conexion, $cliente_nombre_comanda);
 									$tickets_txt = [];
 									if (!empty($imp_res['tickets_enviados'])) {

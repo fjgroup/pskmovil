@@ -215,10 +215,12 @@ if ($_GET['accion'] == "mostrar_articulos") {
 		}
 	}
 
-	$_POST['texto_busqueda'] = trim($_POST['texto_busqueda']);
+	$_POST['texto_busqueda'] = trim($_POST['texto_busqueda'] ?? '');
 	if ($_POST['texto_busqueda'] != '') {
-		$where .= " (articulo.nombre LIKE '%" . $_POST['texto_busqueda'] . "%' OR 
-		articulo.codigo LIKE '%" . $_POST['texto_busqueda'] . "%') AND ";
+		$busq_limpia = function_exists('quitar_acentos') ? quitar_acentos($_POST['texto_busqueda']) : $_POST['texto_busqueda'];
+		$where .= " (articulo.nombre LIKE '%" . $busq_limpia . "%' OR 
+		articulo.nombre LIKE '%" . $_POST['texto_busqueda'] . "%' OR 
+		articulo.codigo LIKE '%" . $busq_limpia . "%') AND ";
 	}
 
 	$where .= "articulo.discont='0' ";

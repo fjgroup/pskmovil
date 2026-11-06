@@ -1,10 +1,29 @@
 <?php
 date_default_timezone_set('America/Caracas');
 
+if (!function_exists('quitar_acentos')) {
+    function quitar_acentos($string) {
+        if (!is_string($string) || $string === '') return $string;
+        if (!mb_check_encoding($string, 'UTF-8')) {
+            $string = mb_convert_encoding($string, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
+        }
+        $tabla = [
+            'á'=>'a', 'é'=>'e', 'í'=>'i', 'ó'=>'o', 'ú'=>'u',
+            'Á'=>'A', 'É'=>'E', 'Í'=>'I', 'Ó'=>'O', 'Ú'=>'U',
+            'à'=>'a', 'è'=>'e', 'ì'=>'i', 'ò'=>'o', 'ù'=>'u',
+            'À'=>'A', 'È'=>'E', 'Ì'=>'I', 'Ò'=>'O', 'Ù'=>'U',
+            'ä'=>'a', 'ë'=>'e', 'ï'=>'i', 'ö'=>'o', 'ü'=>'u',
+            'Ä'=>'A', 'Ë'=>'E', 'Ï'=>'I', 'Ö'=>'O', 'Ü'=>'U',
+            'â'=>'a', 'ê'=>'e', 'î'=>'i', 'ô'=>'o', 'û'=>'u',
+            'Â'=>'A', 'Ê'=>'E', 'Î'=>'I', 'Ô'=>'O', 'Û'=>'U',
+            'ñ'=>'n', 'Ñ'=>'N', 'ç'=>'c', 'Ç'=>'C'
+        ];
+        return strtr($string, $tabla);
+    }
+}
+
 function limpiarCaracteresEspeciales($string) {
-    //$string = htmlentities($string);
-    //$string = preg_replace('/\&(.)[^;]*;/', '', $string);
-    return $string;
+    return quitar_acentos($string);
 }
 
 function calcular_tiempo_trasnc($hora1, $hora2) {
@@ -27,7 +46,11 @@ function calcular_tiempo_trasnc($hora1, $hora2) {
 
 function LimpiarArreglo($array){
     foreach($array as $index => $value){
-        $array[$index] = ($value !== null) ? trim($value) : '';
+        if ($value !== null) {
+            $array[$index] = is_string($value) ? quitar_acentos(trim($value)) : $value;
+        } else {
+            $array[$index] = '';
+        }
     }
     return $array;
 }

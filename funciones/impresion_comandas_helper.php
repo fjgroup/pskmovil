@@ -187,6 +187,12 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
             $fecha = date('d/m/Y h:i:s A');
         }
 
+        require_once __DIR__ . '/funciones.php';
+        $tipo     = function_exists('quitar_acentos') ? quitar_acentos($tipo) : $tipo;
+        $mesa     = function_exists('quitar_acentos') ? quitar_acentos($mesa) : $mesa;
+        $vendedor = function_exists('quitar_acentos') ? quitar_acentos($vendedor) : $vendedor;
+        $cliente  = function_exists('quitar_acentos') ? quitar_acentos($cliente) : $cliente;
+
         // Ancho estándar de línea en ticketera 80 mm = 42 caracteres (Font A)
         $ancho = 42;
         $sep = str_repeat('-', $ancho);
@@ -240,7 +246,8 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
             $cant_formateada = ($cant_num == (int)$cant_num) 
                 ? (string)(int)$cant_num 
                 : number_format($cant_num, 2, ',', '');
-            $nombre_art = mb_strtoupper(trim($item['nombre']), 'UTF-8');
+            $nombre_limpio = function_exists('quitar_acentos') ? quitar_acentos($item['nombre']) : $item['nombre'];
+            $nombre_art = mb_strtoupper(trim($nombre_limpio), 'UTF-8');
 
             $out .= $BOLD_ON . $TXT_2H;
             if (mb_strlen($nombre_art, 'UTF-8') <= 35) {
@@ -255,7 +262,8 @@ if (!function_exists('formatear_ticket_comanda_espos')) {
 
             // Si tiene notas u observaciones
             if (!empty($item['notas'])) {
-                $out .= $BOLD_ON . "   >> NOTA: " . trim($item['notas']) . "\n" . $BOLD_OFF;
+                $nota_limpia = function_exists('quitar_acentos') ? quitar_acentos($item['notas']) : $item['notas'];
+                $out .= $BOLD_ON . "   >> NOTA: " . trim($nota_limpia) . "\n" . $BOLD_OFF;
             }
         }
 
