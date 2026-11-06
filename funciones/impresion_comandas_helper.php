@@ -179,71 +179,90 @@ if (!function_exists('obtener_config_impresoras')) {
 if (!function_exists('formatear_ticket_comanda_espos')) {
     /**
      * Construye los bytes ESC/POS exactos para la ticketera de 80 mm
+     * Utiliza tipografía ampliada (Doble Alto y Doble Ancho) para lectura clara
+     * desde cualquier distancia en cocina y barra.
      */
     function formatear_ticket_comanda_espos($tipo, $nro_ticket, $mesa, $vendedor, array $items_consolidados, $fecha = null, $cliente = null) {
         if (!$fecha) {
             $fecha = date('d/m/Y h:i:s A');
         }
 
-        // Ancho estándar de línea en ticketera 80 mm = 42 caracteres
+        // Ancho estándar de línea en ticketera 80 mm = 42 caracteres (Font A)
         $ancho = 42;
         $sep = str_repeat('-', $ancho);
 
         // Bytes de control ESC/POS
         $ESC = "\x1b";
         $GS  = "\x1d";
-        $INIT = $ESC . "@";                     // Inicializar impresora
-        $ALIGN_CENTER = $ESC . "a\x01";          // Centrado
-        $ALIGN_LEFT   = $ESC . "a\x00";          // Alineado a la izquierda
-        $BOLD_ON      = $ESC . "E\x01";          // Negrita activada
-        $BOLD_OFF     = $ESC . "E\x00";          // Negrita desactivada
-        $DOUBLE_ON    = $ESC . "!\x20";          // Doble ancho (título)
-        $DOUBLE_OFF   = $ESC . "!\x00";          // Ancho normal
-        $FEED_CUT     = $ESC . "d\x03" . $GS . "V\x01"; // Avance 3 líneas y corte parcial/completo
+        $INIT         = $ESC . "@";                     // Inicializar impresora
+        $ALIGN_CENTER = $ESC . "a\x01";                  // Centrado
+        $ALIGN_LEFT   = $ESC . "a\x00";                  // Alineado a la izquierda
+        $BOLD_ON      = $ESC . "E\x01";                  // Negrita activada
+        $BOLD_OFF     = $ESC . "E\x00";                  // Negrita desactivada
+
+        // Tamaños de fuente con GS ! n
+        $TXT_NORMAL   = $GS . "!\x00";                  // Tamaño estándar 1x1
+        $TXT_2H       = $GS . "!\x01";                  // Doble Alto (ideal para platillos en 80 mm)
+        $TXT_2W       = $GS . "!\x10";                  // Doble Ancho
+        $TXT_2W2H     = $GS . "!\x11";                  // Doble Alto y Doble Ancho (Gigante)
+
+        $FEED_CUT     = $ESC . "d\x04" . $GS . "V\x01"; // Avance 4 líneas y corte de papel
 
         $out = "";
         $out .= $INIT;
 
-        // 1. Encabezado principal (COCINA o BARRA)
-        $out .= $ALIGN_CENTER . $BOLD_ON . $DOUBLE_ON;
-        $out .= strtoupper(trim($tipo)) . "\n";
-        $out .= $DOUBLE_OFF . $BOLD_OFF;
+        // 1. Encabezado principal (COCINA o BARRA) en Doble Alto y Doble Ancho
+        $out .= $ALIGN_CENTER . $BOLD_ON . $TXT_2W2H;
+        $out .= "*** " . strtoupper(trim($tipo)) . " ***\n";
+        $out .= $TXT_NORMAL . $BOLD_OFF;
 
-        // 2. Metadatos de la orden (sin línea de ID/Nro de transacción)
+        // 2. MESA EN TAMAÑO GIGANTE (Doble Alto + Doble Ancho)
+        $out .= $ALIGN_CENTER . $BOLD_ON . $TXT_2W2H;
+        $out .= "MESA: " . strtoupper(trim($mesa)) . "\n";
+        $out .= $TXT_NORMAL . $BOLD_OFF;
+
+        // 3. Metadatos de la orden (Fecha, Mesonero, Cliente) en tamaño normal
         $out .= $ALIGN_LEFT;
         $out .= "Fecha:    " . $fecha . "\n";
-        $out .= "Mesa:     " . strtoupper(trim($mesa)) . "\n";
+        $out .= "Mesonero: " . strtoupper(trim($vendedor)) . "\n";
         if (!empty($cliente) && strtoupper(trim($cliente)) !== 'CLIENTE CONTADO') {
             $out .= "Cliente:  " . strtoupper(trim($cliente)) . "\n";
         }
-        $out .= "Mesonero: " . strtoupper(trim($vendedor)) . "\n";
-        $out .= $ALIGN_CENTER . "Documento Sin Credito Fiscal\n" . $ALIGN_LEFT;
         $out .= $sep . "\n";
 
-        // 3. Encabezado de columnas
-        $out .= sprintf("%-7s %-34s\n", "Cant.", "Descripcion");
+        // 4. Encabezado de columnas
+        $out .= sprintf("%-6s %-35s\n", "CANT.", "DESCRIPCION");
         $out .= $sep . "\n";
 
-        // 4. Detalle de productos consolidados y totalizados
-        $out .= $BOLD_ON;
+        // 5. Detalle de productos en DOBLE ALTO y NEGRITA
         foreach ($items_consolidados as $item) {
-            $cant_formateada = number_format((float)$item['cantidad'], 2, ',', '');
+            $cant_num = (float)$item['cantidad'];
+            $cant_formateada = ($cant_num == (int)$cant_num) 
+                ? (string)(int)$cant_num 
+                : number_format($cant_num, 2, ',', '');
             $nombre_art = mb_strtoupper(trim($item['nombre']), 'UTF-8');
-            
-            // Si el nombre es muy largo, cortarlo a 34 caracteres
-            $desc_linea = mb_substr($nombre_art, 0, 34, 'UTF-8');
-            $out .= sprintf("%-7s %-34s\n", $cant_formateada, $desc_linea);
 
-            // Si tiene notas u observaciones (ej: "Sin cebolla", "Bien frias")
+            $out .= $BOLD_ON . $TXT_2H;
+            if (mb_strlen($nombre_art, 'UTF-8') <= 35) {
+                $out .= sprintf("%-6s %-35s\n", $cant_formateada, $nombre_art);
+            } else {
+                $linea1 = mb_substr($nombre_art, 0, 35, 'UTF-8');
+                $linea2 = mb_substr($nombre_art, 35, 35, 'UTF-8');
+                $out .= sprintf("%-6s %-35s\n", $cant_formateada, $linea1);
+                $out .= sprintf("%-6s %-35s\n", "", $linea2);
+            }
+            $out .= $TXT_NORMAL . $BOLD_OFF;
+
+            // Si tiene notas u observaciones
             if (!empty($item['notas'])) {
-                $out .= $BOLD_OFF . "   * NOTA: " . trim($item['notas']) . "\n" . $BOLD_ON;
+                $out .= $BOLD_ON . "   >> NOTA: " . trim($item['notas']) . "\n" . $BOLD_OFF;
             }
         }
-        $out .= $BOLD_OFF;
+
         $out .= $sep . "\n";
 
-        // 5. Pie de ticket y corte de papel
-        $out .= $ALIGN_CENTER . "Documento Sin Credito Fiscal\n\n";
+        // 6. Pie de ticket y corte de papel
+        $out .= $ALIGN_CENTER . "Documento Sin Credito Fiscal\n";
         $out .= $FEED_CUT;
 
         return $out;
@@ -266,6 +285,7 @@ if (!function_exists('registrar_ticket_en_archivo')) {
             $clean = preg_replace('/\x1ba[\x00-\x02]/s', '', $clean);
             $clean = preg_replace('/\x1bE[\x00-\x01]/s', '', $clean);
             $clean = preg_replace('/\x1b![\x00-\xFF]/s', '', $clean);
+            $clean = preg_replace('/\x1d![\x00-\xFF]/s', '', $clean);
             $clean = preg_replace('/\x1bd[\x00-\x09]/s', '', $clean);
             $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
             $clean = preg_replace('/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/s', '', $clean);
@@ -295,8 +315,8 @@ if (!function_exists('registrar_ticket_en_archivo')) {
 if (!function_exists('enviar_bytes_impresora')) {
     /**
      * Envía bytes directamente a la impresora:
-     *  Intento 1: Socket TCP directo al puerto 9100 (instantáneo, sin cola de Windows).
-     *  Intento 2: Fallback a la cola de impresión de Windows.
+     *  Intento 1: Socket TCP directo al puerto 9100 (instantáneo, sin intermediarios ni drivers GDI).
+     *  Intento 2: Fallback RAW binario a la cola de Windows evitando Out-Printer/GDI.
      */
     function enviar_bytes_impresora($raw_data, $ip = null, $port = 9100, $windows_printer = 'POS-80C') {
         $info_win = detectar_info_impresora_windows($windows_printer);
@@ -310,7 +330,7 @@ if (!function_exists('enviar_bytes_impresora')) {
             'es_local' => $es_local
         ];
         // 1. Envío directo por Socket TCP
-        $fp = @fsockopen($ip_destino, (int)$port, $errno, $errstr, 1.0);
+        $fp = @fsockopen($ip_destino, (int)$port, $errno, $errstr, 1.2);
         if ($fp) {
             @fwrite($fp, $raw_data);
             @fclose($fp);
@@ -318,16 +338,20 @@ if (!function_exists('enviar_bytes_impresora')) {
             $resultado['metodo'] = "socket_tcp ($ip_destino:$port)";
             return $resultado;
         }
-        // 2. Fallback por Spooler de Windows solo si no es el simulador local apagado
+        // 2. Fallback por Spooler de Windows en modo RAW (sin GDI ni Out-Printer)
         if (!$es_local && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $temp_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ticket_' . uniqid() . '.prn';
             file_put_contents($temp_file, $raw_data);
-            $cmd = 'powershell -NoProfile -Command "Get-Content -Path ' . escapeshellarg($temp_file) . ' -Raw | Out-Printer -Name ' . escapeshellarg($windows_printer) . '"';
+            $cmd = 'cmd.exe /c copy /b ' . escapeshellarg($temp_file) . ' "\\\\127.0.0.1\\' . escapeshellarg($windows_printer) . '" >nul 2>nul';
             @exec($cmd, $out, $ret);
+            if ($ret !== 0) {
+                $cmd = 'cmd.exe /c copy /b ' . escapeshellarg($temp_file) . ' ' . escapeshellarg($windows_printer) . ' >nul 2>nul';
+                @exec($cmd, $out, $ret);
+            }
             @unlink($temp_file);
             if ($ret === 0) {
                 $resultado['success'] = true;
-                $resultado['metodo'] = "windows_spooler ($windows_printer)";
+                $resultado['metodo'] = "windows_spooler_raw ($windows_printer)";
                 return $resultado;
             }
         }
