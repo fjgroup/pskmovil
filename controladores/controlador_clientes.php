@@ -6,6 +6,7 @@ header("Pragma: no-cache");
 clearstatcache();
 
 include("../modelos/modelo_crud.php");
+include_once("../funciones/funciones.php");
 
 require_once dirname(__DIR__) . '/funciones/config_helper.php';
 $datos_conexion = obtener_config_sistema();
@@ -19,7 +20,10 @@ if($_GET['accion'] == "registrar"){
 
 	if( !empty($_POST['codigo']) ){
 
-		$_POST['codigo'] = strtoupper($_POST['codigo']);
+		$_POST['codigo'] = strtoupper(trim($_POST['codigo']));
+		$nombre_limpio = strtoupper(trim(function_exists('quitar_acentos') ? quitar_acentos($_POST['nombre'] ?? '') : ($_POST['nombre'] ?? '')));
+		$perscont_limpio = strtoupper(trim(function_exists('quitar_acentos') ? quitar_acentos($_POST['perscont'] ?? '') : ($_POST['perscont'] ?? '')));
+		$direccion_limpia = trim(function_exists('quitar_acentos') ? quitar_acentos($_POST['direccion'] ?? '') : ($_POST['direccion'] ?? ''));
 
 		if( isset($_POST['formafis']) ){
 			$_POST['formafis'] = 3;
@@ -63,14 +67,14 @@ if($_GET['accion'] == "registrar"){
 					'".$datos_conexion['cod_empresa']."',
 					'".$datos_conexion['cod_agencia']."',
 					'".$_POST['codigo']."',
-					'".strtoupper($_POST['nombre'])."',
+					'".$nombre_limpio."',
 					'".$_POST['cedula']."',
 					'".$_POST['nrorif']."',
 					'".$_POST['nronit']."',
-					'".$_POST['direccion']."',
+					'".$direccion_limpia."',
 					'".$_POST['telefonos']."',
 					'".$_POST['email']."',
-					'".strtoupper($_POST['perscont'])."',
+					'".$perscont_limpio."',
 					'".$datos_conexion['cod_zona']."',
 					1,
 					'N',
@@ -89,14 +93,14 @@ if($_GET['accion'] == "registrar"){
 				id_empresa = '".$datos_conexion['cod_empresa']."',
 				agencia = '".$datos_conexion['cod_agencia']."',
 				codigo = '".$_POST['codigo']."',
-				nombre = '".strtoupper($_POST['nombre'])."',
+				nombre = '".$nombre_limpio."',
 				cedula = '".$_POST['cedula']."',
 				nrorif = '".$_POST['nrorif']."',
 				nronit = '".$_POST['nronit']."',
-				direccion = '".$_POST['direccion']."',
+				direccion = '".$direccion_limpia."',
 				telefonos = '".$_POST['telefonos']."',
 				email = '".$_POST['email']."',
-				perscont = '".strtoupper($_POST['perscont'])."',
+				perscont = '".$perscont_limpio."',
 				sector = '".$datos_conexion['cod_zona']."',
 				precio = 1,
 				credito = 'N',
@@ -110,11 +114,21 @@ if($_GET['accion'] == "registrar"){
 
 		$resultado = $objeto_cliente->general_query($bd_conexion_cliente,$query);
 		if( $resultado ){
+			$cod_js = json_encode($_POST['codigo'], JSON_UNESCAPED_UNICODE);
+			$nom_js = json_encode($nombre_limpio, JSON_UNESCAPED_UNICODE);
+			$formafis_js = (int)$_POST['formafis'];
 			echo "
 				<i class='fa fa-check'></i> Datos guardados
 				<script>
+					window.actualizando_cliente_programaticamente = true;
 					$('#reg_cli').hide();
 					LimpiarFormulario('form_reg_cli');
+					$('#cod_cliente_ped').val({$cod_js});
+					$('#input_cliente').val({$nom_js});
+					$('#cliente_exento').val('{$formafis_js}');
+					$('#cod_cliente_ped, #input_cliente').css({'border': '1px solid #CCC'});
+					ConsultarCliente({$cod_js});
+					mostrar_msj(\"<i class='fa fa-check'></i><br>Cliente <b>\" + {$nom_js} + \"</b> registrado y cargado\");
 				</script>
 			";	
 		}else{

@@ -350,12 +350,9 @@ if (!function_exists('enviar_bytes_impresora')) {
         if (!$es_local && strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $temp_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ticket_' . uniqid() . '.prn';
             file_put_contents($temp_file, $raw_data);
-            $cmd = 'cmd.exe /c copy /b ' . escapeshellarg($temp_file) . ' "\\\\127.0.0.1\\' . escapeshellarg($windows_printer) . '" >nul 2>nul';
+            $destino_unc = '\\\\127.0.0.1\\' . $windows_printer;
+            $cmd = 'cmd.exe /c copy /b ' . escapeshellarg($temp_file) . ' ' . escapeshellarg($destino_unc) . ' >nul 2>nul';
             @exec($cmd, $out, $ret);
-            if ($ret !== 0) {
-                $cmd = 'cmd.exe /c copy /b ' . escapeshellarg($temp_file) . ' ' . escapeshellarg($windows_printer) . ' >nul 2>nul';
-                @exec($cmd, $out, $ret);
-            }
             @unlink($temp_file);
             if ($ret === 0) {
                 $resultado['success'] = true;

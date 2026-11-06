@@ -45,12 +45,10 @@ while ($client = @stream_socket_accept($server, -1)) {
     $clean = $raw;
     // Remover cortes ESC/POS: ESC d <n> GS V <m>, etc.
     $clean = preg_replace('/\x1b@/s', '', $clean);
-    $clean = preg_replace('/\x1ba\x01/s', '', $clean);
-    $clean = preg_replace('/\x1ba\x00/s', '', $clean);
-    $clean = preg_replace('/\x1bE\x01/s', '', $clean);
-    $clean = preg_replace('/\x1bE\x00/s', '', $clean);
-    $clean = preg_replace('/\x1b!\x20/s', '', $clean);
-    $clean = preg_replace('/\x1b!\x00/s', '', $clean);
+    $clean = preg_replace('/\x1ba[\x00-\x02]/s', '', $clean);
+    $clean = preg_replace('/\x1bE[\x00-\x01]/s', '', $clean);
+    $clean = preg_replace('/\x1b![\x00-\xFF]/s', '', $clean);
+    $clean = preg_replace('/\x1d![\x00-\xFF]/s', '', $clean);
     $clean = preg_replace('/\x1bd[\x00-\x09]/s', '', $clean);
     $clean = preg_replace('/\x1dV[\x00-\x02]/s', '', $clean);
     // Remover otros bytes de control binarios

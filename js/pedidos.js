@@ -2594,6 +2594,11 @@ setInterval(function () {
 function mostrar_modal_reg_cli() {
 	$('#reg_cli').show();
 	$('#reg_cli input[type="text"]').val('');
+	$('#reg_cli textarea').val('');
+	$('#reg_cli input[type="checkbox"]').prop('checked', false);
+	setTimeout(function () {
+		$('#reg_cli input[name="codigo"]').focus();
+	}, 50);
 }
 
 var url_qr_actual = '';
